@@ -102,11 +102,35 @@ export class DirectoryScanner {
                 throw new ChatGPTUIError('ChatGPTアプリが起動していません');
             }
 
-            const files = await this.fsAdapter.findFiles(`${directory}/**/*`);
-            const filteredFiles = files.filter(file => !this.shouldExclude(file));
+            // 選択されたディレクトリの絶対パスを取得
+            const absolutePath = path.resolve(directory);
+            
+            // ワークスペースフォルダのチェック
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                throw new Error(this.i18n.t('errors.noWorkspace'));
+            }
+
+            // 選択されたディレクトリを基準にグロブパターンを構築
+            const pattern = '**/*';
+            
+            console.log('Target directory:', absolutePath);
+            console.log('Using pattern:', pattern);
+
+            // ファイル検索を実行（選択されたディレクトリを基準に）
+            const files = await this.fsAdapter.findFiles(pattern, absolutePath);
+            console.log('Found files:', files);
+
+            // 除外パターンでフィルタリング
+            const filteredFiles = files.filter(file => {
+                const relativePath = path.relative(absolutePath, file);
+                return !this.shouldExclude(relativePath);
+            });
+            console.log('Filtered files:', filteredFiles);
+
             const total = filteredFiles.length;
 
-            // バッチサイズごとに処理
+            // バッチ処理
             for (let i = 0; i < filteredFiles.length; i += this.options.batchSize) {
                 const batch = filteredFiles.slice(i, i + this.options.batchSize);
                 const batchPromises = batch.map(async file => {
@@ -126,22 +150,21 @@ export class DirectoryScanner {
                     }
                 });
 
-                // 並行処理の制御
                 const batchResults = await Promise.all(batchPromises);
                 results.push(...batchResults.filter((result): result is ScanResult => result !== null));
             }
 
-            // 最終進捗を報告
             if (this.onProgress) {
                 this.onProgress({
                     progress: 100,
-                    message: `スキャン完了: ${total}個のファイルを処理しました`
+                    message: this.i18n.t('ui.progress.processing')
                 });
             }
 
             return results;
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error('Scan error:', errorMessage);
             throw new Error(`Error scanning directory: ${errorMessage}`);
         }
     }

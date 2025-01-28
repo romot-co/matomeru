@@ -48,6 +48,7 @@ export interface LocaleMessages {
         outOfMemory: string;
         checkErrorLog: string;
         macOSOnly: string;
+        noWorkspace?: string;
     };
 }
 

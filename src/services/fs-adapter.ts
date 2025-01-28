@@ -12,7 +12,7 @@ export interface FSAdapter {
     readFile(path: string): Promise<string>;
     stat(path: string): Promise<FileStats>;
     readdir(path: string): Promise<Dirent[]>;
-    findFiles(pattern: string): Promise<string[]>;
+    findFiles(pattern: string, baseDir?: string): Promise<string[]>;
     getFileExtension(filePath: string): string;
     exists(path: string): Promise<boolean>;
 }
@@ -49,9 +49,31 @@ export class FileSystemAdapter implements FSAdapter {
         } as Dirent));
     }
 
-    async findFiles(pattern: string): Promise<string[]> {
-        const files = await vscode.workspace.findFiles(pattern);
-        return files.map(file => file.fsPath);
+    async findFiles(pattern: string, baseDir?: string): Promise<string[]> {
+        // ワークスペースフォルダが存在しない場合のエラー処理
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            throw new Error('No workspace folder is open');
+        }
+
+        try {
+            // 基準ディレクトリを設定
+            const searchRoot = baseDir ? vscode.Uri.file(baseDir) : workspaceFolder.uri;
+            
+            // VSCodeのワークスペースパターンを使用
+            const globPattern = new vscode.RelativePattern(searchRoot, pattern);
+            const files = await vscode.workspace.findFiles(globPattern, null);
+            
+            // 結果をログ出力
+            console.log('Found files with pattern:', pattern);
+            console.log('Base directory:', baseDir || 'workspace root');
+            console.log('Files:', files.map(f => f.fsPath));
+            
+            return files.map(file => file.fsPath);
+        } catch (error) {
+            console.error('Error finding files:', error);
+            throw error;
+        }
     }
 
     getFileExtension(filePath: string): string {
@@ -123,10 +145,15 @@ export class MockFSAdapter implements FSAdapter {
         return files;
     }
 
-    async findFiles(pattern: string): Promise<string[]> {
+    async findFiles(pattern: string, baseDir?: string): Promise<string[]> {
         const files = Array.from(this.mockFiles.keys());
         const regExp = new RegExp(pattern.replace(/\*/g, '.*'));
-        return files.filter(file => regExp.test(file));
+        return files.filter(file => {
+            if (baseDir && !file.startsWith(baseDir)) {
+                return false;
+            }
+            return regExp.test(file);
+        });
     }
 
     getFileExtension(filePath: string): string {

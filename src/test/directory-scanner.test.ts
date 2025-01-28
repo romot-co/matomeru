@@ -18,7 +18,7 @@ suite('DirectoryScanner Tests', () => {
         sandbox = sinon.createSandbox();
         fsAdapter = new MockFSAdapter();
         config = ConfigurationManager.getInstance();
-        i18n = new I18n();
+        i18n = I18n.getInstance();
         scanner = new DirectoryScanner(fsAdapter);
 
         // FSAdapterのスタブ設定

@@ -4,6 +4,7 @@ import { exec } from 'child_process';
 import { IPlatformImplementation } from './IPlatformImplementation';
 import { ErrorService } from '../error/ErrorService';
 import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '../../errors/ChatGPTErrors';
+import { I18n } from '../i18n';
 
 const execAsync = promisify(exec);
 const PASTE_RETRY_COUNT = 3;
@@ -16,9 +17,11 @@ const ACTIVATION_RETRY_DELAY = 500; // ms
  */
 export class MacOSImplementation implements IPlatformImplementation {
     private errorService: ErrorService;
+    private i18n: I18n;
 
     constructor() {
         this.errorService = ErrorService.getInstance();
+        this.i18n = I18n.getInstance();
     }
 
     isAvailable(): boolean {
@@ -36,23 +39,56 @@ export class MacOSImplementation implements IPlatformImplementation {
                 throw new AccessibilityPermissionError('アクセシビリティの権限が必要です');
             }
 
+            // アプリを起動して待機
             await this.launchApplication('com.openai.chat');
-            await this.activateChatGPTWindow();
+            await this.delay(2000); // アプリの起動を待機
+
+            // クリップボードにコピー
             await this.copyToClipboard(content);
-            await this.pasteWithRetry();
-            await this.sendMessage();
+            await this.delay(500); // クリップボードの準備を待機
+
+            // シンプルなペースト処理
+            const script = `
+                tell application "ChatGPT"
+                    activate
+                    delay 1
+                end tell
+                
+                tell application "System Events"
+                    tell process "ChatGPT"
+                        keystroke "v" using command down
+                        delay 1
+                        keystroke return using command down
+                    end tell
+                end tell
+            `;
+            
+            await execAsync(`osascript -e '${script}'`);
+            console.log('ペースト処理完了');
 
         } catch (error) {
+            console.error('Error in openInChatGPT:', error);
             await this.errorService.handleError(error instanceof Error ? error : new Error(String(error)), {
                 source: 'MacOSImplementation.openInChatGPT',
-                timestamp: new Date()
+                timestamp: new Date(),
+                details: {
+                    platform: process.platform,
+                    osVersion: process.version
+                }
             });
+            throw error;
         }
     }
 
     async copyToClipboard(text: string): Promise<void> {
-        await vscode.env.clipboard.writeText(text);
-        await this.delay(100); // クリップボードの内容が確実に書き込まれるまで待機
+        try {
+            // VSCodeのクリップボードAPIを使用
+            await vscode.env.clipboard.writeText(text);
+            await this.delay(200); // クリップボードの書き込みを待機
+        } catch (error) {
+            console.error('Error copying to clipboard:', error);
+            throw new Error('クリップボードへのコピーに失敗しました');
+        }
     }
 
     async checkAccessibilityPermission(): Promise<boolean> {
@@ -65,9 +101,7 @@ export class MacOSImplementation implements IPlatformImplementation {
         try {
             const script = `
                 tell application "System Events"
-                    tell application process "ChatGPT"
-                        return true
-                    end tell
+                    return true
                 end tell
             `;
             await execAsync(`osascript -e '${script}'`);
@@ -115,26 +149,57 @@ export class MacOSImplementation implements IPlatformImplementation {
                 const script = `
                     tell application "ChatGPT"
                         activate
-                        set frontmost to true
-                        delay 1
+                        delay 2
                     end tell
                     
                     tell application "System Events"
                         tell process "ChatGPT"
                             set frontmost to true
+                            delay 1
                             
-                            -- メインウィンドウを探してアクティブ化
-                            repeat with w in windows
+                            set mainWindow to window 1
+                            
+                            -- より詳細なUI階層の探索
+                            set foundTextArea to false
+                            
+                            -- スクロールエリア内を探索
+                            try
+                                set scrollAreas to every scroll area of mainWindow
+                                repeat with scrollArea in scrollAreas
+                                    try
+                                        set textArea to text area 1 of scrollArea
+                                        click textArea
+                                        set foundTextArea to true
+                                        exit repeat
+                                    end try
+                                end repeat
+                            end try
+                            
+                            -- グループ内を探索（foundTextAreaがfalseの場合）
+                            if not foundTextArea then
+                                set groups to every group of mainWindow
+                                repeat with grp in groups
+                                    try
+                                        set textArea to text area 1 of grp
+                                        click textArea
+                                        set foundTextArea to true
+                                        exit repeat
+                                    end try
+                                end repeat
+                            end if
+                            
+                            -- 直接のテキストエリアを探索（foundTextAreaがfalseの場合）
+                            if not foundTextArea then
                                 try
-                                    set focused of w to true
-                                    exit repeat
+                                    set textArea to text area 1 of mainWindow
+                                    click textArea
+                                    set foundTextArea to true
                                 end try
-                            end repeat
+                            end if
                             
-                            -- テキストエリアを探してフォーカス
-                            set textArea to text area 1 of group 1 of window 1
-                            set focused of textArea to true
-                            delay 0.5
+                            if not foundTextArea then
+                                error "テキストエリアが見つかりません"
+                            end if
                             
                             return true
                         end tell
@@ -150,7 +215,7 @@ export class MacOSImplementation implements IPlatformImplementation {
             } catch (error) {
                 console.error(`Window activation attempt ${i + 1} failed:`, error);
                 if (i === ACTIVATION_RETRY_COUNT - 1) {
-                    throw new ChatGPTUIError('ChatGPTウィンドウのアクティブ化に失敗しました');
+                    throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
                 }
                 await this.delay(ACTIVATION_RETRY_DELAY * (i + 1));
             }
@@ -163,19 +228,63 @@ export class MacOSImplementation implements IPlatformImplementation {
                 const script = `
                     tell application "System Events"
                         tell process "ChatGPT"
-                            -- テキストエリアにフォーカスを移動
-                            set textArea to text area 1 of group 1 of window 1
-                            set focused of textArea to true
-                            delay 0.5
+                            set mainWindow to window 1
+                            set foundTextArea to false
+                            set targetTextArea to missing value
+                            
+                            -- スクロールエリア内を探索
+                            try
+                                set scrollAreas to every scroll area of mainWindow
+                                repeat with scrollArea in scrollAreas
+                                    try
+                                        set textArea to text area 1 of scrollArea
+                                        set targetTextArea to textArea
+                                        set foundTextArea to true
+                                        exit repeat
+                                    end try
+                                end repeat
+                            end try
+                            
+                            -- グループ内を探索（foundTextAreaがfalseの場合）
+                            if not foundTextArea then
+                                set groups to every group of mainWindow
+                                repeat with grp in groups
+                                    try
+                                        set textArea to text area 1 of grp
+                                        set targetTextArea to textArea
+                                        set foundTextArea to true
+                                        exit repeat
+                                    end try
+                                end repeat
+                            end if
+                            
+                            -- 直接のテキストエリアを探索（foundTextAreaがfalseの場合）
+                            if not foundTextArea then
+                                try
+                                    set textArea to text area 1 of mainWindow
+                                    set targetTextArea to textArea
+                                    set foundTextArea to true
+                                end try
+                            end if
+                            
+                            if not foundTextArea then
+                                error "テキストエリアが見つかりません"
+                            end if
+                            
+                            -- テキストエリアにフォーカスを設定
+                            click targetTextArea
+                            delay 1
                             
                             -- Command+Vでペースト
                             keystroke "v" using command down
-                            delay 1
+                            delay 1.5
                             
                             -- テキストが入力されたか確認
-                            if value of textArea is "" then
-                                error "Paste failed: Text area is empty"
+                            if value of targetTextArea is "" then
+                                error "ペーストに失敗しました"
                             end if
+                            
+                            return true
                         end tell
                     end tell
                 `;
@@ -185,7 +294,7 @@ export class MacOSImplementation implements IPlatformImplementation {
             } catch (error) {
                 console.error(`Paste attempt ${i + 1} failed:`, error);
                 if (i === PASTE_RETRY_COUNT - 1) {
-                    throw new ChatGPTUIError('クリップボードからの貼り付けに失敗しました');
+                    throw new ChatGPTUIError(this.i18n.t('errors.pasteFailed'));
                 }
                 await this.delay(PASTE_RETRY_DELAY * (i + 1));
             }
@@ -193,35 +302,64 @@ export class MacOSImplementation implements IPlatformImplementation {
     }
 
     private async sendMessage(): Promise<void> {
-        const script = `
-            tell application "System Events"
-                tell process "ChatGPT"
-                    -- 送信ボタンを探す
-                    set sendButton to button 1 of group 1 of window 1
-                    if enabled of sendButton then
-                        click sendButton
-                    else
-                        -- Command+Enterでも送信
-                        keystroke return using command down
-                    end if
-                end tell
-            end tell
-        `;
-
-        try {
-            await execAsync(`osascript -e '${script}'`);
-            await this.delay(1000);
-        } catch (error) {
-            // 送信ボタンが見つからない場合はCommand+Enterを試す
+        for (let i = 0; i < 3; i++) {
             try {
-                await execAsync('osascript -e \'tell application "System Events" to keystroke return using command down\'');
-            } catch (retryError) {
-                throw new ChatGPTUIError('送信ボタンが見つかりません');
+                const script = `
+                    tell application "System Events"
+                        tell process "ChatGPT"
+                            -- プロンプト入力エリアを探す
+                            set promptArea to text area 1 of group 1 of group 1 of window 1
+                            
+                            -- 送信ボタンを探す
+                            set sendButton to button 1 of group 1 of group 1 of window 1
+                            
+                            -- 送信ボタンの状態を確認
+                            if enabled of sendButton then
+                                click sendButton
+                                delay 1
+                                
+                                -- 送信後にボタンが無効化されているか確認
+                                if not (enabled of sendButton) then
+                                    return true
+                                end if
+                            end if
+                            
+                            -- Command+Enterで送信を試みる
+                            keystroke return using command down
+                            delay 1
+                            
+                            -- 再度確認
+                            if not (enabled of sendButton) then
+                                return true
+                            end if
+                            
+                            error "送信が完了していません"
+                        end tell
+                    end tell
+                `;
+
+                const { stdout } = await execAsync(`osascript -e '${script}'`);
+                if (stdout.trim().toLowerCase() === 'true') {
+                    console.log('送信成功');
+                    return;
+                }
+                
+                console.log(`送信試行 ${i + 1} 失敗`);
+                await this.delay(1000);
+            } catch (error) {
+                console.error(`送信試行 ${i + 1} エラー:`, error);
+                if (i === 2) {
+                    throw new ChatGPTUIError('メッセージの送信に失敗しました');
+                }
+                await this.delay(1000);
             }
         }
+        
+        throw new ChatGPTUIError('メッセージの送信に失敗しました');
     }
 
     private delay(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 } 
+

@@ -15,9 +15,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:matomeru.combineDirectoryToEditor",
-    "onCommand:matomeru.combineDirectoryToClipboard",
-    "onCommand:matomeru.combineDirectoryToChatGPT"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -40,17 +38,17 @@
         {
           "when": "explorerResourceIsFolder",
           "command": "matomeru.combineDirectoryToEditor",
-          "group": "matomeru@1"
+          "group": "navigation@1"
         },
         {
           "when": "explorerResourceIsFolder",
           "command": "matomeru.combineDirectoryToClipboard",
-          "group": "matomeru@2"
+          "group": "navigation@2"
         },
         {
           "when": "explorerResourceIsFolder",
           "command": "matomeru.combineDirectoryToChatGPT",
-          "group": "matomeru@3"
+          "group": "navigation@3"
         }
       ]
     },
