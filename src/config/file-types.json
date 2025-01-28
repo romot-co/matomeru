@@ -1,0 +1,54 @@
+{
+  "fileTypes": [
+    {
+      "extensions": [".ts"],
+      "typeName": "TypeScript Source",
+      "languageId": "typescript"
+    },
+    {
+      "extensions": [".js"],
+      "typeName": "JavaScript Source",
+      "languageId": "javascript"
+    },
+    {
+      "extensions": [".json"],
+      "typeName": "JSON Configuration",
+      "languageId": "json"
+    },
+    {
+      "extensions": [".md"],
+      "typeName": "Markdown Documentation",
+      "languageId": "markdown"
+    },
+    {
+      "extensions": [".yml", ".yaml"],
+      "typeName": "YAML Configuration",
+      "languageId": "yaml"
+    },
+    {
+      "extensions": [".xml"],
+      "typeName": "XML Document",
+      "languageId": "xml"
+    },
+    {
+      "extensions": [".html"],
+      "typeName": "HTML Document",
+      "languageId": "html"
+    },
+    {
+      "extensions": [".css"],
+      "typeName": "CSS Stylesheet",
+      "languageId": "css"
+    },
+    {
+      "extensions": [".scss"],
+      "typeName": "SCSS Stylesheet",
+      "languageId": "scss"
+    },
+    {
+      "extensions": [".py"],
+      "typeName": "Python Source",
+      "languageId": "python"
+    }
+  ]
+} 

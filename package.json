@@ -1,0 +1,135 @@
+{
+  "name": "matomeru",
+  "displayName": "matomeru",
+  "description": "Visualize and combine directory contents into a single document. Perfect for project documentation and code review.",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/romot-co/matomeru.git"
+  },
+  "publisher": "romot-co",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:matomeru.combineDirectoryToEditor",
+    "onCommand:matomeru.combineDirectoryToClipboard",
+    "onCommand:matomeru.combineDirectoryToChatGPT"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "matomeru.combineDirectoryToEditor",
+        "title": "Matomeru: エディタで開く"
+      },
+      {
+        "command": "matomeru.combineDirectoryToClipboard",
+        "title": "Matomeru: クリップボードにコピー"
+      },
+      {
+        "command": "matomeru.combineDirectoryToChatGPT",
+        "title": "Matomeru: ChatGPTで開く"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "matomeru.combineDirectoryToEditor",
+          "group": "matomeru@1"
+        },
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "matomeru.combineDirectoryToClipboard",
+          "group": "matomeru@2"
+        },
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "matomeru.combineDirectoryToChatGPT",
+          "group": "matomeru@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Matomeru",
+      "properties": {
+        "matomeru.maxConcurrency": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum number of concurrent file operations"
+        },
+        "matomeru.batchSize": {
+          "type": "number",
+          "default": 100,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Number of files to process in a single batch"
+        },
+        "matomeru.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "node_modules/**",
+            ".git/**",
+            "out/**",
+            "dist/**"
+          ],
+          "description": "Patterns to exclude from scanning"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "package": "npm run prepare-package && vsce package",
+    "publish": "vsce publish",
+    "prepare-package": "npm run generate-icon",
+    "generate-icon": "npx svgexport images/icon.svg images/icon.png 128:128"
+  },
+  "dependencies": {
+    "fast-glob": "^3.3.2",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.3",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/sinon": "^17.0.3",
+    "@types/vscode": "^1.96.0",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^2.24.0",
+    "eslint": "^9.16.0",
+    "sinon": "^19.0.2",
+    "svgexport": "^0.4.2",
+    "typescript": "^5.7.2"
+  },
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#C80000",
+    "theme": "dark"
+  },
+  "license": "MIT",
+  "keywords": [
+    "documentation",
+    "markdown",
+    "directory",
+    "combine",
+    "visualization"
+  ]
+}
