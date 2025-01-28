@@ -1,4 +1,4 @@
-import * as assert from 'assert';
+import { expect } from 'chai';
 import * as vscode from 'vscode';
 import { I18n } from '../i18n';
 import { MessageValidator } from '../i18n/validator';
@@ -17,21 +17,18 @@ suite('国際化機能のテスト', () => {
     });
 
     test('基本的なメッセージ取得', () => {
-        const message = i18n.t('ui.messages.selectDirectory');
-        assert.strictEqual(typeof message, 'string');
-        assert.notStrictEqual(message, 'ui.messages.selectDirectory');
+        expect(i18n.t('ui.messages.selectDirectory')).to.equal('Please select a directory');
     });
 
     test('引数を含むメッセージのフォーマット', () => {
-        const errorMessage = 'Test Error';
-        const message = i18n.t('ui.messages.error', errorMessage);
-        assert.strictEqual(message.includes(errorMessage), true);
+        const error = new Error('Test error');
+        expect(i18n.t('ui.messages.scanError', error.message))
+            .to.equal('Failed to scan directory: Test error');
     });
 
     test('存在しないメッセージパスの処理', () => {
-        const invalidPath = 'invalid.message.path';
-        const message = i18n.t(invalidPath);
-        assert.strictEqual(message, invalidPath);
+        const key = 'invalid.message.path';
+        expect(i18n.t(key)).to.equal(key);
     });
 
     test('ロケールの切り替え', () => {
@@ -44,7 +41,8 @@ suite('国際化機能のテスト', () => {
         });
         
         const i18nJa = I18n.getInstance();
-        const jaMessage = i18nJa.t('ui.messages.selectDirectory');
+        expect(i18nJa.t('ui.messages.selectDirectory'))
+            .to.equal('ディレクトリを選択してください');
         
         Object.defineProperty(vscode.env, 'language', {
             value: 'en',
@@ -54,7 +52,7 @@ suite('国際化機能のテスト', () => {
         const i18nEn = I18n.getInstance();
         const enMessage = i18nEn.t('ui.messages.selectDirectory');
         
-        assert.notStrictEqual(jaMessage, enMessage);
+        assert.notStrictEqual(enMessage, 'ディレクトリを選択してください');
         
         // 元の設定を復元
         if (originalLanguage) {
@@ -113,7 +111,7 @@ suite('国際化機能のテスト', () => {
         };
         
         const missingPaths = validator.validateMessages(testMessages);
-        assert.strictEqual(missingPaths.length > 0, true);
+        expect(missingPaths.length).to.be.greaterThan(0);
     });
 
     test('フォールバックメカニズムの確認', () => {
@@ -124,10 +122,8 @@ suite('国際化機能のテスト', () => {
         });
         
         const i18nFallback = I18n.getInstance();
-        const message = i18nFallback.t('ui.messages.selectDirectory');
-        
-        // デフォルトロケール（英語）のメッセージと一致することを確認
-        assert.strictEqual(message, 'Please select a directory.');
+        expect(i18nFallback.t('ui.messages.selectDirectory'))
+            .to.equal('Please select a directory');
     });
 
     test('部分的なロケールコードの処理', () => {
@@ -138,10 +134,8 @@ suite('国際化機能のテスト', () => {
         });
         
         const i18nPartial = I18n.getInstance();
-        const message = i18nPartial.t('ui.messages.selectDirectory');
-        
-        // 基本言語（ja）のメッセージと一致することを確認
-        assert.strictEqual(message, 'ディレクトリを選択してください。');
+        expect(i18nPartial.t('ui.messages.selectDirectory'))
+            .to.equal('ディレクトリを選択してください');
     });
 
     test('ChatGPT関連メッセージの確認', () => {
@@ -154,8 +148,8 @@ suite('国際化機能のテスト', () => {
         
         for (const path of messages) {
             const message = i18n.t(path);
-            assert.strictEqual(typeof message, 'string');
-            assert.notStrictEqual(message, path);
+            expect(typeof message).to.equal('string');
+            expect(message).to.not.equal(path);
         }
     });
 }); 

@@ -1,91 +1,98 @@
-import * as fs from 'fs-extra';
+import * as vscode from 'vscode';
 import * as path from 'path';
-import fg from 'fast-glob';
 
-export interface FileSystemAdapter {
-    readFile(filePath: string): Promise<string>;
-    findFiles(directory: string, patterns?: string[]): Promise<string[]>;
-    getFileExtension(filePath: string): string;
-    exists(filePath: string): Promise<boolean>;
-    stat(filePath: string): Promise<fs.Stats>;
+export interface FSAdapter {
+    readFile(path: string): Promise<string>;
+    stat(path: string): Promise<{ isDirectory: () => boolean; isSymbolicLink: () => boolean }>;
+    readdir(path: string): Promise<string[]>;
+    findFiles?(pattern: string): Promise<string[]>;
+    getFileExtension?(filePath: string): string;
+    exists?(path: string): Promise<boolean>;
 }
 
-export class ProductionFSAdapter implements FileSystemAdapter {
-    /**
-     * ファイルの内容を読み込む
-     */
-    async readFile(filePath: string): Promise<string> {
-        return fs.readFile(filePath, 'utf-8');
+export class FileSystemAdapter implements FSAdapter {
+    async readFile(path: string): Promise<string> {
+        const uri = vscode.Uri.file(path);
+        const content = await vscode.workspace.fs.readFile(uri);
+        return Buffer.from(content).toString('utf-8');
     }
 
-    /**
-     * ディレクトリ内のファイルを検索する
-     */
-    async findFiles(directory: string, patterns: string[] = ['**/*']): Promise<string[]> {
-        const options = {
-            cwd: directory,
-            absolute: true,
-            dot: false,
-            ignore: ['**/node_modules/**', '**/.git/**']
+    async stat(path: string): Promise<{ isDirectory: () => boolean; isSymbolicLink: () => boolean }> {
+        const uri = vscode.Uri.file(path);
+        const stat = await vscode.workspace.fs.stat(uri);
+        return {
+            isDirectory: () => (stat.type & vscode.FileType.Directory) !== 0,
+            isSymbolicLink: () => (stat.type & vscode.FileType.SymbolicLink) !== 0
         };
-
-        return fg.sync(patterns, options);
     }
 
-    /**
-     * ファイルの拡張子を取得する
-     */
+    async readdir(path: string): Promise<string[]> {
+        const uri = vscode.Uri.file(path);
+        const entries = await vscode.workspace.fs.readDirectory(uri);
+        return entries.map(([name]) => name);
+    }
+
+    async findFiles(pattern: string): Promise<string[]> {
+        const files = await vscode.workspace.findFiles(pattern);
+        return files.map(file => file.fsPath);
+    }
+
     getFileExtension(filePath: string): string {
-        return path.extname(filePath).slice(1).toLowerCase();
+        return path.extname(filePath).toLowerCase();
     }
 
-    /**
-     * ファイルが存在するか確認する
-     */
-    async exists(filePath: string): Promise<boolean> {
+    async exists(path: string): Promise<boolean> {
         try {
-            await fs.access(filePath);
+            const uri = vscode.Uri.file(path);
+            await vscode.workspace.fs.stat(uri);
             return true;
         } catch {
             return false;
         }
     }
-
-    /**
-     * ファイルの統計情報を取得する
-     */
-    async stat(filePath: string): Promise<fs.Stats> {
-        return fs.stat(filePath);
-    }
 }
 
-export class MockFSAdapter implements FileSystemAdapter {
+export class MockFSAdapter implements FSAdapter {
     constructor(private mockFiles: Record<string, string>) {}
 
     async readFile(filePath: string): Promise<string> {
-        const content = this.mockFiles[filePath];
-        if (content === undefined) {
+        if (!(filePath in this.mockFiles)) {
             throw new Error(`File not found: ${filePath}`);
         }
-        return content;
+        return this.mockFiles[filePath];
     }
 
-    async findFiles(directory: string, patterns: string[] = ['**/*']): Promise<string[]> {
+    async stat(filePath: string): Promise<{ isDirectory: () => boolean; isSymbolicLink: () => boolean }> {
+        if (!(filePath in this.mockFiles)) {
+            throw new Error(`File not found: ${filePath}`);
+        }
+        return {
+            isDirectory: () => false,
+            isSymbolicLink: () => false
+        };
+    }
+
+    async readdir(path: string): Promise<string[]> {
+        const files = Object.keys(this.mockFiles)
+            .filter(filePath => filePath.startsWith(path))
+            .map(filePath => filePath.replace(`${path}/`, ''));
+        
+        if (files.length === 0) {
+            throw new Error(`Directory not found: ${path}`);
+        }
+        
+        return files;
+    }
+
+    async findFiles(pattern: string): Promise<string[]> {
         return Object.keys(this.mockFiles);
     }
 
     getFileExtension(filePath: string): string {
-        return path.extname(filePath).slice(1).toLowerCase();
+        return path.extname(filePath).toLowerCase();
     }
 
     async exists(filePath: string): Promise<boolean> {
         return filePath in this.mockFiles;
-    }
-
-    async stat(filePath: string): Promise<fs.Stats> {
-        if (!(filePath in this.mockFiles)) {
-            throw new Error(`File not found: ${filePath}`);
-        }
-        return fs.statSync(__filename); // ダミーの統計情報を返す
     }
 } 

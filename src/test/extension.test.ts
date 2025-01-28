@@ -12,7 +12,7 @@ import { FileTypeManager } from '../services/FileTypeManager';
 import { I18n } from '../i18n';
 import { UIController } from '../services/ui-controller';
 import { ConfigurationManager } from '../services/configuration-manager';
-import { FileSystemAdapter } from '../services/fs-adapter';
+import { FileSystemAdapter, FSAdapter } from '../services/fs-adapter';
 // import * as myExtension from '../../extension';
 
 interface ProcessedDirectory {
@@ -20,6 +20,54 @@ interface ProcessedDirectory {
 	timestamp: string;
 	fileCount: number;
 	outputType: 'editor' | 'clipboard';
+}
+
+export class MockFSAdapter implements FSAdapter {
+	private mockFiles: Map<string, string>;
+	private mockStats: Map<string, { isDirectory: boolean; isSymbolicLink: boolean }>;
+
+	constructor() {
+		this.mockFiles = new Map();
+		this.mockStats = new Map();
+	}
+
+	async readFile(path: string): Promise<string> {
+		const content = this.mockFiles.get(path);
+		if (content === undefined) {
+			throw new Error(`File not found: ${path}`);
+		}
+		return content;
+	}
+
+	async stat(path: string): Promise<{ isDirectory: () => boolean; isSymbolicLink: () => boolean }> {
+		const stats = this.mockStats.get(path);
+		if (!stats) {
+			throw new Error(`Stats not found for: ${path}`);
+		}
+		return {
+			isDirectory: () => stats.isDirectory,
+			isSymbolicLink: () => stats.isSymbolicLink
+		};
+	}
+
+	async readdir(path: string): Promise<string[]> {
+		const files = Array.from(this.mockFiles.keys())
+			.filter(filePath => filePath.startsWith(path));
+		if (files.length === 0) {
+			throw new Error(`Directory not found: ${path}`);
+		}
+		return files.map(filePath => filePath.replace(`${path}/`, ''));
+	}
+
+	setMockFile(path: string, content: string, isDirectory = false, isSymbolicLink = false) {
+		this.mockFiles.set(path, content);
+		this.mockStats.set(path, { isDirectory, isSymbolicLink });
+	}
+
+	clearMocks() {
+		this.mockFiles.clear();
+		this.mockStats.clear();
+	}
 }
 
 suite('Matomeru Extension Test Suite', () => {
