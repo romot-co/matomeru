@@ -45,6 +45,10 @@ export const ja: Partial<LocaleMessages> = {
 		windowActivation: 'ChatGPTウィンドウのアクティブ化に失敗しました',
 		pasteFailed: 'クリップボードからの貼り付けに失敗しました',
 		sendButtonNotFound: '送信ボタンが見つかりません',
-		responseTimeout: '応答がタイムアウトしました'
+		responseTimeout: '応答がタイムアウトしました',
+		fileSystem: 'ファイルシステムエラーが発生しました',
+		outOfMemory: 'メモリ不足エラーが発生しました',
+		checkErrorLog: 'エラーログを確認してください',
+		macOSOnly: 'この機能はmacOSのみ対応しています'
 	}
 }; 

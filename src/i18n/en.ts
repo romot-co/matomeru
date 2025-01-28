@@ -30,21 +30,25 @@ export const en: Partial<LocaleMessages> = {
 			noStackTrace: 'No stack trace available',
 			sentToChatGPT: 'Sent to ChatGPT',
 			macOSOnly: 'This feature is only available on macOS',
-			accessibilityRequired: 'Accessibility permissions required',
+			accessibilityRequired: 'Accessibility permission required',
 			openSettings: 'Open Settings',
 			chatGPTNotInstalled: 'ChatGPT is not installed',
 			activated: 'Extension activated',
 			sendFailed: 'Send failed: {0}',
 			sendSuccess: 'Send successful',
-			waitingForResponse: 'Waiting for ChatGPT response...',
+			waitingForResponse: 'Waiting for response from ChatGPT...',
 			scanError: 'Failed to scan directory: {0}'
 		}
 	},
 	errors: {
-		accessibilityPermission: 'Accessibility permissions required',
+		accessibilityPermission: 'Accessibility permission required',
 		windowActivation: 'Failed to activate ChatGPT window',
 		pasteFailed: 'Failed to paste from clipboard',
 		sendButtonNotFound: 'Send button not found',
-		responseTimeout: 'Response timeout'
+		responseTimeout: 'Response timed out',
+		fileSystem: 'A file system error occurred',
+		outOfMemory: 'Out of memory error occurred',
+		checkErrorLog: 'Please check the error log',
+		macOSOnly: 'This feature is only available on macOS'
 	}
 }; 

@@ -3,9 +3,12 @@
 src/**
 .gitignore
 .yarnrc
-vsc-extension-quickstart.md
+vite.config.ts
 **/tsconfig.json
-**/eslint.config.mjs
+**/.eslintrc.json
 **/*.map
 **/*.ts
-**/.vscode-test.*
+**/node_modules/**
+!node_modules/@vscode/test-electron/**
+test/**
+dist/**

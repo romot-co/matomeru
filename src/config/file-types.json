@@ -1,54 +1,144 @@
 {
-  "fileTypes": [
-    {
-      "extensions": [".ts"],
+  "fileTypes": {
+    ".ts": {
       "typeName": "TypeScript Source",
       "languageId": "typescript"
     },
-    {
-      "extensions": [".js"],
+    ".js": {
       "typeName": "JavaScript Source",
       "languageId": "javascript"
     },
-    {
-      "extensions": [".json"],
-      "typeName": "JSON Configuration",
+    ".json": {
+      "typeName": "JSON Data",
       "languageId": "json"
     },
-    {
-      "extensions": [".md"],
-      "typeName": "Markdown Documentation",
+    ".md": {
+      "typeName": "Markdown Document",
       "languageId": "markdown"
     },
-    {
-      "extensions": [".yml", ".yaml"],
-      "typeName": "YAML Configuration",
-      "languageId": "yaml"
+    ".txt": {
+      "typeName": "Plain Text",
+      "languageId": "plaintext"
     },
-    {
-      "extensions": [".xml"],
-      "typeName": "XML Document",
-      "languageId": "xml"
-    },
-    {
-      "extensions": [".html"],
+    ".html": {
       "typeName": "HTML Document",
       "languageId": "html"
     },
-    {
-      "extensions": [".css"],
-      "typeName": "CSS Stylesheet",
+    ".css": {
+      "typeName": "CSS Style Sheet",
       "languageId": "css"
     },
-    {
-      "extensions": [".scss"],
-      "typeName": "SCSS Stylesheet",
+    ".scss": {
+      "typeName": "SCSS Style Sheet",
       "languageId": "scss"
     },
-    {
-      "extensions": [".py"],
+    ".less": {
+      "typeName": "Less Style Sheet",
+      "languageId": "less"
+    },
+    ".xml": {
+      "typeName": "XML Document",
+      "languageId": "xml"
+    },
+    ".yaml": {
+      "typeName": "YAML Document",
+      "languageId": "yaml"
+    },
+    ".yml": {
+      "typeName": "YAML Document",
+      "languageId": "yaml"
+    },
+    ".py": {
       "typeName": "Python Source",
       "languageId": "python"
+    },
+    ".java": {
+      "typeName": "Java Source",
+      "languageId": "java"
+    },
+    ".cpp": {
+      "typeName": "C++ Source",
+      "languageId": "cpp"
+    },
+    ".h": {
+      "typeName": "C/C++ Header",
+      "languageId": "cpp"
+    },
+    ".c": {
+      "typeName": "C Source",
+      "languageId": "c"
+    },
+    ".go": {
+      "typeName": "Go Source",
+      "languageId": "go"
+    },
+    ".rs": {
+      "typeName": "Rust Source",
+      "languageId": "rust"
+    },
+    ".rb": {
+      "typeName": "Ruby Source",
+      "languageId": "ruby"
+    },
+    ".php": {
+      "typeName": "PHP Source",
+      "languageId": "php"
+    },
+    ".sql": {
+      "typeName": "SQL Query",
+      "languageId": "sql"
+    },
+    ".sh": {
+      "typeName": "Shell Script",
+      "languageId": "shellscript"
+    },
+    ".bash": {
+      "typeName": "Bash Script",
+      "languageId": "shellscript"
+    },
+    ".zsh": {
+      "typeName": "Zsh Script",
+      "languageId": "shellscript"
+    },
+    ".fish": {
+      "typeName": "Fish Script",
+      "languageId": "shellscript"
+    },
+    ".ps1": {
+      "typeName": "PowerShell Script",
+      "languageId": "powershell"
+    },
+    ".bat": {
+      "typeName": "Batch Script",
+      "languageId": "bat"
+    },
+    ".cmd": {
+      "typeName": "Command Script",
+      "languageId": "bat"
+    },
+    ".gitignore": {
+      "typeName": "Git Ignore",
+      "languageId": "ignore"
+    },
+    ".dockerignore": {
+      "typeName": "Docker Ignore",
+      "languageId": "ignore"
+    },
+    ".env": {
+      "typeName": "Environment Variables",
+      "languageId": "properties"
+    },
+    ".ini": {
+      "typeName": "INI Configuration",
+      "languageId": "ini"
+    },
+    ".conf": {
+      "typeName": "Configuration File",
+      "languageId": "properties"
+    },
+    ".log": {
+      "typeName": "Log File",
+      "languageId": "log"
     }
-  ]
+  }
 } 

@@ -1,14 +1,9 @@
 import * as vscode from 'vscode';
 import { promisify } from 'util';
 import { exec } from 'child_process';
-import { I18n } from '../i18n';
-import { PlatformManager } from './PlatformManager';
-import {
-    ChatGPTIntegrationError,
-    ChatGPTTimeoutError,
-    ChatGPTPermissionError,
-    ChatGPTUIError
-} from '../errors/ChatGPTErrors';
+import { IPlatformImplementation } from './IPlatformImplementation';
+import { ErrorService } from '../error/ErrorService';
+import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '../../errors/ChatGPTErrors';
 
 const execAsync = promisify(exec);
 const PASTE_RETRY_COUNT = 3;
@@ -16,59 +11,101 @@ const PASTE_RETRY_DELAY = 500; // ms
 const ACTIVATION_RETRY_COUNT = 3;
 const ACTIVATION_RETRY_DELAY = 500; // ms
 
-export class ChatGPTService {
-    private i18n: I18n;
+/**
+ * macOS固有の実装クラス
+ */
+export class MacOSImplementation implements IPlatformImplementation {
+    private errorService: ErrorService;
 
     constructor() {
-        this.i18n = I18n.getInstance();
+        this.errorService = ErrorService.getInstance();
     }
 
-    async sendMessage(content: string): Promise<void> {
-        await this.verifyPermissions();
-        
-        const progressOptions = {
-            location: vscode.ProgressLocation.Notification,
-            title: this.i18n.t('ui.messages.waitingForResponse')
-        };
-
-        await vscode.window.withProgress(progressOptions, async () => {
-            await this.performPasteAndSend(content);
-            await this.waitForResponse();
-            vscode.window.showInformationMessage(this.i18n.t('ui.messages.sendSuccess'));
-        });
+    isAvailable(): boolean {
+        return process.platform === 'darwin';
     }
 
-    private async verifyPermissions(): Promise<void> {
-        try {
-            await PlatformManager.verifyAccessibility();
-        } catch (error) {
-            throw new ChatGPTPermissionError(
-                this.i18n.t('errors.accessibilityPermission')
-            );
+    async openInChatGPT(content: string): Promise<void> {
+        if (!this.isAvailable()) {
+            throw new UnsupportedPlatformError('この機能はmacOSでのみ利用可能です');
         }
-    }
 
-    private async performPasteAndSend(content: string): Promise<void> {
         try {
-            await this.copyToClipboard(content);
+            const hasPermission = await this.checkAccessibilityPermission();
+            if (!hasPermission) {
+                throw new AccessibilityPermissionError('アクセシビリティの権限が必要です');
+            }
+
+            await this.launchApplication('com.openai.chat');
             await this.activateChatGPTWindow();
+            await this.copyToClipboard(content);
             await this.pasteWithRetry();
-            // 送信処理をスキップ
-            // await this.sendMessageToChatGPT();
+            await this.sendMessage();
+
         } catch (error) {
-            throw new ChatGPTIntegrationError(
-                this.i18n.t('messages.sendFailed', error instanceof Error ? error.message : String(error))
-            );
+            await this.errorService.handleError(error instanceof Error ? error : new Error(String(error)), {
+                source: 'MacOSImplementation.openInChatGPT',
+                timestamp: new Date()
+            });
         }
     }
 
-    private async copyToClipboard(content: string): Promise<void> {
+    async copyToClipboard(text: string): Promise<void> {
+        await vscode.env.clipboard.writeText(text);
+        await this.delay(100); // クリップボードの内容が確実に書き込まれるまで待機
+    }
+
+    async checkAccessibilityPermission(): Promise<boolean> {
+        if (!this.isAvailable()) {
+            throw new UnsupportedPlatformError(
+                'この機能はmacOSでのみ利用可能です。他のプラットフォームではブラウザ版ChatGPTをご利用ください。'
+            );
+        }
+
         try {
-            await vscode.env.clipboard.writeText(content);
-            // クリップボードの内容が確実に書き込まれるまで少し待機
-            await this.delay(100);
+            const script = `
+                tell application "System Events"
+                    tell application process "ChatGPT"
+                        return true
+                    end tell
+                end tell
+            `;
+            await execAsync(`osascript -e '${script}'`);
+            return true;
         } catch (error) {
-            throw new ChatGPTUIError(this.i18n.t('errors.clipboardFailed'));
+            await this.errorService.handleError(error instanceof Error ? error : new Error(String(error)), {
+                source: 'MacOSImplementation.checkAccessibilityPermission',
+                timestamp: new Date(),
+                details: {
+                    platform: process.platform,
+                    osVersion: process.version
+                }
+            });
+            return false;
+        }
+    }
+
+    async launchApplication(bundleId: string): Promise<void> {
+        try {
+            // まずSpotlight検索でアプリの存在を確認
+            const searchResult = await execAsync(
+                `mdfind "kMDItemCFBundleIdentifier = '${bundleId}'"`
+            );
+
+            if (searchResult.stdout.trim().length === 0) {
+                throw new Error('ChatGPTアプリが見つかりません');
+            }
+
+            // アプリを起動
+            const script = `
+                tell application "ChatGPT"
+                    activate
+                end tell
+            `;
+            await execAsync(`osascript -e '${script}'`);
+            await this.delay(1000); // 起動完了を待機
+        } catch (error) {
+            throw new ChatGPTUIError('ChatGPTアプリの起動に失敗しました');
         }
     }
 
@@ -113,9 +150,9 @@ export class ChatGPTService {
             } catch (error) {
                 console.error(`Window activation attempt ${i + 1} failed:`, error);
                 if (i === ACTIVATION_RETRY_COUNT - 1) {
-                    throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
+                    throw new ChatGPTUIError('ChatGPTウィンドウのアクティブ化に失敗しました');
                 }
-                await this.delay(ACTIVATION_RETRY_DELAY * (i + 1)); // 徐々に待機時間を増やす
+                await this.delay(ACTIVATION_RETRY_DELAY * (i + 1));
             }
         }
     }
@@ -148,15 +185,15 @@ export class ChatGPTService {
             } catch (error) {
                 console.error(`Paste attempt ${i + 1} failed:`, error);
                 if (i === PASTE_RETRY_COUNT - 1) {
-                    throw new ChatGPTUIError(this.i18n.t('errors.pasteFailed'));
+                    throw new ChatGPTUIError('クリップボードからの貼り付けに失敗しました');
                 }
-                await this.delay(PASTE_RETRY_DELAY * (i + 1)); // 徐々に待機時間を増やす
+                await this.delay(PASTE_RETRY_DELAY * (i + 1));
             }
         }
     }
 
-    private async sendMessageToChatGPT(): Promise<void> {
-        const sendButtonScript = `
+    private async sendMessage(): Promise<void> {
+        const script = `
             tell application "System Events"
                 tell process "ChatGPT"
                     -- 送信ボタンを探す
@@ -172,46 +209,16 @@ export class ChatGPTService {
         `;
 
         try {
-            await execAsync(`osascript -e '${sendButtonScript}'`);
+            await execAsync(`osascript -e '${script}'`);
             await this.delay(1000);
         } catch (error) {
             // 送信ボタンが見つからない場合はCommand+Enterを試す
             try {
                 await execAsync('osascript -e \'tell application "System Events" to keystroke return using command down\'');
             } catch (retryError) {
-                throw new ChatGPTUIError(this.i18n.t('errors.sendButtonNotFound'));
+                throw new ChatGPTUIError('送信ボタンが見つかりません');
             }
         }
-    }
-
-    private async waitForResponse(timeout = 30000): Promise<void> {
-        const startTime = Date.now();
-        const responseCheckScript = `
-            tell application "System Events"
-                tell process "ChatGPT"
-                    -- レスポンス待ちの状態を確認
-                    set progressIndicator to group 1 of window 1
-                    if exists progressIndicator then
-                        return true
-                    end if
-                    return false
-                end tell
-            end tell
-        `;
-
-        while (Date.now() - startTime < timeout) {
-            try {
-                const { stdout } = await execAsync(`osascript -e '${responseCheckScript}'`);
-                if (stdout.trim().toLowerCase() === 'false') {
-                    return;
-                }
-                await this.delay(1000);
-            } catch (error) {
-                console.error('Response check failed:', error);
-            }
-        }
-        
-        throw new ChatGPTTimeoutError(this.i18n.t('errors.responseTimeout'));
     }
 
     private delay(ms: number): Promise<void> {

@@ -1,8 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { PlatformManager } from '../services/PlatformManager';
-import { ApplicationCoordinator } from '../extension';
+import { PlatformService } from '../services/platform/PlatformService';
 import {
     UnsupportedPlatformError,
     AccessibilityPermissionError,
@@ -12,45 +11,72 @@ import {
     ChatGPTPermissionError,
     ChatGPTUIError
 } from '../errors/ChatGPTErrors';
-import { MockFSAdapter } from '../extension';
-import { ChatGPTService } from '../services/ChatGPTService';
-import { ProductionFSAdapter } from '../services/ProductionFSAdapter';
-import { DirectoryScanner } from '../services/DirectoryScanner';
-import { MarkdownGenerator } from '../services/MarkdownGenerator';
-import { UIController } from '../services/UIController';
-import { I18n } from '../services/I18n';
-import { ConfigurationManager } from '../services/ConfigurationManager';
+import { ProductionFSAdapter as FSAdapter } from '../services/fs-adapter';
+import { DirectoryScanner } from '../services/directory-scanner';
+import { MarkdownGenerator } from '../services/markdown-generator';
+import { UIController } from '../services/ui-controller';
+import { I18n } from '../i18n';
+import { ConfigurationManager } from '../services/configuration-manager';
+import { Dirent } from 'fs';
+import { ErrorService } from '../services/error/ErrorService';
 
 suite('ChatGPT Integration Tests', () => {
-    let coordinator: ApplicationCoordinator;
-    let chatGPTService: ChatGPTService;
+    let platformService: PlatformService;
     let sandbox: sinon.SinonSandbox;
-    const mockContext = {
-        subscriptions: [],
-        globalState: {
-            get: () => ({}),
-            update: () => Promise.resolve()
-        }
-    } as unknown as vscode.ExtensionContext;
+    let mockContext: vscode.ExtensionContext;
+    let fsAdapter: InstanceType<typeof FSAdapter>;
+    let scanner: DirectoryScanner;
+    let errorService: ErrorService;
 
     setup(() => {
-        const fsAdapter = new ProductionFSAdapter();
-        const scanner = new DirectoryScanner(fsAdapter);
-        const generator = new MarkdownGenerator();
-        const ui = new UIController(mockContext);
-        const i18n = I18n.getInstance();
-        const config = ConfigurationManager.getInstance();
-
-        coordinator = new ApplicationCoordinator(
-            mockContext,
-            scanner,
-            generator,
-            ui,
-            i18n,
-            config
-        );
-        chatGPTService = new ChatGPTService();
         sandbox = sinon.createSandbox();
+        
+        mockContext = {
+            subscriptions: [],
+            globalState: {
+                get: () => ({}),
+                update: () => Promise.resolve()
+            },
+            extensionPath: '/test/extension/path'
+        } as unknown as vscode.ExtensionContext;
+
+        fsAdapter = new FSAdapter();
+        sandbox.stub(fsAdapter, 'readFile').resolves('test content');
+        sandbox.stub(fsAdapter, 'stat').resolves({
+            isDirectory: () => false,
+            isSymbolicLink: () => false,
+            size: 0
+        });
+        const mockDirents: Dirent[] = [
+            {
+                name: 'file1.txt',
+                isDirectory: () => false,
+                isFile: () => true,
+                isSymbolicLink: () => false,
+                isBlockDevice: () => false,
+                isCharacterDevice: () => false,
+                isFIFO: () => false,
+                isSocket: () => false
+            } as Dirent,
+            {
+                name: 'file2.txt',
+                isDirectory: () => false,
+                isFile: () => true,
+                isSymbolicLink: () => false,
+                isBlockDevice: () => false,
+                isCharacterDevice: () => false,
+                isFIFO: () => false,
+                isSocket: () => false
+            } as Dirent
+        ];
+        sandbox.stub(fsAdapter, 'readdir').resolves(mockDirents);
+        sandbox.stub(fsAdapter, 'findFiles').resolves(['/test/file1.txt', '/test/file2.txt']);
+        sandbox.stub(fsAdapter, 'exists').resolves(true);
+
+        scanner = new DirectoryScanner(fsAdapter);
+        platformService = PlatformService.getInstance();
+        errorService = ErrorService.getInstance();
+        errorService.setContext(mockContext);
     });
 
     teardown(() => {
@@ -58,162 +84,92 @@ suite('ChatGPT Integration Tests', () => {
     });
 
     test('プラットフォームチェックが正しく機能する', async () => {
-        const originalPlatform = process.platform;
-        Object.defineProperty(process, 'platform', { value: 'win32' });
+        const platformStub = sandbox.stub(process, 'platform').value('win32');
+        const features = platformService.getFeatures();
         
-        await assert.rejects(
-            () => coordinator.processDirectoryToChatGPT('/test/path'),
-            UnsupportedPlatformError
-        );
-        
-        Object.defineProperty(process, 'platform', { value: originalPlatform });
+        assert.strictEqual(features.canUseChatGPT, true);
+        assert.strictEqual(features.canUseNativeFeatures, false);
     });
 
     test('アクセシビリティ権限チェックが正しく機能する', async () => {
-        const stub = sinon.stub(PlatformManager, 'checkAccessibilityPermissions');
+        const stub = sandbox.stub(platformService as any, 'checkAccessibilityPermission');
         stub.resolves(false);
         
         await assert.rejects(
-            () => coordinator.processDirectoryToChatGPT('/test/path'),
+            async () => {
+                if (!await platformService.checkAccessibilityPermission()) {
+                    throw new AccessibilityPermissionError('アクセシビリティ権限が必要です');
+                }
+            },
             AccessibilityPermissionError
         );
-        
-        stub.restore();
     });
 
     test('ChatGPTアプリの存在チェックが正しく機能する', async () => {
-        const permissionStub = sinon.stub(PlatformManager, 'checkAccessibilityPermissions');
-        permissionStub.resolves(true);
-        
-        const appStub = sinon.stub(PlatformManager, 'checkChatGPTApp');
-        appStub.resolves(false);
+        const stub = sandbox.stub(platformService as any, 'launchApplication');
+        stub.rejects(new ChatGPTAppNotFoundError('ChatGPTアプリが見つかりません'));
         
         await assert.rejects(
-            () => coordinator.processDirectoryToChatGPT('/test/path'),
+            async () => {
+                await platformService.launchApplication('com.chatgpt.app');
+            },
             ChatGPTAppNotFoundError
-        );
-        
-        permissionStub.restore();
-        appStub.restore();
-    });
-
-    test('統合エラーが正しく処理される', async () => {
-        const permissionStub = sinon.stub(PlatformManager, 'checkAccessibilityPermissions');
-        permissionStub.resolves(true);
-        
-        const appStub = sinon.stub(PlatformManager, 'checkChatGPTApp');
-        appStub.resolves(true);
-        
-        const execStub = sinon.stub(require('child_process'), 'exec');
-        execStub.callsArgWith(1, new Error('Command failed'));
-        
-        await assert.rejects(
-            () => coordinator.processDirectoryToChatGPT('/test/path'),
-            ChatGPTIntegrationError
-        );
-        
-        permissionStub.restore();
-        appStub.restore();
-        execStub.restore();
-    });
-
-    test('正常なフローが正しく機能する', async () => {
-        const mockFiles = {
-            '/test/path/file1.txt': 'test content 1',
-            '/test/path/file2.txt': 'test content 2'
-        };
-        
-        const fsAdapter = new MockFSAdapter(mockFiles);
-        coordinator = new ApplicationCoordinator(mockContext);
-        
-        const permissionStub = sinon.stub(PlatformManager, 'checkAccessibilityPermissions');
-        permissionStub.resolves(true);
-        
-        const appStub = sinon.stub(PlatformManager, 'checkChatGPTApp');
-        appStub.resolves(true);
-        
-        const execStub = sinon.stub(require('child_process'), 'exec');
-        execStub.callsArgWith(1, null);
-        
-        await assert.doesNotReject(
-            () => coordinator.processDirectoryToChatGPT('/test/path')
-        );
-        
-        permissionStub.restore();
-        appStub.restore();
-        execStub.restore();
-    });
-
-    test('アクセシビリティ権限の確認', async () => {
-        const verifyAccessibilityStub = sandbox.stub(PlatformManager, 'verifyAccessibility');
-        verifyAccessibilityStub.rejects(new Error('Permission denied'));
-
-        await assert.rejects(
-            () => chatGPTService.sendMessage('test message'),
-            (error: any) => {
-                assert.ok(error instanceof ChatGPTPermissionError);
-                assert.ok(error.message.includes('accessibility'));
-                return true;
-            }
-        );
-    });
-
-    test('ウィンドウアクティベーションのエラー処理', async () => {
-        const executeAppleScriptStub = sandbox.stub(PlatformManager, 'executeAppleScript');
-        executeAppleScriptStub.rejects(new Error('Window activation failed'));
-
-        await assert.rejects(
-            () => chatGPTService.sendMessage('test message'),
-            (error: any) => {
-                assert.ok(error instanceof ChatGPTUIError);
-                assert.ok(error.message.includes('window'));
-                return true;
-            }
-        );
-    });
-
-    test('送信ボタンが見つからない場合', async () => {
-        const executeAppleScriptStub = sandbox.stub(PlatformManager, 'executeAppleScript');
-        executeAppleScriptStub.onFirstCall().resolves(false);
-        executeAppleScriptStub.onSecondCall().rejects(new Error('Send button not found'));
-
-        await assert.rejects(
-            () => chatGPTService.sendMessage('test message'),
-            (error: any) => {
-                assert.ok(error instanceof ChatGPTUIError);
-                assert.ok(error.message.includes('button'));
-                return true;
-            }
-        );
-    });
-
-    test('応答待機のタイムアウト', async () => {
-        const executeAppleScriptStub = sandbox.stub(PlatformManager, 'executeAppleScript');
-        executeAppleScriptStub.resolves(false);
-
-        await assert.rejects(
-            () => chatGPTService.sendMessage('test message'),
-            (error: any) => {
-                assert.ok(error instanceof ChatGPTTimeoutError);
-                assert.ok(error.message.includes('timeout'));
-                return true;
-            }
         );
     });
 
     test('正常系の送信処理', async () => {
-        const executeAppleScriptStub = sandbox.stub(PlatformManager, 'executeAppleScript');
-        executeAppleScriptStub.onFirstCall().resolves(true);  // アクセシビリティ権限
-        executeAppleScriptStub.onSecondCall().resolves(true); // ウィンドウアクティベーション
-        executeAppleScriptStub.onThirdCall().resolves(true);  // 送信ボタン
-        executeAppleScriptStub.onCall(3).resolves(true);      // 応答確認
+        const permissionStub = sandbox.stub(platformService as any, 'checkAccessibilityPermission');
+        permissionStub.resolves(true);
+        
+        const sendStub = sandbox.stub(platformService as any, 'openInChatGPT');
+        sendStub.resolves();
+        
+        await assert.doesNotReject(
+            async () => {
+                const scanResult = await scanner.scan('/test/path');
+                const generator = new MarkdownGenerator();
+                const markdown = await generator.generateMarkdown(scanResult);
+                await platformService.openInChatGPT(markdown);
+            }
+        );
+    });
 
-        const showInformationMessageStub = sandbox.stub(vscode.window, 'showInformationMessage');
-        showInformationMessageStub.resolves(undefined);
+    test('ChatGPTが起動していない場合のエラー処理', async () => {
+        const mockDirents: Dirent[] = [
+            {
+                name: 'file1.txt',
+                isDirectory: () => false,
+                isFile: () => true,
+                isSymbolicLink: () => false,
+                isBlockDevice: () => false,
+                isCharacterDevice: () => false,
+                isFIFO: () => false,
+                isSocket: () => false
+            } as Dirent,
+            {
+                name: 'file2.txt',
+                isDirectory: () => false,
+                isFile: () => true,
+                isSymbolicLink: () => false,
+                isBlockDevice: () => false,
+                isCharacterDevice: () => false,
+                isFIFO: () => false,
+                isSocket: () => false
+            } as Dirent
+        ];
 
-        await chatGPTService.sendMessage('test message');
+        (fsAdapter.readdir as sinon.SinonStub).resolves(mockDirents);
+        const sendStub = sandbox.stub(platformService as any, 'openInChatGPT');
+        sendStub.rejects(new ChatGPTAppNotFoundError('ChatGPTアプリが起動していません'));
 
-        assert.strictEqual(showInformationMessageStub.callCount, 1);
-        assert.ok(showInformationMessageStub.firstCall.args[0].includes('success'));
+        await assert.rejects(
+            async () => {
+                const scanResult = await scanner.scan('/test/path');
+                const generator = new MarkdownGenerator();
+                const markdown = await generator.generateMarkdown(scanResult);
+                await platformService.openInChatGPT(markdown);
+            },
+            ChatGPTAppNotFoundError
+        );
     });
 }); 

@@ -44,6 +44,10 @@ export interface LocaleMessages {
         pasteFailed: string;
         sendButtonNotFound: string;
         responseTimeout: string;
+        fileSystem: string;
+        outOfMemory: string;
+        checkErrorLog: string;
+        macOSOnly: string;
     };
 }
 

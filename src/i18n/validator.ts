@@ -54,7 +54,11 @@ export class MessageValidator {
                 windowActivation: '',
                 pasteFailed: '',
                 sendButtonNotFound: '',
-                responseTimeout: ''
+                responseTimeout: '',
+                fileSystem: '',
+                outOfMemory: '',
+                checkErrorLog: '',
+                macOSOnly: ''
             }
         };
 

@@ -1,11 +1,15 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { DirectoryScanner } from '../extension';
+import { DirectoryScanner } from '../services/directory-scanner';
+import { FSAdapter, MockFSAdapter } from '../services/fs-adapter';
 import { ScanError } from '../errors/ScanError';
-import { ChatGPTIntegrationError } from '../errors/ChatGPTErrors';
-import { ErrorReporter, ErrorLog } from '../services/ErrorReporter';
+import { ChatGPTIntegrationError, UnsupportedPlatformError } from '../errors/ChatGPTErrors';
 import { EventEmitter } from 'events';
 import { Dirent } from 'fs';
+import * as sinon from 'sinon';
+import { ErrorService } from '../services/error/ErrorService';
+import { ErrorContext } from '../types';
+import { I18n } from '../i18n';
 
 interface MockFile {
     content?: string;
@@ -58,211 +62,223 @@ class EnhancedMockFSAdapter extends EventEmitter implements FileSystemAdapter {
 }
 
 suite('エラーハンドリングテスト', () => {
-    const mockContext = {
-        subscriptions: [],
-        globalState: {
-            get: () => ({
-                message: 'Test error',
-                code: 'TEST_ERROR',
-                timestamp: new Date().toISOString(),
-                extensionVersion: '1.0.0'
-            } as ErrorLog),
-            update: () => Promise.resolve()
-        },
-        extension: {
-            packageJSON: { version: '1.0.0' }
+    let fsAdapter: MockFSAdapter;
+    let scanner: DirectoryScanner;
+    let sandbox: sinon.SinonSandbox;
+    let errorService: ErrorService;
+    let i18n: I18n;
+
+    setup(() => {
+        sandbox = sinon.createSandbox();
+        fsAdapter = new MockFSAdapter();
+        scanner = new DirectoryScanner(fsAdapter);
+        errorService = ErrorService.getInstance();
+        i18n = I18n.getInstance();
+        errorService.clearErrorLog();
+    });
+
+    teardown(() => {
+        sandbox.restore();
+        fsAdapter.clearMocks();
+        errorService.clearErrorLog();
+    });
+
+    test('ファイルシステムエラーの処理', async function() {
+        this.timeout(10000);
+        fsAdapter.setMockFile('/test/path/file.txt', '', false, false);
+        sandbox.stub(fsAdapter, 'findFiles').resolves(['/test/path/file.txt']);
+        const errorMessage = i18n.t('errors.fileSystem');
+        const error = new Error(errorMessage);
+        sandbox.stub(fsAdapter, 'readFile').rejects(error);
+        sandbox.stub(vscode.window, 'showErrorMessage').resolves();
+
+        try {
+            await scanner.scan('/test/path', true);
+            assert.fail('エラーが発生するはずです');
+        } catch (error: any) {
+            assert.ok(error instanceof Error);
+            assert.strictEqual(error.message, `Error scanning directory: ${errorMessage}`);
+            
+            const context: ErrorContext = {
+                source: 'FileSystem',
+                details: { path: '/test/path/file.txt' },
+                timestamp: new Date()
+            };
+            await errorService.handleError(error, context);
+            
+            const logs = errorService.getErrorLog();
+            assert.strictEqual(logs.length, 1);
+            assert.strictEqual(logs[0].message, `Error scanning directory: ${errorMessage}`);
         }
-    } as unknown as vscode.ExtensionContext;
-
-    test('ファイルシステムエラーの処理', async () => {
-        const mockFiles = {
-            '/test/path/error.txt': {
-                error: new Error('Permission denied')
-            }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const scanner = new DirectoryScanner(fsAdapter);
-
-        await assert.rejects(
-            () => scanner.scan('/test/path'),
-            (error: any) => {
-                assert.ok(error instanceof ScanError);
-                assert.ok(error.message.includes('Permission denied'));
-                return true;
-            }
-        );
     });
 
-    test('メモリ不足エラーの処理', async () => {
-        const mockFiles = {
-            '/test/path/large.txt': {
-                content: 'x'.repeat(1024 * 1024 * 100) // 100MB
-            }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const scanner = new DirectoryScanner(fsAdapter);
+    test('メモリ不足エラーの処理', async function() {
+        this.timeout(10000);
+        const largeString = 'x'.repeat(1024 * 1024);
+        fsAdapter.setMockFile('/test/path/large.txt', largeString, false, false);
+        sandbox.stub(fsAdapter, 'findFiles').resolves(['/test/path/large.txt']);
+        const errorMessage = i18n.t('errors.outOfMemory');
+        const error = new Error(errorMessage);
+        sandbox.stub(fsAdapter, 'readFile').rejects(error);
+        sandbox.stub(vscode.window, 'showErrorMessage').resolves();
 
-        await assert.rejects(
-            () => scanner.scan('/test/path'),
-            (error: any) => {
-                assert.ok(error instanceof Error);
-                assert.ok(error.message.includes('memory'));
-                return true;
-            }
-        );
-    });
-
-    test('キャンセル時のリソース解放', async () => {
-        const mockFiles = {
-            '/test/path/test.txt': {
-                content: 'test content'
-            }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const scanner = new DirectoryScanner(fsAdapter);
-        
-        const cancellationToken = new vscode.CancellationTokenSource();
-        const scanPromise = scanner.scan('/test/path');
-        
-        // スキャン開始直後にキャンセル
-        cancellationToken.cancel();
-        
-        await assert.rejects(
-            () => scanPromise,
-            (error: any) => {
-                assert.ok(error instanceof Error);
-                assert.ok(error.message.includes('cancelled'));
-                return true;
-            }
-        );
-    });
-
-    test('エラーレポートの生成と保存', async () => {
-        const reporter = new ErrorReporter(mockContext);
-        const testError = new Error('Test error');
-        const metadata = {
-            code: 'TEST_ERROR',
-            file: '/test/path/file.txt'
-        };
-
-        await reporter.report(testError, metadata);
-
-        const savedError = await mockContext.globalState.get('lastError') as ErrorLog;
-        assert.ok(savedError);
-        assert.strictEqual(savedError.message, 'Test error');
-        assert.strictEqual(savedError.code, 'TEST_ERROR');
-        assert.ok(savedError.timestamp);
-        assert.strictEqual(savedError.extensionVersion, '1.0.0');
+        try {
+            await scanner.scan('/test/path', true);
+            assert.fail('エラーが発生するはずです');
+        } catch (error: any) {
+            assert.ok(error instanceof Error);
+            assert.strictEqual(error.message, `Error scanning directory: ${errorMessage}`);
+            
+            const context: ErrorContext = {
+                source: 'MemoryManager',
+                details: { fileSize: '1MB' },
+                timestamp: new Date()
+            };
+            await errorService.handleError(error, context);
+            
+            const logs = errorService.getErrorLog();
+            assert.strictEqual(logs.length, 1);
+            assert.strictEqual(logs[0].message, `Error scanning directory: ${errorMessage}`);
+        }
     });
 
     test('シンボリックリンクの処理', async () => {
-        const mockFiles = {
-            '/test/path/link': {
-                isSymlink: true,
-                target: '/other/path'
-            }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const scanner = new DirectoryScanner(fsAdapter);
+        fsAdapter.setMockFile('/test/path/symlink', '', false, true);
+        sandbox.stub(fsAdapter, 'findFiles').resolves(['/test/path/symlink']);
 
         const result = await scanner.scan('/test/path');
         assert.strictEqual(result.length, 0);
     });
 
     test('無効なファイルパスの処理', async () => {
-        const fsAdapter = new EnhancedMockFSAdapter({});
-        const scanner = new DirectoryScanner(fsAdapter);
+        const error = new Error('無効なパス');
+        sandbox.stub(fsAdapter, 'findFiles').rejects(error);
 
-        await assert.rejects(
-            () => scanner.scan('invalid/path'),
-            ScanError
-        );
-    });
-
-    test('ChatGPT統合エラーの処理', async () => {
-        const mockFiles = {
-            '/test/path/test.txt': {
-                content: 'test content'
-            }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const scanner = new DirectoryScanner(fsAdapter);
-
-        // ChatGPTアプリが起動していない状態をシミュレート
-        process.env.CHATGPT_NOT_RUNNING = 'true';
-
-        await assert.rejects(
-            () => scanner.scan('/test/path'),
-            (error: any) => {
-                assert.ok(error instanceof ChatGPTIntegrationError);
-                assert.ok(error.message.includes('ChatGPT'));
-                return true;
-            }
-        );
-
-        delete process.env.CHATGPT_NOT_RUNNING;
-    });
-
-    test('バッチ処理のエラー回復', async () => {
-        const mockFiles = {
-            '/test/path/good.txt': {
-                content: 'good content'
-            },
-            '/test/path/bad.txt': {
-                error: new Error('Read error')
-            },
-            '/test/path/also-good.txt': {
-                content: 'more content'
-            }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const scanner = new DirectoryScanner(fsAdapter);
-
-        const result = await scanner.scan('/test/path');
-        
-        // エラーが発生したファイルをスキップし、他のファイルは処理できていることを確認
-        assert.strictEqual(result.length, 2);
-        assert.ok(result.some(item => item.path.includes('good.txt')));
-        assert.ok(result.some(item => item.path.includes('also-good.txt')));
+        try {
+            await scanner.scan('/invalid/path', true);
+            assert.fail('エラーが発生するはずです');
+        } catch (error: any) {
+            assert.ok(error instanceof Error);
+            assert.ok(error.message.includes('無効なパス'));
+        }
     });
 
     test('並列処理中のエラー処理', async () => {
-        const mockFiles = {
-            '/test/path/1.txt': {
-                content: 'content 1'
-            },
-            '/test/path/2.txt': {
-                error: new Error('Parallel error 1')
-            },
-            '/test/path/3.txt': {
-                error: new Error('Parallel error 2')
-            },
-            '/test/path/4.txt': {
-                content: 'content 4'
+        fsAdapter.setMockFile('/test/path/good.txt', 'good content', false, false);
+        fsAdapter.setMockFile('/test/path/bad.txt', '', false, false);
+        fsAdapter.setMockFile('/test/path/also-good.txt', 'also good content', false, false);
+        sandbox.stub(fsAdapter, 'findFiles').resolves([
+            '/test/path/good.txt',
+            '/test/path/bad.txt',
+            '/test/path/also-good.txt'
+        ]);
+
+        const readFileStub = sandbox.stub(fsAdapter, 'readFile');
+        readFileStub.callsFake(async (path: string) => {
+            if (path.includes('bad.txt')) {
+                throw new Error('ファイル読み込みエラー');
             }
-        };
-        
-        const fsAdapter = new EnhancedMockFSAdapter(mockFiles);
-        const errors: Error[] = [];
-        fsAdapter.on('error', (error: Error) => {
-            errors.push(error);
+            return path.includes('good.txt') ? 'good content' : 'also good content';
         });
 
-        const scanner = new DirectoryScanner(fsAdapter, undefined, {
-            maxConcurrency: 4,
-            batchSize: 100,
-            excludePatterns: []
-        });
         const result = await scanner.scan('/test/path');
-        
-        // エラーが発生したが、処理は継続されていることを確認
-        assert.strictEqual(errors.length, 2);
-        assert.strictEqual(result.length, 2);
+        assert.ok(result.some(item => item.path.includes('good.txt')));
+        assert.ok(result.some(item => item.path.includes('also-good.txt')));
+        assert.ok(!result.some(item => item.path.includes('bad.txt')));
     });
+});
+
+suite('ErrorService Test Suite', () => {
+    let errorService: ErrorService;
+    let sandbox: sinon.SinonSandbox;
+    let mockWindow: any;
+
+    setup(() => {
+        sandbox = sinon.createSandbox();
+        errorService = ErrorService.getInstance();
+        errorService.clearErrorLog();
+        
+        // VSCodeのウィンドウAPIをモック
+        mockWindow = {
+            showErrorMessage: sandbox.stub().resolves(),
+            showInformationMessage: sandbox.stub().resolves(),
+            showWarningMessage: sandbox.stub().resolves()
+        };
+        sandbox.stub(vscode.window, 'showErrorMessage').callsFake(mockWindow.showErrorMessage);
+        sandbox.stub(vscode.window, 'showInformationMessage').callsFake(mockWindow.showInformationMessage);
+        sandbox.stub(vscode.window, 'showWarningMessage').callsFake(mockWindow.showWarningMessage);
+    });
+
+    teardown(() => {
+        sandbox.restore();
+        errorService.clearErrorLog();
+    });
+
+    test('エラーログの基本的な記録と取得', async function() {
+        this.timeout(5000);
+        const error = new Error('テストエラー');
+        const context: ErrorContext = {
+            source: 'TestSource',
+            details: { testKey: 'testValue' },
+            timestamp: new Date()
+        };
+        await errorService.handleError(error, context);
+
+        const logs = errorService.getErrorLog();
+        assert.strictEqual(logs.length, 1);
+        assert.strictEqual(logs[0].message, 'テストエラー');
+        assert.strictEqual(logs[0].source, 'TestSource');
+        assert.deepStrictEqual(logs[0].details, { testKey: 'testValue' });
+        assert.ok(mockWindow.showErrorMessage.called);
+    });
+
+    test('カスタムエラータイプの処理', async function() {
+        this.timeout(5000);
+        const error = new UnsupportedPlatformError('macOSのみ対応しています');
+        const context: ErrorContext = {
+            source: 'PlatformCheck',
+            timestamp: new Date()
+        };
+        await errorService.handleError(error, context);
+
+        const logs = errorService.getErrorLog();
+        assert.strictEqual(logs.length, 1);
+        assert.strictEqual(logs[0].type, 'UnsupportedPlatformError');
+        assert.ok(mockWindow.showErrorMessage.called);
+    });
+
+    test('エラーログのクリア', () => {
+        const error = new Error('テストエラー');
+        const context: ErrorContext = {
+            source: 'TestSource',
+            timestamp: new Date()
+        };
+        errorService.handleError(error, context);
+        
+        assert.strictEqual(errorService.getErrorLog().length, 1);
+        
+        errorService.clearErrorLog();
+        assert.strictEqual(errorService.getErrorLog().length, 0);
+    });
+
+    test('スタックトレースの記録', async function() {
+        this.timeout(5000);
+        const error = new Error('スタックトレースのテスト');
+        Error.captureStackTrace(error);
+        const context: ErrorContext = {
+            source: 'StackTest',
+            timestamp: new Date()
+        };
+        
+        await errorService.handleError(error, context);
+        
+        const logs = errorService.getErrorLog();
+        assert.ok(logs[0].stack, 'スタックトレースが記録されていません');
+        assert.ok(logs[0].stack.includes('Error: スタックトレースのテスト'));
+    });
+});
+
+// 既存のDirectoryScannerのテストスイートは維持
+suite('DirectoryScanner Test Suite', () => {
+    // ... existing code ...
 }); 

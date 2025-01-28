@@ -79,25 +79,58 @@
           "default": [
             "node_modules/**",
             ".git/**",
-            "out/**",
-            "dist/**"
+            "dist/**",
+            "build/**",
+            "coverage/**"
           ],
-          "description": "Patterns to exclude from scanning"
+          "description": "スキャン時に除外するファイルパターン"
+        },
+        "matomeru.maxFileSize": {
+          "type": "number",
+          "default": 1048576,
+          "description": "処理する最大ファイルサイズ（バイト）"
+        },
+        "matomeru.maxConcurrentFiles": {
+          "type": "number",
+          "default": 10,
+          "description": "同時に処理するファイルの最大数"
+        },
+        "matomeru.defaultOutputType": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "clipboard"
+          ],
+          "default": "editor",
+          "description": "デフォルトの出力タイプ"
+        },
+        "matomeru.chatGptIntegration": {
+          "type": "boolean",
+          "default": false,
+          "description": "ChatGPT統合機能を有効にする"
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
+    "vscode:prepublish": "npm run build",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "watch": "vite build --watch --mode development",
+    "dev": "concurrently \"npm run watch\" \"npm run compile:watch\"",
     "test": "vscode-test",
+    "test:watch": "vscode-test --watch",
+    "pretest": "npm run build:dev && npm run lint",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "compile": "tsc -p ./",
+    "compile:watch": "tsc -watch -p ./",
     "package": "npm run prepare-package && vsce package",
+    "package:dev": "npm run prepare-package && vsce package --no-yarn",
     "publish": "vsce publish",
     "prepare-package": "npm run generate-icon",
-    "generate-icon": "npx svgexport images/icon.svg images/icon.png 128:128"
+    "generate-icon": "npx svgexport images/icon.svg images/icon.png 128:128",
+    "clean": "rimraf out dist *.vsix"
   },
   "dependencies": {
     "fast-glob": "^3.3.2",
@@ -116,10 +149,13 @@
     "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^2.24.0",
     "chai": "^5.1.2",
+    "concurrently": "^8.2.2",
     "eslint": "^9.16.0",
+    "rimraf": "^5.0.5",
     "sinon": "^19.0.2",
     "svgexport": "^0.4.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vite": "^6.0.11"
   },
   "icon": "images/icon.png",
   "galleryBanner": {

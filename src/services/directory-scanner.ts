@@ -1,44 +1,149 @@
-import { FileSystemAdapter } from './fs-adapter';
-import { DirectoryScannerOptions, ScanResult, ScanProgress } from '../types';
+import { FSAdapter } from './fs-adapter';
 import * as path from 'path';
+import { ScanProgress, ScanResult, DirectoryScannerOptions } from '../types';
+import { ChatGPTUIError } from '../errors/ChatGPTErrors';
+import { ConfigurationManager } from './configuration-manager';
+import * as vscode from 'vscode';
+import { I18n } from '../i18n';
 
 export class DirectoryScanner {
-    private readonly fsAdapter: FileSystemAdapter;
     private readonly options: DirectoryScannerOptions;
-    private onProgress?: (progress: ScanProgress) => void;
+    private readonly configManager: ConfigurationManager;
+    private readonly i18n: I18n;
+    private disposable: vscode.Disposable;
 
     constructor(
-        fsAdapter: FileSystemAdapter,
-        onProgress?: (progress: ScanProgress) => void,
+        private readonly fsAdapter: FSAdapter,
+        private readonly onProgress?: (progress: ScanProgress) => void,
         options?: Partial<DirectoryScannerOptions>
     ) {
-        this.fsAdapter = fsAdapter;
-        this.onProgress = onProgress;
-        this.options = {
-            maxConcurrency: options?.maxConcurrency ?? 5,
+        this.configManager = ConfigurationManager.getInstance();
+        this.i18n = I18n.getInstance();
+        this.options = this.initializeOptions(options);
+        this.disposable = this.watchConfiguration();
+    }
+
+    private initializeOptions(options?: Partial<DirectoryScannerOptions>): DirectoryScannerOptions {
+        const config = this.configManager.getConfiguration();
+        return {
+            maxConcurrency: options?.maxConcurrency ?? config.maxConcurrentFiles,
             batchSize: options?.batchSize ?? 100,
-            excludePatterns: options?.excludePatterns ?? ['node_modules/**', '.git/**']
+            excludePatterns: options?.excludePatterns ?? config.excludePatterns,
+            maxFileSize: options?.maxFileSize ?? config.maxFileSize
         };
     }
 
-    /**
-     * ディレクトリをスキャンしてファイルを収集する
-     */
-    async scan(directory: string): Promise<ScanResult[]> {
-        this.reportProgress(0, 'ディレクトリをスキャン中...');
+    private watchConfiguration(): vscode.Disposable {
+        return vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('matomeru')) {
+                this.updateOptions();
+            }
+        });
+    }
 
-        const files = await this.fsAdapter.findFiles(directory, ['**/*']);
-        const filteredFiles = this.filterFiles(files);
-        const results: ScanResult[] = [];
+    private updateOptions(): void {
+        const config = this.configManager.getConfiguration();
+        this.options.maxConcurrency = config.maxConcurrentFiles;
+        this.options.excludePatterns = config.excludePatterns;
+        this.options.maxFileSize = config.maxFileSize;
+    }
 
-        for (let i = 0; i < filteredFiles.length; i += this.options.batchSize) {
-            const batch = filteredFiles.slice(i, i + this.options.batchSize);
-            const batchResults = await this.processBatch(batch, i, filteredFiles.length);
-            results.push(...batchResults);
+    dispose(): void {
+        this.disposable.dispose();
+    }
+
+    private async processFile(file: string, shouldThrow = false): Promise<ScanResult | null> {
+        try {
+            const stats = await this.fsAdapter.stat(file);
+            if (!stats.isSymbolicLink() && !stats.isDirectory()) {
+                if (stats.size > this.options.maxFileSize) {
+                    console.warn(`Skipping large file ${file}: ${stats.size} bytes`);
+                    return null;
+                }
+
+                const content = await this.fsAdapter.readFile(file);
+                const extension = this.fsAdapter.getFileExtension(file);
+                return { path: file, content, extension };
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (shouldThrow) {
+                throw new Error(errorMessage);
+            } else {
+                console.error(`Error processing file ${file}:`, errorMessage);
+            }
         }
+        return null;
+    }
 
-        this.reportProgress(100, '完了');
-        return results;
+    private shouldExclude(filePath: string): boolean {
+        return this.options.excludePatterns.some(pattern => {
+            const regExp = new RegExp(pattern.replace(/\*/g, '.*'));
+            return regExp.test(filePath);
+        });
+    }
+
+    private reportProgress(file: string, processed: number, total: number): void {
+        if (this.onProgress) {
+            const progress = Math.round((processed / total) * 100);
+            const message = processed === total
+                ? this.i18n.t('ui.progress.processing')
+                : this.i18n.t('ui.progress.collecting');
+            this.onProgress({ progress, message });
+        }
+    }
+
+    async scan(directory: string, shouldThrowOnError = false): Promise<ScanResult[]> {
+        const results: ScanResult[] = [];
+        let processed = 0;
+
+        try {
+            if (process.env.CHATGPT_NOT_RUNNING === 'true') {
+                throw new ChatGPTUIError('ChatGPTアプリが起動していません');
+            }
+
+            const files = await this.fsAdapter.findFiles(`${directory}/**/*`);
+            const filteredFiles = files.filter(file => !this.shouldExclude(file));
+            const total = filteredFiles.length;
+
+            // バッチサイズごとに処理
+            for (let i = 0; i < filteredFiles.length; i += this.options.batchSize) {
+                const batch = filteredFiles.slice(i, i + this.options.batchSize);
+                const batchPromises = batch.map(async file => {
+                    try {
+                        const result = await this.processFile(file, shouldThrowOnError);
+                        processed++;
+                        this.reportProgress(file, processed, total);
+                        return result;
+                    } catch (error) {
+                        if (shouldThrowOnError) {
+                            throw error;
+                        }
+                        console.error(`Error processing file ${file}:`, error);
+                        processed++;
+                        this.reportProgress(file, processed, total);
+                        return null;
+                    }
+                });
+
+                // 並行処理の制御
+                const batchResults = await Promise.all(batchPromises);
+                results.push(...batchResults.filter((result): result is ScanResult => result !== null));
+            }
+
+            // 最終進捗を報告
+            if (this.onProgress) {
+                this.onProgress({
+                    progress: 100,
+                    message: `スキャン完了: ${total}個のファイルを処理しました`
+                });
+            }
+
+            return results;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            throw new Error(`Error scanning directory: ${errorMessage}`);
+        }
     }
 
     /**
@@ -64,10 +169,16 @@ export class DirectoryScanner {
         totalFiles: number
     ): Promise<ScanResult[]> {
         const progress = Math.round((startIndex / totalFiles) * 100);
-        this.reportProgress(progress, 'ファイルを処理中...');
+        this.reportProgress(files[startIndex], progress, totalFiles);
 
         const promises = files.map(async (file) => {
             try {
+                const stats = await this.fsAdapter.stat(file);
+                if (stats.size > this.options.maxFileSize) {
+                    console.warn(`Skipping large file ${file}: ${stats.size} bytes`);
+                    return null;
+                }
+
                 const content = await this.fsAdapter.readFile(file);
                 return {
                     path: file,
@@ -80,17 +191,13 @@ export class DirectoryScanner {
             }
         });
 
-        const results = await Promise.all(promises);
-        return results.filter((result): result is ScanResult => result !== null);
-    }
+        const results: (ScanResult | null)[] = [];
+        for (let i = 0; i < promises.length; i += this.options.maxConcurrency) {
+            const batch = promises.slice(i, i + this.options.maxConcurrency);
+            const batchResults = await Promise.all(batch);
+            results.push(...batchResults);
+        }
 
-    /**
-     * 進行状況を報告する
-     */
-    private reportProgress(progress: number, message: string): void {
-        this.onProgress?.({
-            progress,
-            message
-        });
+        return results.filter((result): result is ScanResult => result !== null);
     }
 } 

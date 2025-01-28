@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { LocaleMessages, I18nOptions, MessagePath } from './types';
+import type { LocaleMessages, I18nOptions, MessagePath } from './types';
 import { MessageValidator } from './validator';
 
 export class I18n {
@@ -72,11 +72,15 @@ export class I18n {
 					}
 				},
 				errors: {
-					accessibilityPermission: 'Accessibility permissions required',
+					accessibilityPermission: 'Accessibility permission required',
 					windowActivation: 'Failed to activate ChatGPT window',
 					pasteFailed: 'Failed to paste from clipboard',
 					sendButtonNotFound: 'Send button not found',
-					responseTimeout: 'Response timeout'
+					responseTimeout: 'Response timed out',
+					fileSystem: 'A file system error occurred',
+					outOfMemory: 'Out of memory error occurred',
+					checkErrorLog: 'Please check the error log',
+					macOSOnly: 'This feature is only available on macOS'
 				}
 			},
 			ja: {
@@ -124,7 +128,11 @@ export class I18n {
 					windowActivation: 'ChatGPTウィンドウのアクティブ化に失敗しました',
 					pasteFailed: 'クリップボードからの貼り付けに失敗しました',
 					sendButtonNotFound: '送信ボタンが見つかりません',
-					responseTimeout: '応答がタイムアウトしました'
+					responseTimeout: '応答がタイムアウトしました',
+					fileSystem: 'ファイルシステムエラーが発生しました',
+					outOfMemory: 'メモリ不足エラーが発生しました',
+					checkErrorLog: 'エラーログを確認してください',
+					macOSOnly: 'この機能はmacOSのみ対応しています'
 				}
 			}
 		};
@@ -163,5 +171,5 @@ export class I18n {
 	}
 }
 
-export { LocaleMessages, I18nOptions }; 
+export type { LocaleMessages, I18nOptions }; 
 

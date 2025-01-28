@@ -1,31 +1,17 @@
 import * as path from 'path';
+import fileTypes from '../config/file-types.json';
 
-interface FileTypeConfig {
-    extensions: string[];
+export interface FileType {
     typeName: string;
     languageId: string;
-}
-
-interface FileTypesConfig {
-    fileTypes: FileTypeConfig[];
-}
-
-export interface FileTypeInfo {
-    typeName: string;
-    languageId: string;
-    extensions: string[];
 }
 
 export class FileTypeManager {
     private static instance: FileTypeManager;
-    private fileTypes: Map<string, FileTypeInfo>;
-    private config: FileTypesConfig;
+    private readonly fileTypes: Record<string, FileType>;
 
     private constructor() {
-        this.fileTypes = new Map();
-        // JSONファイルを動的にロード
-        this.config = require('../config/file-types.json');
-        this.initializeFileTypes();
+        this.fileTypes = fileTypes.fileTypes;
     }
 
     static getInstance(): FileTypeManager {
@@ -35,43 +21,20 @@ export class FileTypeManager {
         return FileTypeManager.instance;
     }
 
-    private initializeFileTypes() {
-        this.config.fileTypes.forEach((type: FileTypeConfig) => {
-            type.extensions.forEach((ext: string) => {
-                this.fileTypes.set(ext.toLowerCase(), {
-                    typeName: type.typeName,
-                    languageId: type.languageId,
-                    extensions: type.extensions
-                });
-            });
-        });
+    getFileType(filePath: string): FileType {
+        const extension = path.extname(filePath).toLowerCase();
+        return this.fileTypes[extension] || {
+            typeName: 'Unknown Type',
+            languageId: 'plaintext'
+        };
     }
 
-    getFileType(filePath: string): FileTypeInfo {
-        const ext = path.extname(filePath).toLowerCase();
-        const fileType = this.fileTypes.get(ext);
-
-        if (!fileType) {
-            return {
-                typeName: 'Unknown Type',
-                languageId: 'plaintext',
-                extensions: [ext]
-            };
-        }
-
-        return fileType;
+    isKnownType(filePath: string): boolean {
+        const extension = path.extname(filePath).toLowerCase();
+        return extension in this.fileTypes;
     }
 
-    getLanguageId(filePath: string): string {
-        return this.getFileType(filePath).languageId;
-    }
-
-    getTypeName(filePath: string): string {
-        return this.getFileType(filePath).typeName;
-    }
-
-    isKnownExtension(filePath: string): boolean {
-        const ext = path.extname(filePath).toLowerCase();
-        return this.fileTypes.has(ext);
+    getSupportedExtensions(): string[] {
+        return Object.keys(this.fileTypes);
     }
 } 

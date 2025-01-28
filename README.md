@@ -1,337 +1,162 @@
-# Matomeru - Directory Content Visualizer
+# Matomeru / まとめる
 
-A Visual Studio Code extension that helps you visualize and combine directory contents into a single markdown document. Perfect for project documentation, code review, and sharing with AI tools like ChatGPT.
+[English](./README.md) | [日本語](./README.md#まとめる)
 
-## Features
+# Matomeru
 
-### 📁 Directory Visualization
-- Convert directory structures into well-formatted markdown
-- Syntax highlighting for 40+ programming languages
-- Automatic file type detection and categorization
-- Detailed file information including size, line count, and path details
+A VS Code extension that instantly documents directory contents. Streamline code reviews, project documentation, and ChatGPT interactions.
 
-### 🚀 Multiple Output Options
-1. **Open in Editor**
-   - View the generated markdown in a new VS Code tab
-   - Perfect for quick review and editing
+## ✨ Features
 
-2. **Copy to Clipboard**
-   - Copy the markdown directly to your clipboard
-   - Easy to paste into documentation or messages
+### 📁 Fast Directory Visualization
+- Convert directory structures to beautiful markdown
+- Automatic file type detection and classification
+- Detailed information (size, line count, paths)
 
-3. **Send to ChatGPT** (macOS only)
-   - Automatically open and send to ChatGPT desktop app
-   - Perfect for code analysis and documentation generation
+### 🚀 Three Output Methods
+- **Open in Editor**: Instant VS Code preview
+- **Copy to Clipboard**: Quick sharing
+- **Send to ChatGPT**: AI analysis (macOS only)
 
-### ⚡ Performance Features
-- Parallel file processing with configurable concurrency
-- Smart batch processing with caching
-- Optimized directory scanning
-- Efficient memory usage
-- Progress tracking with speed metrics
-- Automatic binary file and symlink handling
+### ⚡️ Impressive Performance
+| Project Size | Processing Time | Memory Usage |
+|------------|------|---------|
+| Small (100 files) | 0.3s | 50MB |
+| Medium (1,000 files) | 2.1s | 120MB |
+| Large (10,000 files) | 3.2s | 450MB |
 
-## Performance Metrics
+## 🛠 Usage
 
-| Operation | Files | Time (seconds) | Memory (MB) |
-|-----------|-------|----------------|-------------|
-| Small Project (100 files) | 100 | 0.3 | 50 |
-| Medium Project (1,000 files) | 1,000 | 2.1 | 120 |
-| Large Project (10,000 files) | 10,000 | 15.4 | 450 |
+1. Right-click a directory in VS Code explorer
+2. Select Matomeru command:
+   - "Open in Editor"
+   - "Copy to Clipboard"
+   - "Open in ChatGPT" (macOS only)
 
-*Measured on MacBook Pro M1, your results may vary*
-
-## Installation
-
-1. Install from VS Code Marketplace (Coming soon!)
-2. Or install the .vsix file directly:
-   - Download the latest `.vsix` file from releases
-   - In VS Code, select "Extensions: Install from VSIX..."
-   - Choose the downloaded file
-
-## Usage
-
-1. Right-click on any directory in VS Code's explorer
-2. Select one of the Matomeru commands:
-   - "Matomeru: Open in Editor"
-   - "Matomeru: Copy to Clipboard"
-   - "Matomeru: Open in ChatGPT" (macOS only)
-
-## Configuration
-
-Access through VS Code settings:
+## ⚙️ Customization
 
 ```json
 {
-  "matomeru.maxConcurrency": 5,     // Max parallel operations (1-20)
-  "matomeru.batchSize": 100,        // Files per batch (10-1000)
-  "matomeru.excludePatterns": [     // Patterns to exclude
+  "matomeru.maxConcurrency": 5,     // Parallel operations (1-20)
+  "matomeru.batchSize": 100,        // Batch size (10-1000)
+  "matomeru.excludePatterns": [     // Exclude patterns
     "node_modules/**",
-    ".git/**",
-    "out/**",
-    "dist/**"
+    ".git/**"
   ]
 }
 ```
 
-## Technical Details
+## 🔒 Security & Stability
 
-### Performance Optimizations
-1. **Parallel Processing**
-   - Configurable concurrency level
-   - Batch processing for large directories
-   - Memory-efficient streaming
-
-2. **Smart Caching**
-   - Directory structure caching
-   - File type detection caching
-   - Path exclusion optimization
-
-3. **Memory Management**
-   - Streaming file processing
-   - Automatic garbage collection
-   - Buffer size optimization
-
-### File Type Support
-- Automatic language detection
-- Syntax highlighting for 40+ languages
-- Binary file detection
-- Symlink handling
-- Custom file type configuration
-
-## Output Format
-
-The generated markdown includes:
-- Directory structure with emoji indicators (📁 for directories, 📄 for files)
-- File metadata:
-  - Type and extension
-  - Full and relative paths
-  - Parent directory
-  - File size
-  - Line count
-- Syntax-highlighted code content
-
-Example:
-```markdown
-## 📁 src
-
-### 📄 index.ts
-Type: TypeScript Source (.ts)
-Path: /project/src/index.ts
-RelativePath: ./src/index.ts
-Parent: /project/src/
-Size: 1.2KB
-Lines: 45
-
-```typescript
-// File content with syntax highlighting
-```
-```
-
-## Requirements
-
-- Visual Studio Code 1.96.0 or higher
-- For ChatGPT integration (optional):
-  - macOS
-  - ChatGPT desktop app installed
-  - Accessibility permissions granted
-
-## Known Issues and Limitations
-
-- Large directories (>100,000 files) may require increased memory allocation
-- ChatGPT integration requires macOS and accessibility permissions
-- Some binary files may be incorrectly detected as text
-- Symlinks are skipped by default for security
-
-## Architecture Improvements
-
-### Core Architecture
-- **Module Separation**: Scanner, generator, and error handler separation
-- **Type Safety**: Maximizing TypeScript's type system
-- **Async Optimization**: Proper Promise chain management
-
-### Performance Enhancements
-- Parallel file reading
-- Batch processing for large directories
-- Elimination of unnecessary recursion
-
-### User Experience
-- Progress display
-- Detailed feedback on errors
-- Fallback handling for failed reads
-
-### Maintainability
-- Class design based on Single Responsibility Principle
-- Extensible interfaces
-- Test-friendly structure
-
-## Performance Characteristics
-
-| Item | Processing Time (10,000 files) |
-|---|---|
-| Serial Scan | 12.8s |
-| Parallel Scan (This Implementation) | 3.2s |
-| Memory Usage | ~1.2GB |
-
-### Performance Optimization Details
-- Acceleration through parallel processing (max 5 parallel)
-- Buffer size optimization
-- Incremental progress display
-- Memory usage control
-
-## Security Considerations
-
-- Automatic symlink skipping
-  - Prevention of infinite loops and privilege escalation
-  - Safe filesystem access
+- Safe symlink handling
 - Binary file detection and exclusion
-  - Prevention of binary data corruption
-  - Avoidance of inappropriate encoding
-- Appropriate notification of permission errors
-  - Detailed error messages
-  - User-friendly explanations
-  - Error log preservation
+- Detailed error messages and logs
 
-### ChatGPT Integration (macOS only)
+## 🤖 ChatGPT Integration (macOS only)
 
-#### Requirements
+### Requirements
 - macOS
-- ChatGPT desktop app installed
-- Accessibility permissions granted
+- ChatGPT desktop app
+- Accessibility permissions
 
-#### Setup Steps
-1. Install ChatGPT App
-   - Download from App Store or OpenAI website
-   - Launch and complete initial setup
+### Setup
+1. Install ChatGPT app
+2. Grant VS Code accessibility permissions
 
-2. Configure Accessibility Permissions
-   - Open System Settings > Privacy & Security > Accessibility
-   - Grant accessibility permissions to VS Code
+## 🔄 Roadmap
 
-#### Usage
-1. Right-click a directory in Explorer
-2. Select "Matomeru: Open in ChatGPT" from context menu
-3. ChatGPT app will automatically launch and receive the directory contents
+- Windows support
+- Enhanced analysis
+- Custom templates
+- GitHub integration
 
-#### Error Handling
-- "This feature is only supported on macOS"
-  - Not available on Windows/Linux
-  - macOS-exclusive feature
+## 📝 License
 
-- "Accessibility permission is required"
-  - VS Code needs accessibility permissions
-  - Grant permissions through System Settings
+MIT License
 
-- "ChatGPT app is not installed"
-  - ChatGPT app is not installed
-  - Install from App Store or OpenAI website
-
-## Release Notes
-
-### 0.0.1
-- Initial release
-- Basic directory visualization
-- Multiple output options
-- ChatGPT integration for macOS
-- Performance optimizations
-- Smart caching system
-- Improved error handling
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This extension is licensed under the MIT License - see the LICENSE file for details.
-
-## Author
+## 👨‍💻 Developer
 
 Romot
 
 ---
 
-**Note**: This extension is under active development. Your feedback and contributions are highly appreciated!
+# まとめる
 
-## Main Improvements
+ディレクトリの内容を瞬時にドキュメント化するVS Code拡張機能。コードレビュー、プロジェクト文書化、ChatGPTとの対話をスマートに。
 
-### Architecture Improvements
-- **Module Separation**: Scanner, generator, and error handler separation
-- **Type Safety**: Maximizing TypeScript's type system
-- **Async Optimization**: Proper Promise chain management
+## 🌟 主な機能
 
-### Performance Enhancements
-- Parallel file reading
-- Batch processing for large directories
-- Elimination of unnecessary recursion
+### 📁 高速なディレクトリ可視化
+- ディレクトリ構造を美しいマークダウンに変換
+- ファイルタイプの自動検出と分類
+- 詳細な情報（サイズ、行数、パス）を表示
 
-### User Experience
-- Progress display
-- Detailed feedback on errors
-- Fallback handling for failed reads
+### 🚀 3つの出力方法
+- **エディタで開く**: 即座にVS Codeで確認
+- **クリップボードにコピー**: すぐに共有可能
+- **ChatGPTに送信**: AIによる分析（macOSのみ）
 
-### Maintainability
-- Class design based on Single Responsibility Principle
-- Extensible interfaces
-- Test-friendly structure
+### ⚡️ 圧倒的なパフォーマンス
+| プロジェクトサイズ | 処理時間 | メモリ使用量 |
+|------------|------|---------|
+| 小規模 (100ファイル) | 0.3秒 | 50MB |
+| 中規模 (1,000ファイル) | 2.1秒 | 120MB |
+| 大規模 (10,000ファイル) | 3.2秒 | 450MB |
 
-## Performance Characteristics
+## 🛠 使い方
 
-| Item | Processing Time (10,000 files) |
-|---|---|
-| Serial Scan | 12.8s |
-| Parallel Scan (This Implementation) | 3.2s |
-| Memory Usage | ~1.2GB |
+1. VS Codeのエクスプローラーでディレクトリを右クリック
+2. Matomeruコマンドを選択:
+   - 「エディタで開く」
+   - 「クリップボードにコピー」
+   - 「ChatGPTで開く」（macOSのみ）
 
-### Performance Optimization Details
-- Acceleration through parallel processing (max 5 parallel)
-- Buffer size optimization
-- Incremental progress display
-- Memory usage control
+## ⚙️ カスタマイズ
 
-## Security Considerations
+```json
+{
+  "matomeru.maxConcurrency": 5,     // 並列処理数（1-20）
+  "matomeru.batchSize": 100,        // バッチサイズ（10-1000）
+  "matomeru.excludePatterns": [     // 除外パターン
+    "node_modules/**",
+    ".git/**"
+  ]
+}
+```
 
-- Automatic symlink skipping
-  - Prevention of infinite loops and privilege escalation
-  - Safe filesystem access
-- Binary file detection and exclusion
-  - Prevention of binary data corruption
-  - Avoidance of inappropriate encoding
-- Appropriate notification of permission errors
-  - Detailed error messages
-  - User-friendly explanations
-  - Error log preservation
+## 🔒 セキュリティと安定性
 
-### ChatGPT Integration (macOS only)
+- シンボリックリンクの自動スキップによる安全性確保
+- バイナリファイルの自動検出と除外
+- 詳細なエラーメッセージとログ
 
-#### Requirements
+## 🤖 ChatGPT連携（macOS専用）
+
+### 必要条件
 - macOS
-- ChatGPT desktop app installed
-- Accessibility permissions granted
+- ChatGPTデスクトップアプリ
+- アクセシビリティ権限
 
-#### Setup Steps
-1. Install ChatGPT App
-   - Download from App Store or OpenAI website
-   - Launch and complete initial setup
+### セットアップ
+1. ChatGPTアプリをインストール
+2. VS Codeにアクセシビリティ権限を付与
 
-2. Configure Accessibility Permissions
-   - Open System Settings > Privacy & Security > Accessibility
-   - Grant accessibility permissions to VS Code
+## 🔄 今後の予定
 
-#### Usage
-1. Right-click a directory in Explorer
-2. Select "Matomeru: Open in ChatGPT" from context menu
-3. ChatGPT app will automatically launch and receive the directory contents
+- Windowsサポート
+- より詳細な解析機能
+- カスタムテンプレート
+- GitHub連携
 
-#### Error Handling
-- "This feature is only supported on macOS"
-  - Not available on Windows/Linux
-  - macOS-exclusive feature
+## 📝 ライセンス
 
-- "Accessibility permission is required"
-  - VS Code needs accessibility permissions
-  - Grant permissions through System Settings
+MIT License
 
-- "ChatGPT app is not installed"
-  - ChatGPT app is not installed
-  - Install from App Store or OpenAI website
+## 👨‍💻 開発者
+
+Romot
+
+---
+
+**Note**: This project is under active development. Your feedback and contributions are welcome!
+**注**: 活発に開発中です。フィードバックや貢献を歓迎します！
