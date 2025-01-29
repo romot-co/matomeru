@@ -1,9 +1,7 @@
-export class ScanError extends Error {
-    constructor(
-        public readonly path: string,
-        message: string
-    ) {
-        super(`[SCAN_ERROR] ${message}`);
-        this.name = 'ScanError';
+import { BaseError } from '@/errors/base/BaseError';
+
+export class ScanError extends BaseError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, 'ScanError', details);
     }
 } 

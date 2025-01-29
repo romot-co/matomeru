@@ -1,27 +1,35 @@
 import * as vscode from 'vscode';
 import { promisify } from 'util';
 import { exec } from 'child_process';
-import { IPlatformImplementation } from './IPlatformImplementation';
-import { ErrorService } from '../error/ErrorService';
-import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '../../errors/ChatGPTErrors';
-import { I18n } from '../i18n';
+import { IPlatformImplementation } from '@/services/platform/IPlatformImplementation';
+import { ErrorService } from '@/errors/services/ErrorService';
+import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '@/errors/ChatGPTErrors';
+import { I18nService } from '@/i18n/I18nService';
+import { ConfigurationService } from '@/services/config/ConfigurationService';
+import { LoggingService } from '@/services/logging/LoggingService';
 
 const execAsync = promisify(exec);
 const PASTE_RETRY_COUNT = 3;
 const PASTE_RETRY_DELAY = 500; // ms
 const ACTIVATION_RETRY_COUNT = 3;
 const ACTIVATION_RETRY_DELAY = 500; // ms
+const MAX_SCRIPT_RETRIES = 3;
+const DEFAULT_BUNDLE_ID = 'com.openai.chat';
 
 /**
  * macOS固有の実装クラス
  */
 export class MacOSImplementation implements IPlatformImplementation {
     private errorService: ErrorService;
-    private i18n: I18n;
+    private i18n: I18nService;
+    private configManager: ConfigurationService;
+    private logger: LoggingService;
 
     constructor() {
         this.errorService = ErrorService.getInstance();
-        this.i18n = I18n.getInstance();
+        this.i18n = I18nService.getInstance();
+        this.configManager = ConfigurationService.getInstance();
+        this.logger = LoggingService.getInstance();
     }
 
     isAvailable(): boolean {
@@ -36,35 +44,71 @@ export class MacOSImplementation implements IPlatformImplementation {
         try {
             const hasPermission = await this.checkAccessibilityPermission();
             if (!hasPermission) {
+                const action = await vscode.window.showErrorMessage(
+                    this.i18n.t('errors.accessibilityPermission'),
+                    { modal: true },
+                    '設定を開く',
+                    'ブラウザ版を使用'
+                );
+
+                if (action === '設定を開く') {
+                    await execAsync('open "x-apple.systempreferences:com.apple.preference.security"');
+                    return;
+                } else if (action === 'ブラウザ版を使用') {
+                    await this.openInBrowser(content);
+                    return;
+                }
                 throw new AccessibilityPermissionError('アクセシビリティの権限が必要です');
             }
 
             // アプリを起動して待機
-            await this.launchApplication('com.openai.chat');
+            const bundleId = await this.getChatGPTBundleId();
+            await this.launchApplication(bundleId);
             await this.delay(2000); // アプリの起動を待機
 
             // クリップボードにコピー
             await this.copyToClipboard(content);
             await this.delay(500); // クリップボードの準備を待機
 
-            // シンプルなペースト処理
-            const script = `
-                tell application "ChatGPT"
-                    activate
-                    delay 1
-                end tell
-                
-                tell application "System Events"
-                    tell process "ChatGPT"
-                        keystroke "v" using command down
-                        delay 1
-                        keystroke return using command down
-                    end tell
-                end tell
-            `;
-            
-            await execAsync(`osascript -e '${script}'`);
-            console.log('ペースト処理完了');
+            let success = false;
+            for (let i = 0; i < MAX_SCRIPT_RETRIES; i++) {
+                try {
+                    await this.activateChatGPTWindow();
+                    await this.pasteWithRetry();
+                    await this.sendMessage();
+                    success = true;
+                    break;
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i === MAX_SCRIPT_RETRIES - 1) {
+                        const action = await vscode.window.showErrorMessage(
+                            'ChatGPTへの自動貼り付けに失敗しました。',
+                            'マニュアルで貼り付け',
+                            'ブラウザ版を使用',
+                            'バンドルIDを設定'
+                        );
+
+                        if (action === 'マニュアルで貼り付け') {
+                            await vscode.window.showInformationMessage(
+                                'コンテンツはクリップボードにコピーされています。ChatGPTアプリで Command+V を押して貼り付けてください。'
+                            );
+                            return;
+                        } else if (action === 'ブラウザ版を使用') {
+                            await this.openInBrowser(content);
+                            return;
+                        } else if (action === 'バンドルIDを設定') {
+                            await vscode.commands.executeCommand('workbench.action.openSettings', 'matomeru.chatgptBundleId');
+                            return;
+                        }
+                        throw error;
+                    }
+                    await this.delay(1000 * (i + 1)); // 指数バックオフ
+                }
+            }
+
+            if (!success) {
+                throw new ChatGPTUIError('ChatGPTへの送信に失敗しました');
+            }
 
         } catch (error) {
             console.error('Error in openInChatGPT:', error);
@@ -80,13 +124,51 @@ export class MacOSImplementation implements IPlatformImplementation {
         }
     }
 
+    private async getChatGPTBundleId(): Promise<string> {
+        const config = this.configManager.getConfiguration();
+        const bundleId = config.chatgptBundleId || DEFAULT_BUNDLE_ID;
+
+        // バンドルIDの存在確認
+        const searchResult = await execAsync(
+            `mdfind "kMDItemCFBundleIdentifier = '${bundleId}'"`
+        );
+
+        if (searchResult.stdout.trim().length === 0) {
+            const action = await vscode.window.showErrorMessage(
+                `ChatGPTアプリが見つかりません (${bundleId})`,
+                'バンドルIDを設定',
+                'ブラウザ版を使用'
+            );
+
+            if (action === 'バンドルIDを設定') {
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'matomeru.chatgptBundleId');
+            } else if (action === 'ブラウザ版を使用') {
+                throw new ChatGPTUIError('ブラウザ版に切り替えます');
+            }
+            throw new ChatGPTUIError('ChatGPTアプリが見つかりません');
+        }
+
+        return bundleId;
+    }
+
+    private async openInBrowser(content: string): Promise<void> {
+        await vscode.env.openExternal(vscode.Uri.parse('https://chat.openai.com/'));
+        await this.copyToClipboard(content);
+        await vscode.window.showInformationMessage(
+            'ChatGPTをブラウザで開きました。コンテンツはクリップボードにコピーされています。ログイン後、Command+V で貼り付けてください。'
+        );
+    }
+
     async copyToClipboard(text: string): Promise<void> {
         try {
             // VSCodeのクリップボードAPIを使用
             await vscode.env.clipboard.writeText(text);
             await this.delay(200); // クリップボードの書き込みを待機
         } catch (error) {
-            console.error('Error copying to clipboard:', error);
+            this.logger.error('Failed to copy to clipboard', {
+                source: 'MacOSImplementation.copyToClipboard',
+                details: { error: error instanceof Error ? error.message : String(error) }
+            });
             throw new Error('クリップボードへのコピーに失敗しました');
         }
     }
@@ -127,19 +209,20 @@ export class MacOSImplementation implements IPlatformImplementation {
             );
 
             if (searchResult.stdout.trim().length === 0) {
-                throw new Error('ChatGPTアプリが見つかりません');
+                throw new ChatGPTUIError(this.i18n.t('errors.chatGPTNotInstalled'));
             }
 
             // アプリを起動
             const script = `
-                tell application "ChatGPT"
+                tell application id "${bundleId}"
                     activate
                 end tell
             `;
             await execAsync(`osascript -e '${script}'`);
             await this.delay(1000); // 起動完了を待機
         } catch (error) {
-            throw new ChatGPTUIError('ChatGPTアプリの起動に失敗しました');
+            console.error('アプリケーション起動エラー:', error);
+            throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
         }
     }
 
@@ -147,11 +230,6 @@ export class MacOSImplementation implements IPlatformImplementation {
         for (let i = 0; i < ACTIVATION_RETRY_COUNT; i++) {
             try {
                 const script = `
-                    tell application "ChatGPT"
-                        activate
-                        delay 2
-                    end tell
-                    
                     tell application "System Events"
                         tell process "ChatGPT"
                             set frontmost to true
@@ -211,15 +289,18 @@ export class MacOSImplementation implements IPlatformImplementation {
                     return;
                 }
                 
-                await this.delay(ACTIVATION_RETRY_DELAY);
+                console.log(`ウィンドウのアクティブ化試行 ${i + 1} 失敗`);
+                await this.delay(ACTIVATION_RETRY_DELAY * (i + 1)); // 指数バックオフ
             } catch (error) {
-                console.error(`Window activation attempt ${i + 1} failed:`, error);
+                console.error(`ウィンドウのアクティブ化試行 ${i + 1} エラー:`, error);
                 if (i === ACTIVATION_RETRY_COUNT - 1) {
                     throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
                 }
-                await this.delay(ACTIVATION_RETRY_DELAY * (i + 1));
+                await this.delay(ACTIVATION_RETRY_DELAY * (i + 1)); // 指数バックオフ
             }
         }
+        
+        throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
     }
 
     private async pasteWithRetry(): Promise<void> {
@@ -289,20 +370,28 @@ export class MacOSImplementation implements IPlatformImplementation {
                     end tell
                 `;
                 
-                await execAsync(`osascript -e '${script}'`);
-                return;
+                const { stdout } = await execAsync(`osascript -e '${script}'`);
+                if (stdout.trim().toLowerCase() === 'true') {
+                    console.log('ペースト成功');
+                    return;
+                }
+                
+                console.log(`ペースト試行 ${i + 1} 失敗`);
+                await this.delay(PASTE_RETRY_DELAY * (i + 1)); // 指数バックオフ
             } catch (error) {
-                console.error(`Paste attempt ${i + 1} failed:`, error);
+                console.error(`ペースト試行 ${i + 1} エラー:`, error);
                 if (i === PASTE_RETRY_COUNT - 1) {
                     throw new ChatGPTUIError(this.i18n.t('errors.pasteFailed'));
                 }
-                await this.delay(PASTE_RETRY_DELAY * (i + 1));
+                await this.delay(PASTE_RETRY_DELAY * (i + 1)); // 指数バックオフ
             }
         }
+        
+        throw new ChatGPTUIError(this.i18n.t('errors.pasteFailed'));
     }
 
     private async sendMessage(): Promise<void> {
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < MAX_SCRIPT_RETRIES; i++) {
             try {
                 const script = `
                     tell application "System Events"
@@ -345,17 +434,17 @@ export class MacOSImplementation implements IPlatformImplementation {
                 }
                 
                 console.log(`送信試行 ${i + 1} 失敗`);
-                await this.delay(1000);
+                await this.delay(1000 * (i + 1)); // 指数バックオフ
             } catch (error) {
                 console.error(`送信試行 ${i + 1} エラー:`, error);
-                if (i === 2) {
-                    throw new ChatGPTUIError('メッセージの送信に失敗しました');
+                if (i === MAX_SCRIPT_RETRIES - 1) {
+                    throw new ChatGPTUIError(this.i18n.t('errors.sendButtonNotFound'));
                 }
-                await this.delay(1000);
+                await this.delay(1000 * (i + 1)); // 指数バックオフ
             }
         }
         
-        throw new ChatGPTUIError('メッセージの送信に失敗しました');
+        throw new ChatGPTUIError(this.i18n.t('errors.sendButtonNotFound'));
     }
 
     private delay(ms: number): Promise<void> {
