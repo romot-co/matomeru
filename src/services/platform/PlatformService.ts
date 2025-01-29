@@ -1,9 +1,8 @@
-import * as vscode from 'vscode';
-import { PlatformFeatures } from '../../types';
-import { ErrorService } from '../error/ErrorService';
-import { IPlatformImplementation } from './IPlatformImplementation';
-import { MacOSImplementation } from './MacOSImplementation';
-import { CrossPlatformImplementation } from './CrossPlatformImplementation';
+import type { PlatformFeatures } from '@/types';
+import { ErrorService } from '@/errors/services/ErrorService';
+import type { IPlatformImplementation } from '@/services/platform/IPlatformImplementation';
+import { MacOSImplementation } from '@/services/platform/MacOSImplementation';
+import { CrossPlatformImplementation } from '@/services/platform/CrossPlatformImplementation';
 
 /**
  * プラットフォーム依存の機能を管理するサービス

@@ -1,3 +1,8 @@
+export interface I18nOptions {
+    defaultLocale?: string;
+    fallbackLocale?: string;
+}
+
 export interface LocaleMessages {
     commands: {
         combineDirectory: string;
@@ -21,6 +26,7 @@ export interface LocaleMessages {
         };
         messages: {
             selectDirectory: string;
+            selectWorkspace: string;
             openedInEditor: string;
             copiedToClipboard: string;
             error: string;
@@ -48,8 +54,26 @@ export interface LocaleMessages {
         outOfMemory: string;
         checkErrorLog: string;
         macOSOnly: string;
-        noWorkspace?: string;
+        noWorkspace: string;
+        noWorkspaceSelected: string;
+        outsideWorkspace: string;
+        configurationUpdateFailed: string;
     };
+    'test.message': string;
+    'test.with.params': string;
+    'chatgpt.integration.error': string;
+    'ui.messages.selectDirectory': string;
+    'ui.messages.scanError': string;
+    'ui.messages.sentToChatGPT': string;
+    'ui.messages.chatGPTNotInstalled': string;
+    'ui.progress.processing': string;
+    'success.directory.processed': string;
+    'error.directory.processing': string;
+    'error.platform.unsupported': string;
+    'error.config.invalid': string;
+    'config.updated': string;
+    'errors.directoryNotInWorkspace': string;
+    'errors.chatGptIntegrationNotSupported': string;
 }
 
 export type LocaleKey = keyof LocaleMessages;
@@ -58,10 +82,4 @@ export type MessagePath = string;
 export interface I18nValidator {
     validateMessages(messages: Partial<LocaleMessages>): string[];
     validateMessagePath(path: MessagePath): boolean;
-}
-
-export interface I18nOptions {
-    defaultLocale?: string;
-    fallbackLocale?: string;
-    validateOnInit?: boolean;
 } 

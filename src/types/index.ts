@@ -85,11 +85,6 @@ export interface FileSystemEntity {
 
 export interface FileTypeConfig {
     /**
-     * 対象となるファイル拡張子のリスト
-     */
-    extensions: string[];
-
-    /**
      * ファイルタイプの表示名
      */
     typeName: string;
@@ -201,4 +196,8 @@ export interface HierarchyNode {
      * 階層レベル
      */
     level: number;
-} 
+}
+
+/**
+ * サービス層の共通型定義
+ */

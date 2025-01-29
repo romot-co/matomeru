@@ -1,3 +1,5 @@
+import { BaseError } from '@/errors/base/BaseError';
+
 export class UnsupportedPlatformError extends Error {
     constructor(message: string) {
         super(message);
@@ -12,37 +14,32 @@ export class AccessibilityPermissionError extends Error {
     }
 }
 
-export class ChatGPTAppNotFoundError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'ChatGPTAppNotFoundError';
+export class ChatGPTAppNotFoundError extends BaseError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, 'ChatGPTAppNotFoundError', details);
     }
 }
 
-export class ChatGPTIntegrationError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'ChatGPTIntegrationError';
+export class ChatGPTIntegrationError extends BaseError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, 'ChatGPTIntegrationError', details);
     }
 }
 
-export class ChatGPTTimeoutError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'ChatGPTTimeoutError';
+export class ChatGPTTimeoutError extends BaseError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, 'ChatGPTTimeoutError', details);
     }
 }
 
-export class ChatGPTPermissionError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'ChatGPTPermissionError';
+export class ChatGPTPermissionError extends BaseError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, 'ChatGPTPermissionError', details);
     }
 }
 
-export class ChatGPTUIError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'ChatGPTUIError';
+export class ChatGPTUIError extends BaseError {
+    constructor(message: string, details?: Record<string, unknown>) {
+        super(message, 'ChatGPTUIError', details);
     }
 } 

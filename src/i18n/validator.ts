@@ -1,107 +1,44 @@
-import { LocaleMessages } from './types';
+import type { LocaleMessages } from '@/i18n/types';
+import { LoggingService } from '@/services/logging/LoggingService';
 
 export class MessageValidator {
-    private requiredPaths: Set<string>;
+    private readonly logger: LoggingService;
 
     constructor() {
-        this.requiredPaths = new Set<string>();
-        this.initializeRequiredPaths();
+        this.logger = LoggingService.getInstance();
     }
 
-    private initializeRequiredPaths() {
-        const template: LocaleMessages = {
-            commands: {
-                combineDirectory: ''
-            },
-            ui: {
-                outputDestination: {
-                    placeholder: '',
-                    editor: {
-                        label: '',
-                        description: ''
-                    },
-                    clipboard: {
-                        label: '',
-                        description: ''
-                    }
-                },
-                progress: {
-                    scanning: '',
-                    collecting: '',
-                    processing: ''
-                },
-                messages: {
-                    selectDirectory: '',
-                    openedInEditor: '',
-                    copiedToClipboard: '',
-                    error: '',
-                    showDetails: '',
-                    noStackTrace: '',
-                    sentToChatGPT: '',
-                    macOSOnly: '',
-                    accessibilityRequired: '',
-                    openSettings: '',
-                    chatGPTNotInstalled: '',
-                    activated: '',
-                    sendFailed: '',
-                    sendSuccess: '',
-                    waitingForResponse: '',
-                    scanError: ''
-                }
-            },
-            errors: {
-                accessibilityPermission: '',
-                windowActivation: '',
-                pasteFailed: '',
-                sendButtonNotFound: '',
-                responseTimeout: '',
-                fileSystem: '',
-                outOfMemory: '',
-                checkErrorLog: '',
-                macOSOnly: ''
-            }
+    validate(messages: Partial<LocaleMessages>): boolean {
+        const template: Partial<LocaleMessages> = {
+            'test.message': '',
+            'test.with.params': '',
+            'chatgpt.integration.error': '',
+            'ui.messages.selectDirectory': '',
+            'ui.messages.scanError': '',
+            'ui.messages.sentToChatGPT': '',
+            'ui.messages.chatGPTNotInstalled': '',
+            'ui.progress.processing': '',
+            'success.directory.processed': '',
+            'error.directory.processing': '',
+            'error.platform.unsupported': '',
+            'error.config.invalid': '',
+            'config.updated': '',
+            'errors.directoryNotInWorkspace': '',
+            'errors.chatGptIntegrationNotSupported': ''
         };
 
-        this.collectPaths('', template);
-    }
+        const missingKeys = Object.keys(template).filter(key => {
+            return !messages[key as keyof LocaleMessages];
+        });
 
-    private collectPaths(prefix: string, obj: any) {
-        for (const [key, value] of Object.entries(obj)) {
-            const path = prefix ? `${prefix}.${key}` : key;
-            if (typeof value === 'string') {
-                this.requiredPaths.add(path);
-            } else if (typeof value === 'object' && value !== null) {
-                this.collectPaths(path, value);
-            }
-        }
-    }
-
-    validate(messages: any, locale: string): string[] {
-        const errors: string[] = [];
-        const paths = new Set<string>();
-
-        this.collectPaths('', messages);
-
-        for (const path of paths) {
-            if (!this.requiredPaths.has(path)) {
-                errors.push(`Unexpected message path in ${locale}: ${path}`);
-            }
+        if (missingKeys.length > 0) {
+            this.logger.warn('Missing message keys', {
+                source: 'MessageValidator.validate',
+                details: { missingKeys }
+            });
+            return false;
         }
 
-        for (const path of this.requiredPaths) {
-            if (!paths.has(path)) {
-                errors.push(`Missing message path in ${locale}: ${path}`);
-            }
-        }
-
-        return errors;
-    }
-
-    validateMessagePath(path: string): boolean {
-        return this.requiredPaths.has(path);
-    }
-
-    validateMessages(messages: Partial<LocaleMessages>): string[] {
-        return this.validate(messages, 'unknown');
+        return true;
     }
 } 

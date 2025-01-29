@@ -1,5 +1,5 @@
-import { FileSystemEntity } from '../../types';
-import { ErrorService } from '../error/ErrorService';
+import type { FileSystemEntity } from '@/types';
+import { ErrorService } from '@/errors/services/ErrorService';
 
 type FormatType = 'tree' | 'icon';
 
