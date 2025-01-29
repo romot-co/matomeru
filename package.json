@@ -128,6 +128,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.3.11",
+    "@types/chai-as-promised": "^8.0.1",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
     "@types/module-alias": "^2.0.4",
@@ -139,9 +140,11 @@
     "@vscode/test-electron": "^2.3.8",
     "@vscode/vsce": "^2.24.0",
     "chai": "^4.3.7",
+    "chai-as-promised": "^8.0.1",
     "eslint": "^8.56.0",
     "mocha": "^10.2.0",
     "sinon": "^19.0.2",
+    "sinon-chai": "^4.0.0",
     "typescript": "^5.3.3"
   },
   "icon": "images/icon.png",
@@ -156,5 +159,8 @@
     "directory",
     "combine",
     "visualization"
-  ]
+  ],
+  "_moduleAliases": {
+    "@": "out"
+  }
 }

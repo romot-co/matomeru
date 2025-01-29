@@ -1,3 +1,4 @@
+import '../setup';
 import 'module-alias/register';
 import * as path from 'path';
 import Mocha from 'mocha';
