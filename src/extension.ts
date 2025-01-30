@@ -1,104 +1,116 @@
 import * as vscode from 'vscode';
-import { DirectoryProcessingService } from './services/core/DirectoryProcessingService';
-import { ConfigurationService } from './services/config/ConfigurationService';
-import { UIService } from './services/ui/UIService';
+import { DirectoryProcessingService } from './domain/output/DirectoryProcessingService';
+import { ConfigurationService } from './infrastructure/config/ConfigurationService';
+import { UIService } from './domain/output/UIService';
 import { I18nService } from './i18n/I18nService';
-import { LoggingService } from './services/logging/LoggingService';
+import { LoggingService } from './infrastructure/logging/LoggingService';
+import { ErrorService } from './shared/errors/services/ErrorService';
+import { ClipboardService } from './infrastructure/platform/ClipboardService';
+import { DirectoryScanner } from './domain/files/DirectoryScanner';
+import { FileTypeService } from './domain/files/FileTypeService';
+import { FileSystemAdapter } from './domain/files/FileSystemAdapter';
+import { MarkdownGenerator } from './domain/output/MarkdownGenerator';
+import { WorkspaceService } from './domain/workspace/WorkspaceService';
+import { PlatformService } from './infrastructure/platform/PlatformService';
 
 export async function activate(context: vscode.ExtensionContext) {
-    const logger = LoggingService.getInstance();
+    // 基本サービスの初期化
+    const config = ConfigurationService.createDefault();
+    const logger = LoggingService.createDefault(config);
     logger.info('Activating Matomeru extension...', {
         source: 'extension.activate'
     });
 
-    const i18n = I18nService.getInstance();
-    const config = ConfigurationService.getInstance();
-    const ui = UIService.getInstance();
-    const processor = new DirectoryProcessingService(context);
+    // 各サービスの初期化（依存関係の順序に注意）
+    const i18n = I18nService.createDefault(logger);
+    const errorHandler = ErrorService.createDefault(i18n, logger);
+    const clipboardService = ClipboardService.createDefault();
+    const workspaceService = WorkspaceService.createDefault(logger, errorHandler);
+    const ui = UIService.createDefault(context, i18n, logger, clipboardService);
+    const platform = PlatformService.createDefault(errorHandler, i18n, config, logger);
 
-    // 設定変更の監視を一元化
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration(async e => {
-            if (e.affectsConfiguration('matomeru')) {
-                try {
-                    // ワークスペースの設定変更を検知
-                    const workspaceChanges = e.affectsConfiguration('matomeru', vscode.workspace.workspaceFolders?.[0]);
-                    if (workspaceChanges) {
-                        // 設定の更新を ConfigurationService に通知
-                        await config.updateConfiguration({});
-                    }
-                } catch (error) {
-                    await ui.showErrorMessage(
-                        i18n.t('errors.configurationUpdateFailed'),
-                        true
-                    );
-                }
-            }
-        })
+    // ドメインサービスの初期化
+    const fileSystem = new FileSystemAdapter(errorHandler, logger);
+    const fileTypeService = new FileTypeService();
+    const scanner = new DirectoryScanner(
+        config,
+        logger,
+        errorHandler,
+        workspaceService,
+        fileTypeService,
+        fileSystem
+    );
+    const markdownGenerator = new MarkdownGenerator(fileSystem, logger);
+
+    // メインサービスの初期化
+    const processor = DirectoryProcessingService.createDefault(
+        context,
+        scanner,
+        markdownGenerator,
+        ui,
+        i18n,
+        config,
+        platform,
+        errorHandler,
+        workspaceService,
+        logger,
+        clipboardService
     );
 
     // コマンドの登録
-    context.subscriptions.push(
-        vscode.commands.registerCommand('matomeru.processDirectory', async () => {
-            // ワークスペースの確認
-            if (!vscode.workspace.workspaceFolders?.length) {
-                await ui.showErrorMessage(
-                    i18n.t('errors.noWorkspace'),
-                    true
-                );
-                return;
-            }
-
-            // 出力先の選択
-            const destination = await ui.showOutputDestinationPicker();
-            if (!destination) {
-                return;
-            }
-
-            // ディレクトリの選択
-            const options: vscode.OpenDialogOptions = {
-                canSelectFiles: false,
-                canSelectFolders: true,
-                canSelectMany: false,
-                openLabel: i18n.t('ui.dialog.selectDirectory'),
-                defaultUri: vscode.workspace.workspaceFolders[0].uri
-            };
-
-            const result = await vscode.window.showOpenDialog(options);
-            if (!result?.length) {
-                return;
-            }
-
-            const directoryPath = result[0].fsPath;
-
-            // 選択された出力先に応じて処理を実行
+    const disposables = [
+        vscode.commands.registerCommand('matomeru.combineDirectoryToEditor', async (uri?: vscode.Uri) => {
             try {
-                switch (destination.id) {
-                    case 'editor':
-                        await processor.processDirectoryToEditor(directoryPath);
-                        break;
-                    case 'clipboard':
-                        await processor.processDirectoryToClipboard(directoryPath);
-                        break;
-                    case 'chatgpt':
-                        await processor.processDirectoryToChatGPT(directoryPath);
-                        break;
+                const targetPath = uri?.fsPath || (await workspaceService.selectWorkspaceFolder())?.uri.fsPath;
+                if (!targetPath) {
+                    await ui.showErrorMessage(i18n.t('ui.messages.selectDirectory'));
+                    return;
                 }
+                await processor.processDirectoryToEditor(targetPath);
             } catch (error) {
-                // エラーは DirectoryProcessingService 内で既に処理されているため、ここでは何もしない
+                await errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
+                    source: 'matomeru.combineDirectoryToEditor',
+                    timestamp: new Date()
+                });
+                await ui.showErrorMessage(i18n.t('ui.messages.error'), true);
+            }
+        }),
+        vscode.commands.registerCommand('matomeru.combineDirectoryToClipboard', async (uri?: vscode.Uri) => {
+            try {
+                const targetPath = uri?.fsPath || (await workspaceService.selectWorkspaceFolder())?.uri.fsPath;
+                if (!targetPath) {
+                    await ui.showErrorMessage(i18n.t('ui.messages.selectDirectory'));
+                    return;
+                }
+                await processor.processDirectoryToClipboard(targetPath);
+            } catch (error) {
+                await errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
+                    source: 'matomeru.combineDirectoryToClipboard',
+                    timestamp: new Date()
+                });
+                await ui.showErrorMessage(i18n.t('ui.messages.error'), true);
+            }
+        }),
+        vscode.commands.registerCommand('matomeru.openInChatGPT', async (uri?: vscode.Uri) => {
+            try {
+                const targetPath = uri?.fsPath || (await workspaceService.selectWorkspaceFolder())?.uri.fsPath;
+                if (!targetPath) {
+                    await ui.showErrorMessage(i18n.t('ui.messages.selectDirectory'));
+                    return;
+                }
+                await processor.processDirectoryToChatGPT(targetPath);
+            } catch (error) {
+                await errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
+                    source: 'matomeru.openInChatGPT',
+                    timestamp: new Date()
+                });
+                await ui.showErrorMessage(i18n.t('ui.messages.error'), true);
             }
         })
-    );
+    ];
 
-    // クリーンアップ処理の登録
-    context.subscriptions.push({
-        dispose: () => {
-            processor.dispose();
-            config.dispose();
-        }
-    });
-
-    logger.info('Matomeru extension activated successfully.', {
+    context.subscriptions.push(...disposables);
+    logger.info('Matomeru extension activated', {
         source: 'extension.activate'
     });
 }

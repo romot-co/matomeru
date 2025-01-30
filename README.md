@@ -9,14 +9,36 @@ A VS Code extension that instantly documents directory contents. Streamline code
 ## ✨ Features
 
 ### 📁 Fast Directory Visualization
-- Convert directory structures to beautiful markdown
+- Convert directory structures to beautiful markdown with emoji indicators (📁 for directories, 📄 for files)
 - Automatic file type detection and classification
 - Detailed information (size, line count, paths)
+- Clear hierarchical structure display
 
 ### 🚀 Three Output Methods
 - **Open in Editor**: Instant VS Code preview
 - **Copy to Clipboard**: Quick sharing
 - **Send to ChatGPT**: AI analysis (macOS only)
+
+### 📝 Output Format
+```markdown
+# Directory Structure
+
+📁 src
+   📁 domain
+      📁 files
+         📄 FileSystemAdapter.ts
+      📁 output
+         📄 MarkdownGenerator.ts
+   📁 infrastructure
+      📁 logging
+         📄 LoggingService.ts
+
+# Files
+
+File: FileSystemAdapter.ts | Path: src/domain/files/FileSystemAdapter.ts
+```typescript
+// File contents here
+```
 
 ### ⚡️ Impressive Performance
 | Project Size | Processing Time | Memory Usage |
@@ -87,14 +109,36 @@ Romot
 ## 🌟 主な機能
 
 ### 📁 高速なディレクトリ可視化
-- ディレクトリ構造を美しいマークダウンに変換
+- 絵文字を使用した分かりやすいディレクトリ構造の表示（📁 ディレクトリ、📄 ファイル）
 - ファイルタイプの自動検出と分類
 - 詳細な情報（サイズ、行数、パス）を表示
+- 階層構造の明確な表示
 
 ### 🚀 3つの出力方法
 - **エディタで開く**: 即座にVS Codeで確認
 - **クリップボードにコピー**: すぐに共有可能
 - **ChatGPTに送信**: AIによる分析（macOSのみ）
+
+### 📝 出力形式
+```markdown
+# Directory Structure
+
+📁 src
+   📁 domain
+      📁 files
+         📄 FileSystemAdapter.ts
+      📁 output
+         📄 MarkdownGenerator.ts
+   📁 infrastructure
+      📁 logging
+         📄 LoggingService.ts
+
+# Files
+
+File: FileSystemAdapter.ts | Path: src/domain/files/FileSystemAdapter.ts
+```typescript
+// ファイルの内容
+```
 
 ### ⚡️ 圧倒的なパフォーマンス
 | プロジェクトサイズ | 処理時間 | メモリ使用量 |

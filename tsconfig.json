@@ -12,11 +12,17 @@
 		"resolveJsonModule": true,
 		"esModuleInterop": true,
 		"moduleResolution": "node",
-		"baseUrl": ".",
+		"baseUrl": "./src",
 		"paths": {
-			"@/*": ["src/*"]
+			"@/*": ["*"]
 		},
 		"skipLibCheck": true,  // 外部ライブラリの型チェックをスキップ
+		"noImplicitAny": false,  // 暗黙的なany型を許可
+		"types": [
+			"node",
+			"vscode",
+			"mocha"
+		],
 		/* Additional Checks */
 		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
 		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */

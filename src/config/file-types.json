@@ -1,11 +1,11 @@
 {
   "fileTypes": {
     ".ts": {
-      "typeName": "TypeScript Source",
+      "typeName": "TypeScript",
       "languageId": "typescript"
     },
     ".js": {
-      "typeName": "JavaScript Source",
+      "typeName": "JavaScript",
       "languageId": "javascript"
     },
     ".json": {

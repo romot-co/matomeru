@@ -1,12 +1,28 @@
 import * as assert from 'assert';
-import { I18nService } from '@/i18n/I18nService';
+import { I18nService, II18nService } from '../../i18n/I18nService';
+import { ILogger } from '../../infrastructure/logging/LoggingService';
+import { MessageValidator } from '../../i18n/validator';
 
 describe('I18nService', () => {
-    let i18n: I18nService;
+    let i18n: II18nService;
+    let loggerStub: ILogger;
 
     beforeEach(() => {
-        I18nService.resetInstance();
-        i18n = I18nService.getInstance();
+        // LoggerServiceのスタブ化
+        loggerStub = {
+            debug: () => {},
+            info: () => {},
+            warn: () => {},
+            error: () => {},
+            show: () => {},
+            dispose: () => {}
+        };
+
+        // MessageValidatorの初期化
+        const validator = new MessageValidator(loggerStub);
+
+        // I18nServiceの初期化
+        i18n = I18nService.createDefault(loggerStub);
     });
 
     it('基本的なメッセージ取得', () => {

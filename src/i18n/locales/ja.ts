@@ -1,4 +1,4 @@
-import type { LocaleMessages } from '@/i18n/types';
+import type { LocaleMessages } from '../../i18n/types';
 
 export const ja: Partial<LocaleMessages> = {
     commands: {

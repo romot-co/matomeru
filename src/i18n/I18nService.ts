@@ -1,120 +1,125 @@
 import * as vscode from 'vscode';
-import type { LocaleMessages, I18nOptions } from '@/i18n/types';
-import { MessageValidator } from '@/i18n/validator';
-import { LoggingService } from '@/services/logging/LoggingService';
+import type { LocaleMessages } from './types';
+import { MessageValidator } from './validator';
+import { ILogger } from '../infrastructure/logging/LoggingService';
 import { enMessages } from './messages/en';
 import { jaMessages } from './messages/ja';
 
+export interface II18nService {
+    t(key: string, params?: Record<string, unknown>): string;
+    setLocale(locale: string): void;
+    getCurrentLocale(): string;
+}
+
 /**
  * 国際化（i18n）を管理するサービス
- * シングルトンパターンで実装され、アプリケーション全体で一貫した翻訳を提供します
+ * アプリケーション全体で一貫した翻訳を提供します
  */
-export class I18nService {
-    private static instance: I18nService;
+export class I18nService implements II18nService {
     private messages: Record<string, Partial<LocaleMessages>>;
     private validator: MessageValidator;
     private currentLocale: string;
     private readonly fallbackLocale: string = 'en';
-    private readonly logger: LoggingService;
 
-    private constructor() {
+    constructor(
+        private readonly logger: ILogger
+    ) {
         this.messages = {
             'en': enMessages,
             'ja': jaMessages
         };
-        this.validator = new MessageValidator();
-        this.currentLocale = this.fallbackLocale;
-        this.logger = LoggingService.getInstance();
-    }
-
-    public static getInstance(): I18nService {
-        if (!I18nService.instance) {
-            I18nService.instance = new I18nService();
-        }
-        return I18nService.instance;
+        this.validator = new MessageValidator(logger);
+        this.currentLocale = this.detectLocale();
     }
 
     /**
-     * テスト用にインスタンスをリセットします
+     * ファクトリメソッド - デフォルトの設定でI18nServiceインスタンスを生成
      */
-    static resetInstance(): void {
-        I18nService.instance = null as any;
+    public static createDefault(logger: ILogger): I18nService {
+        return new I18nService(logger);
     }
 
     private detectLocale(): string {
         const vscodeLang = vscode.env.language;
-        return vscodeLang.startsWith('ja') ? 'ja' : 'en';
+        return this.normalizeLocale(vscodeLang);
     }
 
-    t(key: string, params?: Record<string, any>): string {
+    t(key: string, params?: Record<string, unknown>): string {
         const message = this.findMessage(key);
 
         if (message === undefined) {
-            this.logger.warn('Translation not found', {
+            this.logger.warn('Message not found', {
                 source: 'I18nService.t',
-                details: { key, currentLocale: this.currentLocale }
+                details: { key, locale: this.currentLocale }
             });
             return key;
         }
 
         if (params) {
-            return this.formatWithParams(message, params);
+            return this.formatMessage(message, params);
         }
 
         return message;
     }
 
-    private findMessage(key: string): string | undefined {
-        // 現在のロケールでメッセージを探す
-        const currentMessages = this.messages[this.currentLocale];
-        if (currentMessages && key in currentMessages) {
-            return currentMessages[key as keyof LocaleMessages] as string;
+    setLocale(locale: string): void {
+        const normalizedLocale = this.normalizeLocale(locale);
+        if (this.messages[normalizedLocale]) {
+            this.currentLocale = normalizedLocale;
+        } else {
+            this.logger.warn('Locale not supported, using fallback', {
+                source: 'I18nService.setLocale',
+                details: { locale, fallback: this.fallbackLocale }
+            });
+            this.currentLocale = this.fallbackLocale;
         }
-
-        // フォールバックロケールでメッセージを探す
-        if (this.currentLocale !== this.fallbackLocale) {
-            const fallbackMessages = this.messages[this.fallbackLocale];
-            if (fallbackMessages && key in fallbackMessages) {
-                this.logger.warn(`Message not found in ${this.currentLocale}, falling back to ${this.fallbackLocale}`, {
-                    source: 'I18nService.findMessage',
-                    details: { key, currentLocale: this.currentLocale }
-                });
-                return fallbackMessages[key as keyof LocaleMessages] as string;
-            }
-        }
-
-        return undefined;
-    }
-
-    private formatWithParams(message: string, params: Record<string, any>): string {
-        return Object.entries(params).reduce(
-            (str, [key, value]) => str.replace(new RegExp(`{{${key}}}`, 'g'), String(value)),
-            message
-        );
     }
 
     getCurrentLocale(): string {
         return this.currentLocale;
     }
 
-    public setLocale(locale: string): void {
-        // 部分ロケールのフォールバック処理
-        const shortLocale = locale.split('-')[0];
-        
-        if (this.messages[locale]) {
-            this.currentLocale = locale;
-        } else if (this.messages[shortLocale]) {
-            this.currentLocale = shortLocale;
-            this.logger.info(`Falling back from ${locale} to ${shortLocale}`, {
-                source: 'I18nService.setLocale',
-                details: { originalLocale: locale, fallbackLocale: shortLocale }
-            });
-        } else {
-            this.logger.warn(`Locale ${locale} not found, falling back to ${this.fallbackLocale}`, {
-                source: 'I18nService.setLocale',
-                details: { requestedLocale: locale, fallbackLocale: this.fallbackLocale }
-            });
-            this.currentLocale = this.fallbackLocale;
+    private findMessage(key: string): string | undefined {
+        const message = this.findMessageInLocale(key, this.currentLocale);
+        if (message === undefined && this.currentLocale !== this.fallbackLocale) {
+            return this.findMessageInLocale(key, this.fallbackLocale);
         }
+        return message;
+    }
+
+    private findMessageInLocale(key: string, locale: string): string | undefined {
+        const messages = this.messages[locale];
+        if (!messages) {
+            return undefined;
+        }
+
+        const message = messages[key as keyof LocaleMessages];
+        if (typeof message === 'string') {
+            return message;
+        }
+
+        const parts = key.split('.');
+        let current: any = messages;
+
+        for (const part of parts) {
+            if (current === undefined || typeof current !== 'object') {
+                return undefined;
+            }
+            current = current[part];
+        }
+
+        return typeof current === 'string' ? current : undefined;
+    }
+
+    private formatMessage(message: string, params: Record<string, unknown>): string {
+        return message.replace(/\{(\w+)\}/g, (match, key) => {
+            const value = params[key];
+            return value !== undefined ? String(value) : match;
+        });
+    }
+
+    private normalizeLocale(locale: string): string {
+        const [lang] = locale.toLowerCase().split(/[-_]/);
+        return this.messages[lang] ? lang : this.fallbackLocale;
     }
 } 
