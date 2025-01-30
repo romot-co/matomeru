@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { I18nService, II18nService } from '@/i18n/I18nService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { MessageValidator } from '@/i18n/validator';
+import { I18nService, II18nService } from '../../i18n/I18nService';
+import { ILogger } from '../../infrastructure/logging/LoggingService';
+import { MessageValidator } from '../../i18n/validator';
 
 describe('I18nService', () => {
     let i18n: II18nService;

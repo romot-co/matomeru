@@ -10,7 +10,11 @@ async function main() {
         // テストを実行
         await runTests({
             extensionDevelopmentPath,
-            extensionTestsPath
+            extensionTestsPath,
+            launchArgs: [
+                '--enable-proposed-api',
+                'romot-co.matomeru'
+            ]
         });
     } catch (err) {
         console.error('テストの実行中にエラーが発生しました:', err);

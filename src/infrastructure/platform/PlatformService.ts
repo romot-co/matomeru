@@ -1,12 +1,11 @@
-import * as vscode from 'vscode';
-import type { PlatformFeatures } from '@/types';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
+import type { PlatformFeatures } from '../../types';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
 import type { IPlatformImplementation } from './IPlatformImplementation';
 import { MacOSImplementation } from './MacOSImplementation';
 import { CrossPlatformImplementation } from './CrossPlatformImplementation';
-import { II18nService } from '@/i18n/I18nService';
-import { IConfigurationService } from '@/infrastructure/config/ConfigurationService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
+import { II18nService } from '../../i18n/I18nService';
+import { IConfigurationService } from '../config/ConfigurationService';
+import { ILogger } from '../logging/LoggingService';
 
 export interface IPlatformService {
     getFeatures(): PlatformFeatures;

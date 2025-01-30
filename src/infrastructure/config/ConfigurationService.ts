@@ -101,9 +101,18 @@ export class ConfigurationService implements IConfigurationService {
 
     async updateConfiguration(changes: Partial<Configuration>): Promise<void> {
         const config = vscode.workspace.getConfiguration(this.configSection);
+        
         for (const [key, value] of Object.entries(changes)) {
-            await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+            if (typeof value === 'object' && value !== null) {
+                // ネストされたオブジェクトの場合、各プロパティを個別に更新
+                for (const [subKey, subValue] of Object.entries(value)) {
+                    await config.update(`${key}.${subKey}`, subValue, vscode.ConfigurationTarget.Workspace);
+                }
+            } else {
+                await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+            }
         }
+        
         await this.reload();
     }
 

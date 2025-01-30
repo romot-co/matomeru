@@ -11,34 +11,37 @@
   "engines": {
     "vscode": "^1.96.0"
   },
+  "extensionKind": [
+    "workspace"
+  ],
   "categories": [
     "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "matomeru.combineDirectoryToEditor",
-        "title": "Matomeru: エディタで開く"
+        "title": "Combine to Editor",
+        "category": "matomeru"
       },
       {
         "command": "matomeru.combineDirectoryToClipboard",
-        "title": "Matomeru: クリップボードにコピー"
+        "title": "Combine to Clipboard",
+        "category": "matomeru"
       },
       {
-        "command": "matomeru.combineDirectoryToChatGPT",
-        "title": "Matomeru: ChatGPTで開く"
+        "command": "matomeru.openInChatGPT",
+        "title": "Combine to ChatGPT App",
+        "category": "matomeru"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "when": "explorerResourceIsFolder",
           "command": "matomeru.combineDirectoryToEditor",
-          "group": "navigation@1"
+          "group": "navigation",
+          "when": "explorerResourceIsFolder"
         },
         {
           "when": "explorerResourceIsFolder",
@@ -47,7 +50,7 @@
         },
         {
           "when": "explorerResourceIsFolder",
-          "command": "matomeru.combineDirectoryToChatGPT",
+          "command": "matomeru.openInChatGPT",
           "group": "navigation@3"
         }
       ]
@@ -81,17 +84,17 @@
             "build/**",
             "coverage/**"
           ],
-          "description": "スキャン時に除外するファイルパターン"
+          "description": "Exclude files by patterns"
         },
         "matomeru.maxFileSize": {
           "type": "number",
           "default": 1048576,
-          "description": "処理する最大ファイルサイズ（バイト）"
+          "description": "Maximum file size to process (bytes)"
         },
         "matomeru.maxConcurrentFiles": {
           "type": "number",
           "default": 10,
-          "description": "同時に処理するファイルの最大数"
+          "description": "Maximum number of files to process concurrently"
         },
         "matomeru.defaultOutputType": {
           "type": "string",
@@ -100,12 +103,12 @@
             "clipboard"
           ],
           "default": "editor",
-          "description": "デフォルトの出力タイプ"
+          "description": "Default output type"
         },
         "matomeru.chatGptIntegration": {
           "type": "boolean",
           "default": false,
-          "description": "ChatGPT統合機能を有効にする"
+          "description": "Enable send to ChatGPT App(macOS only)"
         }
       }
     }
@@ -118,20 +121,20 @@
     "lint": "eslint src",
     "test": "node ./out/test/runTest.js",
     "package": "vsce package",
-    "install-extension": "code --install-extension *.vsix"
+    "install-extension": "npm run clean &&vsce package && code --install-extension *.vsix",
+    "clean": "rimraf out dist *.vsix",
+    "postinstall": "npm run compile"
   },
   "dependencies": {
     "fast-glob": "^3.3.2",
     "fs-extra": "^11.2.0",
-    "glob": "^10.3.10",
-    "module-alias": "^2.2.3"
+    "glob": "^10.3.10"
   },
   "devDependencies": {
     "@types/chai": "^4.3.11",
     "@types/chai-as-promised": "^8.0.1",
     "@types/glob": "^8.1.0",
     "@types/mocha": "^10.0.6",
-    "@types/module-alias": "^2.0.4",
     "@types/node": "20.x",
     "@types/sinon": "^17.0.3",
     "@types/vscode": "^1.96.0",
@@ -144,7 +147,6 @@
     "eslint": "^8.56.0",
     "mocha": "^10.2.0",
     "sinon": "^19.0.2",
-    "sinon-chai": "^4.0.0",
     "typescript": "^5.3.3"
   },
   "icon": "images/icon.png",
@@ -159,8 +161,5 @@
     "directory",
     "combine",
     "visualization"
-  ],
-  "_moduleAliases": {
-    "@": "out"
-  }
+  ]
 }

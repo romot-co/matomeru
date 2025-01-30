@@ -1,15 +1,15 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { DirectoryScanner } from '@/domain/files/DirectoryScanner';
-import { IConfigurationService, Configuration } from '@/infrastructure/config/ConfigurationService';
-import { II18nService } from '@/i18n/I18nService';
+import { DirectoryScanner } from '../../../domain/files/DirectoryScanner';
+import { IConfigurationService, Configuration } from '../../../infrastructure/config/ConfigurationService';
+import { II18nService } from '../../../i18n/I18nService';
 import * as sinon from 'sinon';
-import { FileSystemAdapter, FileStats, IFileSystem, DirectoryEntry } from '@/domain/files/FileSystemAdapter';
+import { FileSystemAdapter, FileStats, IFileSystem, DirectoryEntry } from '../../../domain/files/FileSystemAdapter';
 import { expect } from 'chai';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { IWorkspaceService } from '@/domain/workspace/WorkspaceService';
-import { IFileTypeService } from '@/domain/files/FileTypeService';
+import { IErrorHandler } from '../../../shared/errors/services/ErrorService';
+import { ILogger } from '../../../infrastructure/logging/LoggingService';
+import { IWorkspaceService } from '../../../domain/workspace/WorkspaceService';
+import { IFileTypeService } from '../../../domain/files/FileTypeService';
 
 describe('パフォーマンステスト', () => {
     let scanner: DirectoryScanner;

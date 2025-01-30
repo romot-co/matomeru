@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { IConfigurationService } from '@/infrastructure/config/ConfigurationService';
+import { IConfigurationService } from '../config/ConfigurationService';
 
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
 
@@ -59,7 +59,13 @@ export class LoggingService implements ILogger {
             message,
             ...(context && {
                 source: context.source,
-                details: context.details
+                details: {
+                    ...context.details,
+                    // スタックトレースの追加
+                    stack: context.details?.error instanceof Error 
+                        ? context.details.error.stack 
+                        : undefined
+                }
             })
         };
 
@@ -74,6 +80,9 @@ export class LoggingService implements ILogger {
                 break;
             case 'ERROR':
                 this.outputChannel.error(logMessage);
+                if (this.config.isDebugEnabled) {
+                    console.error(logMessage);
+                }
                 break;
             case 'DEBUG':
                 this.outputChannel.debug(logMessage);

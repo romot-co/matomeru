@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { FileTypeService, IFileTypeConfig } from '@/domain/files/FileTypeService';
+import { FileTypeService, IFileTypeConfig } from '../../../domain/files/FileTypeService';
 
 describe('FileTypeService Tests', () => {
     let service: FileTypeService;

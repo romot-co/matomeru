@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { BaseError } from '@/shared/errors/base/BaseError';
-import type { ErrorContext } from '@/types';
+import { ILogger } from '../../infrastructure/logging/LoggingService';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
+import { BaseError } from '../../shared/errors/base/BaseError';
+import type { ErrorContext } from '../../types';
 
 export interface IWorkspaceService {
     validateWorkspacePath(path: string): Promise<boolean>;
@@ -129,12 +129,11 @@ export class WorkspaceService implements IWorkspaceService {
     }
 
     getWorkspacePath(): string | undefined {
-        // Implementation needed
-        throw new Error("Method not implemented.");
+        const folders = vscode.workspace.workspaceFolders;
+        return folders?.[0]?.uri.fsPath;
     }
 
     onWorkspaceChange(listener: () => void): vscode.Disposable {
-        // Implementation needed
-        throw new Error("Method not implemented.");
+        return vscode.workspace.onDidChangeWorkspaceFolders(listener);
     }
 } 

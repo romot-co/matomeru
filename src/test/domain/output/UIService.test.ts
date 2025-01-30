@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { UIService } from '@/domain/output/UIService';
-import { IClipboardService } from '@/infrastructure/platform/ClipboardService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { IConfigurationService } from '@/infrastructure/config/ConfigurationService';
-import { II18nService } from '@/i18n/I18nService';
-import { PlatformFeatures } from '@/types';
+import { UIService } from '../../../domain/output/UIService';
+import { IClipboardService } from '../../../infrastructure/platform/ClipboardService';
+import { ILogger } from '../../../infrastructure/logging/LoggingService';
+import { IConfigurationService } from '../../../infrastructure/config/ConfigurationService';
+import { II18nService } from '../../../i18n/I18nService';
 
 describe('UIService Tests', () => {
     let ui: UIService;

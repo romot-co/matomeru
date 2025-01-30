@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { LoggingService } from '@/infrastructure/logging/LoggingService';
-import { IConfigurationService, Configuration } from '@/infrastructure/config/ConfigurationService';
+import { LoggingService } from '../../../infrastructure/logging/LoggingService';
+import { IConfigurationService, Configuration } from '../../../infrastructure/config/ConfigurationService';
 
 describe('LoggingService Tests', () => {
     let service: LoggingService;

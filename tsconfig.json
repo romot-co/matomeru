@@ -12,9 +12,9 @@
 		"resolveJsonModule": true,
 		"esModuleInterop": true,
 		"moduleResolution": "node",
-		"baseUrl": ".",
+		"baseUrl": "./src",
 		"paths": {
-			"@/*": ["src/*"]
+			"@/*": ["*"]
 		},
 		"skipLibCheck": true,  // 外部ライブラリの型チェックをスキップ
 		"noImplicitAny": false,  // 暗黙的なany型を許可

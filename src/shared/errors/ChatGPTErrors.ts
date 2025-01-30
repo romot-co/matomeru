@@ -1,4 +1,4 @@
-import { BaseError } from '@/shared/errors/base/BaseError';
+import { BaseError } from '../../shared/errors/base/BaseError';
 
 export class UnsupportedPlatformError extends BaseError {
     constructor(message: string, details?: Record<string, unknown>) {

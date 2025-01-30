@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import type { LocaleMessages, I18nOptions } from '@/i18n/types';
-import { MessageValidator } from '@/i18n/validator';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
+import type { LocaleMessages } from './types';
+import { MessageValidator } from './validator';
+import { ILogger } from '../infrastructure/logging/LoggingService';
 import { enMessages } from './messages/en';
 import { jaMessages } from './messages/ja';
 

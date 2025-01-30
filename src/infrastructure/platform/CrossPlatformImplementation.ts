@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { IPlatformImplementation } from './IPlatformImplementation';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { UnsupportedPlatformError } from '@/shared/errors/ChatGPTErrors';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
+import { UnsupportedPlatformError } from '../../shared/errors/ChatGPTErrors';
 
 /**
  * クロスプラットフォーム実装クラス

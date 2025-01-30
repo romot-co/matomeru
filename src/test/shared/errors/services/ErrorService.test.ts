@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { ErrorService, ErrorType, IErrorServiceConfig, IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { BaseError } from '@/shared/errors/base/BaseError';
-import { II18nService } from '@/i18n/I18nService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
+import { ErrorService, IErrorServiceConfig } from '../../../../shared/errors/services/ErrorService';
+import { BaseError } from '../../../../shared/errors/base/BaseError';
+import { II18nService } from '../../../../i18n/I18nService';
+import { ILogger } from '../../../../infrastructure/logging/LoggingService';
 
 describe('ErrorService Tests', () => {
     let service: ErrorService;

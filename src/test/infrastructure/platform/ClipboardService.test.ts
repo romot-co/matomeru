@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { ClipboardService } from '@/infrastructure/platform/ClipboardService';
+import { ClipboardService } from '../../../infrastructure/platform/ClipboardService';
 
 describe('ClipboardService', () => {
     let sandbox: sinon.SinonSandbox;

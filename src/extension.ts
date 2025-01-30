@@ -1,18 +1,17 @@
-import 'module-alias/register';
 import * as vscode from 'vscode';
-import { DirectoryProcessingService } from '@/domain/output/DirectoryProcessingService';
-import { ConfigurationService } from '@/infrastructure/config/ConfigurationService';
-import { UIService } from '@/domain/output/UIService';
-import { I18nService } from '@/i18n/I18nService';
-import { LoggingService } from '@/infrastructure/logging/LoggingService';
-import { ErrorService } from '@/shared/errors/services/ErrorService';
-import { ClipboardService } from '@/infrastructure/platform/ClipboardService';
-import { DirectoryScanner } from '@/domain/files/DirectoryScanner';
-import { FileTypeService } from '@/domain/files/FileTypeService';
-import { FileSystemAdapter } from '@/domain/files/FileSystemAdapter';
-import { MarkdownGenerator } from '@/domain/output/MarkdownGenerator';
-import { WorkspaceService } from '@/domain/workspace/WorkspaceService';
-import { PlatformService } from '@/infrastructure/platform/PlatformService';
+import { DirectoryProcessingService } from './domain/output/DirectoryProcessingService';
+import { ConfigurationService } from './infrastructure/config/ConfigurationService';
+import { UIService } from './domain/output/UIService';
+import { I18nService } from './i18n/I18nService';
+import { LoggingService } from './infrastructure/logging/LoggingService';
+import { ErrorService } from './shared/errors/services/ErrorService';
+import { ClipboardService } from './infrastructure/platform/ClipboardService';
+import { DirectoryScanner } from './domain/files/DirectoryScanner';
+import { FileTypeService } from './domain/files/FileTypeService';
+import { FileSystemAdapter } from './domain/files/FileSystemAdapter';
+import { MarkdownGenerator } from './domain/output/MarkdownGenerator';
+import { WorkspaceService } from './domain/workspace/WorkspaceService';
+import { PlatformService } from './infrastructure/platform/PlatformService';
 
 export async function activate(context: vscode.ExtensionContext) {
     // 基本サービスの初期化
@@ -31,7 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const platform = PlatformService.createDefault(errorHandler, i18n, config, logger);
 
     // ドメインサービスの初期化
-    const fileSystem = new FileSystemAdapter(errorHandler);
+    const fileSystem = new FileSystemAdapter(errorHandler, logger);
     const fileTypeService = new FileTypeService();
     const scanner = new DirectoryScanner(
         config,
@@ -60,46 +59,52 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // コマンドの登録
     const disposables = [
-        vscode.commands.registerCommand('matomeru.combineDirectory', async () => {
+        vscode.commands.registerCommand('matomeru.combineDirectoryToEditor', async (uri?: vscode.Uri) => {
             try {
-                const workspaceFolder = await workspaceService.selectWorkspaceFolder();
-                if (!workspaceFolder) {
+                const targetPath = uri?.fsPath || (await workspaceService.selectWorkspaceFolder())?.uri.fsPath;
+                if (!targetPath) {
+                    await ui.showErrorMessage(i18n.t('ui.messages.selectDirectory'));
                     return;
                 }
-                await processor.processDirectoryToEditor(workspaceFolder.uri.fsPath);
+                await processor.processDirectoryToEditor(targetPath);
             } catch (error) {
                 await errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                    source: 'matomeru.combineDirectory',
+                    source: 'matomeru.combineDirectoryToEditor',
                     timestamp: new Date()
                 });
+                await ui.showErrorMessage(i18n.t('ui.messages.error'), true);
             }
         }),
-        vscode.commands.registerCommand('matomeru.copyToClipboard', async () => {
+        vscode.commands.registerCommand('matomeru.combineDirectoryToClipboard', async (uri?: vscode.Uri) => {
             try {
-                const workspaceFolder = await workspaceService.selectWorkspaceFolder();
-                if (!workspaceFolder) {
+                const targetPath = uri?.fsPath || (await workspaceService.selectWorkspaceFolder())?.uri.fsPath;
+                if (!targetPath) {
+                    await ui.showErrorMessage(i18n.t('ui.messages.selectDirectory'));
                     return;
                 }
-                await processor.processDirectoryToClipboard(workspaceFolder.uri.fsPath);
+                await processor.processDirectoryToClipboard(targetPath);
             } catch (error) {
                 await errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                    source: 'matomeru.copyToClipboard',
+                    source: 'matomeru.combineDirectoryToClipboard',
                     timestamp: new Date()
                 });
+                await ui.showErrorMessage(i18n.t('ui.messages.error'), true);
             }
         }),
-        vscode.commands.registerCommand('matomeru.openInChatGPT', async () => {
+        vscode.commands.registerCommand('matomeru.openInChatGPT', async (uri?: vscode.Uri) => {
             try {
-                const workspaceFolder = await workspaceService.selectWorkspaceFolder();
-                if (!workspaceFolder) {
+                const targetPath = uri?.fsPath || (await workspaceService.selectWorkspaceFolder())?.uri.fsPath;
+                if (!targetPath) {
+                    await ui.showErrorMessage(i18n.t('ui.messages.selectDirectory'));
                     return;
                 }
-                await processor.processDirectoryToChatGPT(workspaceFolder.uri.fsPath);
+                await processor.processDirectoryToChatGPT(targetPath);
             } catch (error) {
                 await errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
                     source: 'matomeru.openInChatGPT',
                     timestamp: new Date()
                 });
+                await ui.showErrorMessage(i18n.t('ui.messages.error'), true);
             }
         })
     ];

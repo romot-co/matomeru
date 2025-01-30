@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { FileSystemAdapter } from '@/domain/files/FileSystemAdapter';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
+import { FileSystemAdapter } from '../../../domain/files/FileSystemAdapter';
+import { IErrorHandler } from '../../../shared/errors/services/ErrorService';
+import { ILogger } from '../../../infrastructure/logging/LoggingService';
+import { BaseError } from '../../../shared/errors/base/BaseError';
+import * as path from 'path';
 
 describe('FileSystemAdapter', () => {
     let adapter: FileSystemAdapter;
     let sandbox: sinon.SinonSandbox;
-    let errorHandlerStub: {
-        handleError: sinon.SinonStub;
-        getErrorLogs: sinon.SinonStub;
-        clearErrorLogs: sinon.SinonStub;
-    };
+    let errorHandlerStub: IErrorHandler & { handleError: sinon.SinonStub };
+    let loggerStub: ILogger;
     let fsStub: {
         readFile: sinon.SinonStub;
         writeFile: sinon.SinonStub;
@@ -27,11 +27,21 @@ describe('FileSystemAdapter', () => {
     beforeEach(() => {
         sandbox = sinon.createSandbox();
 
-        // ErrorHandlerのスタブを作成
+        // エラーハンドラーのスタブを作成
         errorHandlerStub = {
             handleError: sandbox.stub().resolves(),
             getErrorLogs: sandbox.stub().returns([]),
             clearErrorLogs: sandbox.stub()
+        } as IErrorHandler & { handleError: sinon.SinonStub };
+
+        // ロガーのスタブを作成
+        loggerStub = {
+            info: sandbox.stub(),
+            warn: sandbox.stub(),
+            error: sandbox.stub(),
+            debug: sandbox.stub(),
+            show: sandbox.stub(),
+            dispose: sandbox.stub()
         };
 
         // VSCode FSのスタブを作成
@@ -48,7 +58,7 @@ describe('FileSystemAdapter', () => {
         };
 
         // FileSystemAdapterの初期化
-        adapter = new FileSystemAdapter(errorHandlerStub);
+        adapter = new FileSystemAdapter(errorHandlerStub, loggerStub);
         Object.defineProperty(vscode.workspace, 'fs', {
             value: fsStub,
             configurable: true,
@@ -63,24 +73,44 @@ describe('FileSystemAdapter', () => {
     describe('readFile', () => {
         it('ファイルを正常に読み込む', async () => {
             const content = 'test content';
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
             fsStub.readFile.resolves(Buffer.from(content));
 
             const result = await adapter.readFile('/test/path');
             expect(result).to.equal(content);
             expect(fsStub.readFile.calledOnce).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('エラー時に適切に処理する', async () => {
             const error = new Error('Read error');
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
             fsStub.readFile.rejects(error);
 
             try {
                 await adapter.readFile('/test/path');
                 expect.fail('エラーが発生するはずです');
             } catch (err) {
-                expect(err).to.equal(error);
-                expect(errorHandlerStub.handleError.calledOnce).to.be.true;
+                const baseError = err as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.message).to.equal('ファイルの読み込みに失敗しました');
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.details).to.deep.include({
+                    operation: 'readFile',
+                    path: '/test/path',
+                    originalError: 'Read error'
+                });
+                sinon.assert.called(errorHandlerStub.handleError);
             }
         });
     });
@@ -91,7 +121,7 @@ describe('FileSystemAdapter', () => {
 
             await adapter.writeFile('/test/path', 'test content');
             expect(fsStub.writeFile.calledOnce).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('エラー時に適切に処理する', async () => {
@@ -102,8 +132,16 @@ describe('FileSystemAdapter', () => {
                 await adapter.writeFile('/test/path', 'test content');
                 expect.fail('エラーが発生するはずです');
             } catch (err) {
-                expect(err).to.equal(error);
-                expect(errorHandlerStub.handleError.calledOnce).to.be.true;
+                const baseError = err as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.message).to.equal('ファイルの書き込みに失敗しました');
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.details).to.deep.include({
+                    operation: 'writeFile',
+                    path: '/test/path',
+                    error: 'Write error'
+                });
+                sinon.assert.calledOnce(errorHandlerStub.handleError);
             }
         });
     });
@@ -122,7 +160,7 @@ describe('FileSystemAdapter', () => {
                 { name: 'dir1', type: vscode.FileType.Directory }
             ]);
             expect(fsStub.readDirectory.calledOnce).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('エラー時に適切に処理する', async () => {
@@ -133,15 +171,28 @@ describe('FileSystemAdapter', () => {
                 await adapter.readDirectory('/test/dir');
                 expect.fail('エラーが発生するはずです');
             } catch (err) {
-                expect(err).to.equal(error);
-                expect(errorHandlerStub.handleError.calledOnce).to.be.true;
+                const baseError = err as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.message).to.equal('ディレクトリの読み込みに失敗しました');
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.details).to.deep.include({
+                    operation: 'readDirectory',
+                    path: '/test/dir',
+                    error: 'Read directory error'
+                });
+                sinon.assert.calledOnce(errorHandlerStub.handleError);
             }
         });
     });
 
     describe('exists', () => {
         it('ファイルが存在する場合はtrueを返す', async () => {
-            fsStub.stat.resolves({ type: vscode.FileType.File });
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
 
             const result = await adapter.exists('/test/path');
             expect(result).to.be.true;
@@ -163,7 +214,7 @@ describe('FileSystemAdapter', () => {
 
             await adapter.createDirectory('/test/dir');
             expect(fsStub.createDirectory.calledOnce).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('エラー時に適切に処理する', async () => {
@@ -175,7 +226,7 @@ describe('FileSystemAdapter', () => {
                 expect.fail('エラーが発生するはずです');
             } catch (err) {
                 expect(err).to.equal(error);
-                expect(errorHandlerStub.handleError.calledOnce).to.be.true;
+                sinon.assert.calledOnce(errorHandlerStub.handleError);
             }
         });
     });
@@ -186,7 +237,7 @@ describe('FileSystemAdapter', () => {
 
             await adapter.delete('/test/path');
             expect(fsStub.delete.calledOnce).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('再帰的な削除オプションを正しく処理する', async () => {
@@ -197,7 +248,7 @@ describe('FileSystemAdapter', () => {
                 sinon.match.any,
                 { recursive: true }
             )).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('エラー時に適切に処理する', async () => {
@@ -209,7 +260,7 @@ describe('FileSystemAdapter', () => {
                 expect.fail('エラーが発生するはずです');
             } catch (err) {
                 expect(err).to.equal(error);
-                expect(errorHandlerStub.handleError.calledOnce).to.be.true;
+                sinon.assert.calledOnce(errorHandlerStub.handleError);
             }
         });
     });
@@ -220,7 +271,7 @@ describe('FileSystemAdapter', () => {
 
             await adapter.copy('/test/source', '/test/target');
             expect(fsStub.copy.calledOnce).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('上書きオプションを正しく処理する', async () => {
@@ -232,7 +283,7 @@ describe('FileSystemAdapter', () => {
                 sinon.match.any,
                 { overwrite: true }
             )).to.be.true;
-            expect(errorHandlerStub.handleError.called).to.be.false;
+            sinon.assert.notCalled(errorHandlerStub.handleError);
         });
 
         it('エラー時に適切に処理する', async () => {
@@ -244,15 +295,166 @@ describe('FileSystemAdapter', () => {
                 expect.fail('エラーが発生するはずです');
             } catch (err) {
                 expect(err).to.equal(error);
-                expect(errorHandlerStub.handleError.calledOnce).to.be.true;
+                sinon.assert.calledOnce(errorHandlerStub.handleError);
             }
         });
     });
 
     describe('createDefault', () => {
         it('デフォルト設定でインスタンスを生成できる', () => {
-            const defaultAdapter = FileSystemAdapter.createDefault(errorHandlerStub);
+            const defaultAdapter = FileSystemAdapter.createDefault(errorHandlerStub, loggerStub);
             expect(defaultAdapter).to.be.instanceOf(FileSystemAdapter);
+        });
+    });
+
+    describe('パス解決のテスト', () => {
+        it('パスを正規化して処理する', async () => {
+            const filePath = '/test/path/../file.ts';
+            const normalizedPath = path.normalize(filePath);
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
+            fsStub.readFile.resolves(Buffer.from('test content'));
+
+            const result = await adapter.readFile(filePath);
+
+            expect(result).to.equal('test content');
+            sinon.assert.calledWith(fsStub.readFile, sinon.match((uri: vscode.Uri) => {
+                return uri.fsPath === normalizedPath;
+            }));
+        });
+
+        it('日本語を含むパスを正しく処理する', async () => {
+            const filePath = '/test/テスト/ファイル.ts';
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
+            fsStub.readFile.resolves(Buffer.from('test content'));
+
+            const result = await adapter.readFile(filePath);
+
+            expect(result).to.equal('test content');
+            sinon.assert.calledWith(fsStub.readFile, sinon.match((uri: vscode.Uri) => {
+                return uri.fsPath === filePath;
+            }));
+        });
+
+        it('存在しないファイルを適切に処理する', async () => {
+            const filePath = '/test/notexist.ts';
+            fsStub.stat.rejects(new Error('File not found'));
+
+            const exists = await adapter.exists(filePath);
+            expect(exists).to.be.false;
+        });
+    });
+
+    describe('エラーハンドリングの詳細テスト', () => {
+        it('ファイルの存在確認に失敗した場合のエラー', async () => {
+            const filePath = '/test/error.ts';
+            fsStub.stat.rejects(new Error('Access denied'));
+
+            try {
+                await adapter.readFile(filePath);
+                expect.fail('エラーが発生するはずです');
+            } catch (error) {
+                const baseError = error as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.message).to.equal('ファイルが存在しません');
+                expect(baseError.details).to.deep.include({
+                    path: filePath,
+                    operation: 'readFile',
+                    code: 'ENOENT'
+                });
+            }
+        });
+
+        it('ファイル読み込み時のパーミッションエラー', async () => {
+            const filePath = '/test/permission.ts';
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
+            const fsError = new Error('EACCES: permission denied');
+            (fsError as any).code = 'EACCES';
+            fsStub.readFile.rejects(fsError);
+
+            try {
+                await adapter.readFile(filePath);
+                expect.fail('エラーが発生するはずです');
+            } catch (error) {
+                const baseError = error as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.details?.code).to.equal('EACCES');
+                sinon.assert.calledWith(loggerStub.error as sinon.SinonStub, 
+                    'ファイルシステム操作エラー: readFile',
+                    sinon.match.object
+                );
+            }
+        });
+
+        it('空のファイルを適切に処理する', async () => {
+            const filePath = '/test/empty.ts';
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 0
+            });
+
+            try {
+                await adapter.readFile(filePath);
+                expect.fail('エラーが発生するはずです');
+            } catch (error) {
+                const baseError = error as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.message).to.equal('ファイルが空です');
+                expect(baseError.details).to.deep.include({
+                    path: filePath,
+                    operation: 'readFile',
+                    code: 'EMPTY_FILE'
+                });
+            }
+        });
+
+        it('メモリ不足エラーを適切に処理する', async () => {
+            const filePath = '/test/large.ts';
+            fsStub.stat.resolves({
+                type: vscode.FileType.File,
+                ctime: Date.now(),
+                mtime: Date.now(),
+                size: 100
+            });
+            const heapError = new Error('JavaScript heap out of memory');
+            fsStub.readFile.rejects(heapError);
+
+            try {
+                await adapter.readFile(filePath);
+                expect.fail('エラーが発生するはずです');
+            } catch (error) {
+                const baseError = error as BaseError;
+                expect(baseError).to.be.instanceOf(BaseError);
+                expect(baseError.code).to.equal('FileSystemError');
+                expect(baseError.details).to.deep.include({
+                    path: filePath,
+                    operation: 'readFile',
+                    originalError: 'JavaScript heap out of memory'
+                });
+                sinon.assert.calledWith(loggerStub.error as sinon.SinonStub, 
+                    'ファイルシステム操作エラー: readFile',
+                    sinon.match.object
+                );
+            }
         });
     });
 });

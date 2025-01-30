@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import type { ErrorContext } from '@/types';
-import { BaseError } from '@/shared/errors/base/BaseError';
-import { II18nService } from '@/i18n/I18nService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
+import type { ErrorContext } from '../../../types';
+import { BaseError } from '../../errors/base/BaseError';
+import { II18nService } from '../../../i18n/I18nService';
+import { ILogger } from '../../../infrastructure/logging/LoggingService';
 
 export type ErrorType =
     | 'ScanError'

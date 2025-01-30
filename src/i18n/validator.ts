@@ -1,5 +1,5 @@
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import type { LocaleMessages } from '@/i18n/types';
+import { ILogger } from '../infrastructure/logging/LoggingService';
+import type { LocaleMessages } from './types';
 
 type MessageValue = string | { [key: string]: MessageValue };
 

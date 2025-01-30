@@ -1,11 +1,10 @@
-import * as vscode from 'vscode';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { DirectoryStructureService } from '@/domain/structure/DirectoryStructureService';
-import { IFileSystem } from '@/domain/files/FileSystemAdapter';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { FileSystemEntity } from '@/types';
-import { II18nService } from '@/i18n/I18nService';
+import { DirectoryStructureService } from '../../../domain/structure/DirectoryStructureService';
+import { IFileSystem } from '../../../domain/files/FileSystemAdapter';
+import { IErrorHandler } from '../../../shared/errors/services/ErrorService';
+import { FileSystemEntity } from '../../../types';
+import { II18nService } from '../../../i18n/I18nService';
 
 describe('DirectoryStructureService', () => {
     let service: DirectoryStructureService;

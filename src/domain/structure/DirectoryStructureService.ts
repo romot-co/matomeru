@@ -1,6 +1,5 @@
-import * as vscode from 'vscode';
-import type { FileSystemEntity } from '@/types';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
+import type { FileSystemEntity } from '../../types';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
 
 type FormatType = 'tree' | 'icon';
 

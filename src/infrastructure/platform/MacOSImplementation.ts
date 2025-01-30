@@ -1,15 +1,13 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as os from 'os';
 import { promisify } from 'util';
 import { exec, ExecOptions } from 'child_process';
 import { IPlatformImplementation } from './IPlatformImplementation';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '@/shared/errors/ChatGPTErrors';
-import { II18nService } from '@/i18n/I18nService';
-import { IConfigurationService } from '@/infrastructure/config/ConfigurationService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { BaseError } from '@/shared/errors/base/BaseError';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
+import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '../../shared/errors/ChatGPTErrors';
+import { II18nService } from '../../i18n/I18nService';
+import { IConfigurationService } from '../config/ConfigurationService';
+import { ILogger } from '../logging/LoggingService';
+import { BaseError } from '../../shared/errors/base/BaseError';
 
 const execAsync = promisify(exec);
 const PASTE_RETRY_COUNT = 3;
@@ -166,14 +164,14 @@ export class MacOSImplementation implements IPlatformImplementation {
         );
     }
 
-    protected async runExecCommand(cmd: string, options: ExecOptions = {}): Promise<string> {
+    protected async runExecCommand(cmd: string, options: ExecOptions = {}): Promise<{ stdout: string; stderr: string }> {
         return new Promise((resolve, reject) => {
             exec(cmd, options, (error, stdout, stderr) => {
                 if (error) {
                     reject(error);
                     return;
                 }
-                resolve(stdout);
+                resolve({ stdout, stderr });
             });
         });
     }
@@ -182,12 +180,13 @@ export class MacOSImplementation implements IPlatformImplementation {
         try {
             await this.runExecCommand(`echo "${text}" | pbcopy`, {});
         } catch (error) {
-            await this.errorHandler.handleError(error as Error, {
+            const context = {
                 source: 'MacOSImplementation.copyToClipboard',
                 details: { text },
-                timestamp: new Date().toISOString()
-            });
-            throw error;
+                timestamp: new Date()
+            };
+            await this.errorHandler.handleError(error as Error, context);
+            throw new BaseError('クリップボードへのコピーに失敗しました', 'ClipboardError', { originalError: error });
         }
     }
 
@@ -204,8 +203,8 @@ export class MacOSImplementation implements IPlatformImplementation {
                     return true
                 end tell
             `;
-            await execAsync(`osascript -e '${script}'`);
-            return true;
+            const result = await this.runExecCommand(`osascript -e '${script}'`);
+            return result.stdout.trim() === 'true';
         } catch (error) {
             await this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
                 source: 'MacOSImplementation.checkAccessibilityPermission',
@@ -222,12 +221,18 @@ export class MacOSImplementation implements IPlatformImplementation {
     async launchApplication(bundleId: string): Promise<void> {
         try {
             // まずSpotlight検索でアプリの存在を確認
-            const searchResult = await execAsync(
+            const searchResult = await this.runExecCommand(
                 `mdfind "kMDItemCFBundleIdentifier = '${bundleId}'"`
             );
 
             if (searchResult.stdout.trim().length === 0) {
-                throw new ChatGPTUIError(this.i18n.t('errors.chatGPTNotInstalled'));
+                const error = new ChatGPTUIError(this.i18n.t('errors.chatGPTNotInstalled'));
+                await this.errorHandler.handleError(error, {
+                    source: 'MacOSImplementation.launchApplication',
+                    details: { bundleId },
+                    timestamp: new Date()
+                });
+                throw error;
             }
 
             // アプリを起動
@@ -236,11 +241,20 @@ export class MacOSImplementation implements IPlatformImplementation {
                     activate
                 end tell
             `;
-            await execAsync(`osascript -e '${script}'`);
+            await this.runExecCommand(`osascript -e '${script}'`);
             await this.delay(1000); // 起動完了を待機
         } catch (error) {
+            if (error instanceof ChatGPTUIError) {
+                throw error;
+            }
             console.error('アプリケーション起動エラー:', error);
-            throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
+            const uiError = new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
+            await this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
+                source: 'MacOSImplementation.launchApplication',
+                details: { bundleId },
+                timestamp: new Date()
+            });
+            throw uiError;
         }
     }
 

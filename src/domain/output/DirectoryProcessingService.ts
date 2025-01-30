@@ -1,16 +1,17 @@
 import * as vscode from 'vscode';
-import { DirectoryScanner, ScanResult, FileInfo } from '@/domain/files/DirectoryScanner';
+import { DirectoryScanner, ScanResult, FileInfo } from '../files/DirectoryScanner';
 import { MarkdownGenerator } from './MarkdownGenerator';
 import { IUIService } from './UIService';
-import { II18nService } from '@/i18n/I18nService';
-import { IConfigurationService, Configuration } from '@/infrastructure/config/ConfigurationService';
-import { IPlatformService } from '@/infrastructure/platform/PlatformService';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { BaseError } from '@/shared/errors/base/BaseError';
-import { ErrorContext } from '@/types';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { IWorkspaceService } from '@/domain/workspace/WorkspaceService';
-import { IClipboardService } from '@/infrastructure/platform/ClipboardService';
+import { II18nService } from '../../i18n/I18nService';
+import { IConfigurationService, Configuration } from '../../infrastructure/config/ConfigurationService';
+import { IPlatformService } from '../../infrastructure/platform/PlatformService';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
+import { BaseError } from '../../shared/errors/base/BaseError';
+import { UnsupportedPlatformError } from '../../shared/errors/ChatGPTErrors';
+import { ErrorContext } from '../../types';
+import { ILogger } from '../../infrastructure/logging/LoggingService';
+import { IWorkspaceService } from '../../domain/workspace/WorkspaceService';
+import { IClipboardService } from '../../infrastructure/platform/ClipboardService';
 
 export interface IDirectoryProcessor {
     processDirectoryToChatGPT(directoryPath: string): Promise<void>;
@@ -142,10 +143,9 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
         try {
             const features = this.platform.getFeatures();
             if (!features.canUseChatGPT) {
-                throw new BaseError(
-                    this.i18n.t('errors.macOSOnly'),
-                    'UnsupportedPlatformError'
-                );
+                const error = new UnsupportedPlatformError(this.i18n.t('errors.macOSOnly'));
+                await this.handleError(error, 'processDirectoryToChatGPT', { directoryPath });
+                throw error;
             }
 
             if (!await this.workspace.validateWorkspacePath(directoryPath)) {
@@ -177,6 +177,7 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
             );
         } catch (error) {
             await this.handleError(error, 'processDirectoryToChatGPT', { directoryPath });
+            throw error;
         }
     }
 
@@ -214,6 +215,7 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
             );
         } catch (error) {
             await this.handleError(error, 'processDirectoryToEditor', { directoryPath });
+            throw error;
         }
     }
 
@@ -256,6 +258,7 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
             );
         } catch (error) {
             await this.handleError(error, 'processDirectoryToClipboard', { directoryPath });
+            throw error;
         }
     }
 

@@ -1,14 +1,11 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { MarkdownGenerator, IMarkdownGenerator } from '@/domain/output/MarkdownGenerator';
-import { IFileSystem, DirectoryEntry, FileStats } from '@/domain/files/FileSystemAdapter';
-import { II18nService } from '@/i18n/I18nService';
-import { IConfigurationService } from '@/infrastructure/config/ConfigurationService';
-import type { ScanResult } from '@/types';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { expect } from 'chai';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
+import { MarkdownGenerator, IMarkdownGenerator } from '../../../domain/output/MarkdownGenerator';
+import { IFileSystem, DirectoryEntry, FileStats } from '../../../domain/files/FileSystemAdapter';
+import { ILogger } from '../../../infrastructure/logging/LoggingService';
+import * as path from 'path';
+import { BaseError } from '../../../shared/errors/base/BaseError';
 
 interface TestFile {
     path: string;
@@ -124,5 +121,123 @@ describe('MarkdownGenerator', () => {
 
         const markdown = await generator.generateMarkdown([testFile]);
         assert.strictEqual(markdown, '');
+    });
+
+    describe('パス解決のテスト', () => {
+        it('相対パスを絶対パスに正しく解決できる', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders![0];
+            const relativePath = 'src/test.ts';
+            const absolutePath = path.resolve(workspaceFolder.uri.fsPath, relativePath);
+
+            (fsAdapter.readFile as sinon.SinonStub)
+                .withArgs(absolutePath)
+                .resolves('test content');
+
+            const markdown = await generator.generateMarkdown([relativePath], {
+                rootPath: workspaceFolder.uri.fsPath
+            });
+
+            assert.ok(markdown.includes('File: test.ts'));
+            assert.ok(markdown.includes('Path: src/test.ts'));
+            sinon.assert.calledWith(fsAdapter.readFile as sinon.SinonStub, absolutePath);
+        });
+
+        it('日本語を含むパスを正しく処理できる', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders![0];
+            const relativePath = 'src/テスト/テスト.ts';
+            const absolutePath = path.resolve(workspaceFolder.uri.fsPath, relativePath);
+
+            (fsAdapter.readFile as sinon.SinonStub)
+                .withArgs(absolutePath)
+                .resolves('test content');
+
+            const markdown = await generator.generateMarkdown([relativePath], {
+                rootPath: workspaceFolder.uri.fsPath
+            });
+
+            assert.ok(markdown.includes('File: テスト.ts'));
+            assert.ok(markdown.includes('Path: src/テスト/テスト.ts'));
+            sinon.assert.calledWith(fsAdapter.readFile as sinon.SinonStub, absolutePath);
+        });
+
+        it('存在しないファイルを適切にスキップする', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders![0];
+            const relativePath = 'src/notexist.ts';
+            const absolutePath = path.resolve(workspaceFolder.uri.fsPath, relativePath);
+
+            (fsAdapter.readFile as sinon.SinonStub)
+                .withArgs(absolutePath)
+                .rejects(new BaseError('ファイルが存在しません', 'FileSystemError', { path: absolutePath }));
+
+            const markdown = await generator.generateMarkdown([relativePath], {
+                rootPath: workspaceFolder.uri.fsPath
+            });
+
+            assert.strictEqual(markdown, '');
+            sinon.assert.calledOnce(loggerStub.error as sinon.SinonStub);
+            assert.strictEqual((loggerStub.error as sinon.SinonStub).firstCall.args[0], 'ファイル処理に失敗しました');
+        });
+
+        it('複数ファイルの処理で一部が失敗しても続行できる', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders![0];
+            const validPath = 'src/valid.ts';
+            const invalidPath = 'src/invalid.ts';
+            const validAbsolutePath = path.resolve(workspaceFolder.uri.fsPath, validPath);
+            const invalidAbsolutePath = path.resolve(workspaceFolder.uri.fsPath, invalidPath);
+
+            (fsAdapter.readFile as sinon.SinonStub)
+                .withArgs(validAbsolutePath)
+                .resolves('valid content')
+                .withArgs(invalidAbsolutePath)
+                .rejects(new Error('ファイル読み込みエラー'));
+
+            const markdown = await generator.generateMarkdown([validPath, invalidPath], {
+                rootPath: workspaceFolder.uri.fsPath
+            });
+
+            assert.ok(markdown.includes('File: valid.ts'));
+            assert.ok(markdown.includes('valid content'));
+            sinon.assert.calledOnce(loggerStub.error as sinon.SinonStub);
+        });
+    });
+
+    describe('エラーハンドリングのテスト', () => {
+        it('空のファイルコンテンツを適切に処理する', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders![0];
+            const filePath = 'src/empty.ts';
+            const absolutePath = path.resolve(workspaceFolder.uri.fsPath, filePath);
+
+            (fsAdapter.readFile as sinon.SinonStub)
+                .withArgs(absolutePath)
+                .resolves('');
+
+            const markdown = await generator.generateMarkdown([filePath], {
+                rootPath: workspaceFolder.uri.fsPath
+            });
+
+            assert.ok(markdown.includes('File: empty.ts'));
+            assert.ok(markdown.includes('```typescript\n\n```'));
+        });
+
+        it('ファイルシステムエラーを適切にハンドリングする', async () => {
+            const workspaceFolder = vscode.workspace.workspaceFolders![0];
+            const filePath = 'src/error.ts';
+            const absolutePath = path.resolve(workspaceFolder.uri.fsPath, filePath);
+
+            const fsError = new Error('EACCES: permission denied');
+            (fsError as any).code = 'EACCES';
+
+            (fsAdapter.readFile as sinon.SinonStub)
+                .withArgs(absolutePath)
+                .rejects(fsError);
+
+            const markdown = await generator.generateMarkdown([filePath], {
+                rootPath: workspaceFolder.uri.fsPath
+            });
+
+            assert.strictEqual(markdown, '');
+            sinon.assert.calledOnce(loggerStub.error as sinon.SinonStub);
+            assert.ok((loggerStub.error as sinon.SinonStub).firstCall.args[1].details.error.includes('EACCES'));
+        });
     });
 }); 

@@ -1,5 +1,4 @@
 import '../setup';
-import 'module-alias/register';
 import * as path from 'path';
 import Mocha from 'mocha';
 import { glob } from 'glob';
@@ -7,13 +6,6 @@ import { glob } from 'glob';
 // テスト実行前の環境設定
 process.env.NODE_ENV = 'test';
 process.env.VSCODE_TEST = 'true';
-
-// module-aliasの設定を動的に行う
-import moduleAlias from 'module-alias';
-const rootDir = path.resolve(__dirname, '../../..');
-moduleAlias.addAliases({
-    '@': path.join(rootDir, 'out')
-});
 
 export async function run(): Promise<void> {
     try {

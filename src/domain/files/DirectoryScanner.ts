@@ -1,13 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { IConfigurationService } from '@/infrastructure/config/ConfigurationService';
-import { ILogger } from '@/infrastructure/logging/LoggingService';
-import { IErrorHandler } from '@/shared/errors/services/ErrorService';
-import { BaseError } from '@/shared/errors/base/BaseError';
+import { IConfigurationService } from '../../infrastructure/config/ConfigurationService';
+import { ILogger } from '../../infrastructure/logging/LoggingService';
+import { IErrorHandler } from '../../shared/errors/services/ErrorService';
+import { BaseError } from '../../shared/errors/base/BaseError';
 import type { ErrorContext } from '../../types';
-import { IWorkspaceService } from '@/domain/workspace/WorkspaceService';
+import { IWorkspaceService } from '../../domain/workspace/WorkspaceService';
 import { IFileSystem } from './FileSystemAdapter';
 import { IFileTypeService } from './FileTypeService';
+import { ScanError } from '../../shared/errors/ScanError';
 
 export interface FileInfo {
     path: string;
@@ -131,8 +132,21 @@ export class DirectoryScanner implements IDirectoryScanner {
             
             return vscode.workspace.findFiles(pattern, excludePattern);
         } catch (error) {
-            await this.handleError(error, 'collectFiles', { directoryPath, excludePatterns });
-            throw error;
+            const context: ErrorContext = {
+                source: 'DirectoryScanner.collectFiles',
+                details: { 
+                    directoryPath, 
+                    excludePatterns,
+                    errorMessage: error instanceof Error ? error.message : String(error)
+                },
+                timestamp: new Date()
+            };
+            this.logger.error('Failed to collect files', context);
+            await this.errorHandler.handleError(
+                error instanceof Error ? error : new Error(String(error)),
+                context
+            );
+            return [];
         }
     }
 
@@ -233,13 +247,20 @@ export class DirectoryScanner implements IDirectoryScanner {
 
             return fileInfo;
         } catch (error) {
-            this.logger.error('Failed to process file', {
+            const errorContext: ErrorContext = {
                 source: 'DirectoryScanner.processFile',
                 details: {
-                    file: file.fsPath,
+                    path: file.fsPath,
                     error: error instanceof Error ? error.message : String(error)
-                }
-            });
+                },
+                timestamp: new Date()
+            };
+
+            this.logger.error('Failed to process file', errorContext);
+            await this.errorHandler.handleError(
+                error instanceof Error ? error : new Error(String(error)),
+                errorContext
+            );
             return null;
         }
     }
@@ -254,17 +275,48 @@ export class DirectoryScanner implements IDirectoryScanner {
             timestamp: new Date()
         };
 
-        this.logger.error(`Error in ${operation}`, {
-            source: `DirectoryScanner.${operation}`,
+        this.logger.error('Operation failed', {
+            source: context.source,
             details: {
-                ...details,
+                ...context.details,
                 error: error instanceof Error ? error.message : String(error)
-            }
+            },
+            timestamp: context.timestamp
         });
 
         await this.errorHandler.handleError(
-            error instanceof Error ? error : new BaseError(String(error), 'UnknownError'),
+            error instanceof Error ? error : new Error(String(error)),
             context
         );
+    }
+
+    private async validateFilePath(filePath: string): Promise<boolean> {
+        try {
+            const stat = await this.fsAdapter.stat(filePath);
+            const maxSize = this.config.getConfiguration().maxFileSize;
+            
+            if (stat.size > maxSize) {
+                this.logger.warn('ファイルサイズが制限を超えています', {
+                    source: 'DirectoryScanner.validateFilePath',
+                    details: {
+                        path: filePath,
+                        size: stat.size,
+                        maxSize
+                    }
+                });
+                return false;
+            }
+            
+            return true;
+        } catch (error) {
+            this.logger.error('ファイルパスの検証に失敗しました', {
+                source: 'DirectoryScanner.validateFilePath',
+                details: {
+                    path: filePath,
+                    error: error instanceof Error ? error.message : String(error)
+                }
+            });
+            return false;
+        }
     }
 } 

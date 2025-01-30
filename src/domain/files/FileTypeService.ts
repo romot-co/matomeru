@@ -1,6 +1,6 @@
 import * as path from 'path';
-import type { FileTypeConfig, FileTypesConfig } from '@/types';
-import * as fileTypesConfig from '@/config/file-types.json';
+import type { FileTypesConfig } from '../../types';
+import * as fileTypesConfig from '../../config/file-types.json';
 
 export interface IFileTypeService {
     isTextFile(filePath: string): boolean;
