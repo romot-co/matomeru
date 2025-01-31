@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { IFileSystem } from '../files/FileSystemAdapter';
 import { ILogger } from '../../infrastructure/logging/LoggingService';
-import { BaseError } from '../../shared/errors/base/BaseError';
+import { MatomeruError, ErrorCode } from '../../shared/errors/MatomeruError';
 import * as vscode from 'vscode';
 
 export interface MarkdownOptions {
@@ -239,10 +239,14 @@ export class MarkdownGenerator implements IMarkdownGenerator {
     private getWorkspaceRoot(): string {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
-            throw new BaseError(
+            throw new MatomeruError(
                 'ワークスペースが開かれていません',
-                'WorkspaceError',
-                { code: 'NO_WORKSPACE' }
+                ErrorCode.WORKSPACE_ERROR,
+                {
+                    source: 'MarkdownGenerator.getWorkspaceRoot',
+                    timestamp: new Date(),
+                    details: { message: 'No workspace folders found' }
+                }
             );
         }
         return workspaceFolders[0].uri.fsPath;

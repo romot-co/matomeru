@@ -1,10 +1,11 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { DirectoryStructureService } from '../../../domain/structure/DirectoryStructureService';
+import { DirectoryStructureService } from '../DirectoryStructureService';
 import { IFileSystem } from '../../../domain/files/FileSystemAdapter';
 import { IErrorHandler } from '../../../shared/errors/services/ErrorService';
 import { FileSystemEntity } from '../../../types';
 import { II18nService } from '../../../i18n/I18nService';
+import { MatomeruError, ErrorCode, ErrorContext } from '../../../shared/errors/MatomeruError';
 
 describe('DirectoryStructureService', () => {
     let service: DirectoryStructureService;
@@ -26,14 +27,21 @@ describe('DirectoryStructureService', () => {
             copy() { return Promise.resolve(); }
         });
         errorHandlerStub = sandbox.createStubInstance<IErrorHandler>(class implements IErrorHandler {
-            handleError() { return Promise.resolve(); }
-            getErrorLogs() { return []; }
-            clearErrorLogs() {}
+            async handleError(error: MatomeruError): Promise<void> { }
+            async showErrorMessage(error: MatomeruError): Promise<void> { }
+            getErrorLogs(): ErrorContext[] { 
+                return [{ 
+                    source: 'test',
+                    timestamp: new Date(),
+                    details: {}
+                }]; 
+            }
+            clearErrorLogs(): void { }
         });
         i18nStub = sandbox.createStubInstance<II18nService>(class implements II18nService {
-            t(key: string) { return key; }
-            setLocale() {}
-            getCurrentLocale() { return 'en'; }
+            t(key: string): string { return key; }
+            setLocale(locale: string): void { }
+            getCurrentLocale(): string { return 'en'; }
         });
 
         service = new DirectoryStructureService(errorHandlerStub);

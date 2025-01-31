@@ -1,17 +1,15 @@
 import * as vscode from 'vscode';
 import { DirectoryScanner, ScanResult, FileInfo } from '../files/DirectoryScanner';
 import { MarkdownGenerator } from './MarkdownGenerator';
-import { IUIService } from './UIService';
+import { IUIService } from '../../infrastructure/ui/UIService';
 import { II18nService } from '../../i18n/I18nService';
 import { IConfigurationService, Configuration } from '../../infrastructure/config/ConfigurationService';
 import { IPlatformService } from '../../infrastructure/platform/PlatformService';
 import { IErrorHandler } from '../../shared/errors/services/ErrorService';
-import { BaseError } from '../../shared/errors/base/BaseError';
-import { UnsupportedPlatformError } from '../../shared/errors/ChatGPTErrors';
-import { ErrorContext } from '../../types';
+import { IWorkspaceService } from '../../infrastructure/workspace/WorkspaceService';
 import { ILogger } from '../../infrastructure/logging/LoggingService';
-import { IWorkspaceService } from '../../domain/workspace/WorkspaceService';
 import { IClipboardService } from '../../infrastructure/platform/ClipboardService';
+import { MatomeruError, ErrorCode, ErrorContext } from '../../shared/errors/MatomeruError';
 
 export interface IDirectoryProcessor {
     processDirectoryToChatGPT(directoryPath: string): Promise<void>;
@@ -98,17 +96,19 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
     /**
      * エラー処理の共通化
      */
-    private async handleError(error: unknown, operation: string, details: Record<string, unknown>): Promise<void> {
-        const context: ErrorContext = {
-            source: `DirectoryProcessingService.${operation}`,
-            details,
-            timestamp: new Date()
-        };
-        await this.error.handleError(
-            error instanceof Error ? error : new BaseError(String(error), 'UnknownError'),
-            context
+    private async handleError(error: unknown, source: string, context: Record<string, unknown>): Promise<void> {
+        const matomeruError = error instanceof MatomeruError ? error : new MatomeruError(
+            error instanceof Error ? error.message : String(error),
+            ErrorCode.UNKNOWN,
+            {
+                source,
+                timestamp: new Date(),
+                details: context
+            }
         );
-        throw error;
+
+        await this.error.handleError(matomeruError);
+        throw matomeruError;
     }
 
     /**
@@ -141,43 +141,24 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
      */
     async processDirectoryToChatGPT(directoryPath: string): Promise<void> {
         try {
-            const features = this.platform.getFeatures();
-            if (!features.canUseChatGPT) {
-                const error = new UnsupportedPlatformError(this.i18n.t('errors.macOSOnly'));
-                await this.handleError(error, 'processDirectoryToChatGPT', { directoryPath });
-                throw error;
-            }
-
-            if (!await this.workspace.validateWorkspacePath(directoryPath)) {
-                throw new BaseError(
-                    this.i18n.t('errors.directoryNotInWorkspace'),
-                    'InvalidDirectoryError',
-                    { directoryPath }
+            const result = await this.scanner.scan(directoryPath);
+            if (!result.files.length) {
+                throw new MatomeruError(
+                    'スキャン可能なファイルが見つかりませんでした',
+                    ErrorCode.INVALID_DIRECTORY,
+                    {
+                        source: 'DirectoryProcessingService.processDirectoryToChatGPT',
+                        timestamp: new Date(),
+                        details: { path: directoryPath }
+                    }
                 );
             }
 
-            await this.ui.showProgress(
-                this.i18n.t('ui.progress.processing'),
-                async (progress) => {
-                    progress.report({ message: this.i18n.t('ui.progress.scanning') });
-                    const scanResult = await this.scanner.scan(directoryPath);
-
-                    progress.report({ message: this.i18n.t('ui.progress.collecting') });
-                    const markdown = await this.generateMarkdownContent(scanResult.files);
-
-                    progress.report({ message: this.i18n.t('ui.progress.processing') });
-                    await this.platform.openInChatGPT(markdown);
-
-                    await this.scanAndSaveResult(directoryPath, 'chatgpt', scanResult);
-                }
-            );
-
-            await this.ui.showInformationMessage(
-                this.i18n.t('ui.messages.sentToChatGPT')
-            );
+            const markdown = await this.generateMarkdownContent(result.files);
+            await this.platform.openInChatGPT(markdown);
+            await this.scanAndSaveResult(directoryPath, 'chatgpt', result);
         } catch (error) {
-            await this.handleError(error, 'processDirectoryToChatGPT', { directoryPath });
-            throw error;
+            await this.handleError(error, 'DirectoryProcessingService.processDirectoryToChatGPT', { path: directoryPath });
         }
     }
 
@@ -186,36 +167,24 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
      */
     async processDirectoryToEditor(directoryPath: string): Promise<void> {
         try {
-            if (!await this.workspace.validateWorkspacePath(directoryPath)) {
-                throw new BaseError(
-                    this.i18n.t('errors.directoryNotInWorkspace'),
-                    'InvalidDirectoryError',
-                    { directoryPath }
+            const result = await this.scanner.scan(directoryPath);
+            if (!result.files.length) {
+                throw new MatomeruError(
+                    'スキャン可能なファイルが見つかりませんでした',
+                    ErrorCode.INVALID_DIRECTORY,
+                    {
+                        source: 'DirectoryProcessingService.processDirectoryToEditor',
+                        timestamp: new Date(),
+                        details: { path: directoryPath }
+                    }
                 );
             }
 
-            await this.ui.showProgress(
-                this.i18n.t('ui.progress.processing'),
-                async (progress) => {
-                    progress.report({ message: this.i18n.t('ui.progress.scanning') });
-                    const scanResult = await this.scanner.scan(directoryPath);
-
-                    progress.report({ message: this.i18n.t('ui.progress.collecting') });
-                    const markdown = await this.generateMarkdownContent(scanResult.files);
-
-                    progress.report({ message: this.i18n.t('ui.progress.processing') });
-                    await this.ui.openTextDocument(markdown);
-
-                    await this.scanAndSaveResult(directoryPath, 'editor', scanResult);
-                }
-            );
-
-            await this.ui.showInformationMessage(
-                this.i18n.t('ui.messages.openedInEditor')
-            );
+            const markdown = await this.generateMarkdownContent(result.files);
+            await this.ui.openTextDocument(markdown);
+            await this.ui.showInformationMessage(this.i18n.t('ui.messages.openedInEditor'));
         } catch (error) {
-            await this.handleError(error, 'processDirectoryToEditor', { directoryPath });
-            throw error;
+            await this.handleError(error, 'DirectoryProcessingService.processDirectoryToEditor', { path: directoryPath });
         }
     }
 
@@ -224,41 +193,24 @@ export class DirectoryProcessingService implements IDirectoryProcessor {
      */
     async processDirectoryToClipboard(directoryPath: string): Promise<void> {
         try {
-            if (!await this.workspace.validateWorkspacePath(directoryPath)) {
-                throw new BaseError(
-                    this.i18n.t('errors.directoryNotInWorkspace'),
-                    'InvalidDirectoryError',
-                    { directoryPath }
+            const result = await this.scanner.scan(directoryPath);
+            if (!result.files.length) {
+                throw new MatomeruError(
+                    'スキャン可能なファイルが見つかりませんでした',
+                    ErrorCode.INVALID_DIRECTORY,
+                    {
+                        source: 'DirectoryProcessingService.processDirectoryToClipboard',
+                        timestamp: new Date(),
+                        details: { path: directoryPath }
+                    }
                 );
             }
 
-            await this.ui.showProgress(
-                this.i18n.t('ui.progress.processing'),
-                async (progress) => {
-                    progress.report({ message: this.i18n.t('ui.progress.scanning') });
-                    const config = this.config.getConfiguration();
-                    const scanResult = await this.scanner.scan(directoryPath, {
-                        batchSize: config.batchSize,
-                        maxFileSize: config.maxFileSize,
-                        excludePatterns: config.excludePatterns
-                    });
-
-                    progress.report({ message: this.i18n.t('ui.progress.collecting') });
-                    const markdown = await this.generateMarkdownContent(scanResult.files);
-
-                    progress.report({ message: this.i18n.t('ui.progress.processing') });
-                    await this.clipboard.writeText(markdown);
-
-                    await this.scanAndSaveResult(directoryPath, 'clipboard', scanResult);
-                }
-            );
-
-            await this.ui.showInformationMessage(
-                this.i18n.t('ui.messages.copiedToClipboard')
-            );
+            const markdown = await this.generateMarkdownContent(result.files);
+            await this.clipboard.writeText(markdown);
+            await this.ui.showInformationMessage(this.i18n.t('ui.messages.copiedToClipboard'));
         } catch (error) {
-            await this.handleError(error, 'processDirectoryToClipboard', { directoryPath });
-            throw error;
+            await this.handleError(error, 'DirectoryProcessingService.processDirectoryToClipboard', { path: directoryPath });
         }
     }
 

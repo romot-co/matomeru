@@ -3,11 +3,10 @@ import { promisify } from 'util';
 import { exec, ExecOptions } from 'child_process';
 import { IPlatformImplementation } from './IPlatformImplementation';
 import { IErrorHandler } from '../../shared/errors/services/ErrorService';
-import { UnsupportedPlatformError, AccessibilityPermissionError, ChatGPTUIError } from '../../shared/errors/ChatGPTErrors';
 import { II18nService } from '../../i18n/I18nService';
 import { IConfigurationService } from '../config/ConfigurationService';
 import { ILogger } from '../logging/LoggingService';
-import { BaseError } from '../../shared/errors/base/BaseError';
+import { MatomeruError, ErrorCode } from '../../shared/errors/MatomeruError';
 
 const execAsync = promisify(exec);
 const PASTE_RETRY_COUNT = 3;
@@ -43,27 +42,34 @@ export class MacOSImplementation implements IPlatformImplementation {
 
     async openInChatGPT(content: string): Promise<void> {
         if (!this.isAvailable()) {
-            throw new UnsupportedPlatformError('この機能はmacOSでのみ利用可能です');
+            throw new MatomeruError(
+                'この機能はmacOSでのみ利用可能です',
+                ErrorCode.PLATFORM_ERROR,
+                {
+                    source: 'MacOSImplementation.openInChatGPT',
+                    details: { platform: process.platform },
+                    timestamp: new Date()
+                }
+            );
+        }
+
+        const config = this.configManager.getConfiguration();
+        if (config.development.mockChatGPT) {
+            this.logger.debug('開発モード: ChatGPTの操作をモック');
+            return;
         }
 
         try {
             const hasPermission = await this.checkAccessibilityPermission();
             if (!hasPermission) {
-                const action = await vscode.window.showErrorMessage(
-                    this.i18n.t('errors.accessibilityPermission'),
-                    { modal: true },
-                    '設定を開く',
-                    'ブラウザ版を使用'
+                throw new MatomeruError(
+                    'アクセシビリティの権限が必要です',
+                    ErrorCode.PERMISSION_ERROR,
+                    {
+                        source: 'MacOSImplementation.openInChatGPT',
+                        timestamp: new Date()
+                    }
                 );
-
-                if (action === '設定を開く') {
-                    await execAsync('open "x-apple.systempreferences:com.apple.preference.security"');
-                    return;
-                } else if (action === 'ブラウザ版を使用') {
-                    await this.openInBrowser(content);
-                    return;
-                }
-                throw new AccessibilityPermissionError('アクセシビリティの権限が必要です');
             }
 
             // アプリを起動して待機
@@ -84,48 +90,46 @@ export class MacOSImplementation implements IPlatformImplementation {
                     success = true;
                     break;
                 } catch (error) {
-                    console.error(`Attempt ${i + 1} failed:`, error);
                     if (i === MAX_SCRIPT_RETRIES - 1) {
-                        const action = await vscode.window.showErrorMessage(
-                            'ChatGPTへの自動貼り付けに失敗しました。',
-                            'マニュアルで貼り付け',
-                            'ブラウザ版を使用',
-                            'バンドルIDを設定'
+                        throw new MatomeruError(
+                            'この機能はmacOSでのみ利用可能です',
+                            ErrorCode.PLATFORM_ERROR,
+                            {
+                                source: 'MacOSImplementation.openInChatGPT',
+                                timestamp: new Date()
+                            }
                         );
-
-                        if (action === 'マニュアルで貼り付け') {
-                            await vscode.window.showInformationMessage(
-                                'コンテンツはクリップボードにコピーされています。ChatGPTアプリで Command+V を押して貼り付けてください。'
-                            );
-                            return;
-                        } else if (action === 'ブラウザ版を使用') {
-                            await this.openInBrowser(content);
-                            return;
-                        } else if (action === 'バンドルIDを設定') {
-                            await vscode.commands.executeCommand('workbench.action.openSettings', 'matomeru.chatgptBundleId');
-                            return;
-                        }
-                        throw error;
                     }
-                    await this.delay(1000 * (i + 1)); // 指数バックオフ
+                    await this.delay(1000 * (i + 1));
                 }
             }
 
             if (!success) {
-                throw new ChatGPTUIError('ChatGPTへの送信に失敗しました');
+                throw new MatomeruError(
+                    'この機能はmacOSでのみ利用可能です',
+                    ErrorCode.PLATFORM_ERROR,
+                    {
+                        source: 'MacOSImplementation.openInChatGPT',
+                        timestamp: new Date()
+                    }
+                );
             }
 
         } catch (error) {
-            console.error('Error in openInChatGPT:', error);
-            await this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                source: 'MacOSImplementation.openInChatGPT',
-                timestamp: new Date(),
-                details: {
-                    platform: process.platform,
-                    osVersion: process.version
+            const matomeruError = error instanceof MatomeruError ? error : new MatomeruError(
+                'この機能はmacOSでのみ利用可能です',
+                ErrorCode.PLATFORM_ERROR,
+                {
+                    source: 'MacOSImplementation.openInChatGPT',
+                    timestamp: new Date(),
+                    details: {
+                        platform: process.platform,
+                        osVersion: process.version
+                    }
                 }
-            });
-            throw error;
+            );
+            await this.errorHandler.handleError(matomeruError);
+            throw matomeruError;
         }
     }
 
@@ -133,24 +137,26 @@ export class MacOSImplementation implements IPlatformImplementation {
         const config = this.configManager.getConfiguration();
         const bundleId = config.chatgptBundleId || DEFAULT_BUNDLE_ID;
 
+        if (config.development.mockChatGPT) {
+            this.logger.debug('開発モード: ChatGPTのバンドルID確認をスキップ');
+            return bundleId;
+        }
+
         // バンドルIDの存在確認
         const searchResult = await execAsync(
             `mdfind "kMDItemCFBundleIdentifier = '${bundleId}'"`
         );
 
         if (searchResult.stdout.trim().length === 0) {
-            const action = await vscode.window.showErrorMessage(
-                `ChatGPTアプリが見つかりません (${bundleId})`,
-                'バンドルIDを設定',
-                'ブラウザ版を使用'
+            throw new MatomeruError(
+                'この機能はmacOSでのみ利用可能です',
+                ErrorCode.PLATFORM_ERROR,
+                {
+                    source: 'MacOSImplementation.getChatGPTBundleId',
+                    details: { bundleId },
+                    timestamp: new Date()
+                }
             );
-
-            if (action === 'バンドルIDを設定') {
-                await vscode.commands.executeCommand('workbench.action.openSettings', 'matomeru.chatgptBundleId');
-            } else if (action === 'ブラウザ版を使用') {
-                throw new ChatGPTUIError('ブラウザ版に切り替えます');
-            }
-            throw new ChatGPTUIError('ChatGPTアプリが見つかりません');
         }
 
         return bundleId;
@@ -178,83 +184,103 @@ export class MacOSImplementation implements IPlatformImplementation {
 
     async copyToClipboard(text: string): Promise<void> {
         try {
-            await this.runExecCommand(`echo "${text}" | pbcopy`, {});
+            await this.runExecCommand(`echo "${text}" | pbcopy`);
         } catch (error) {
-            const context = {
-                source: 'MacOSImplementation.copyToClipboard',
-                details: { text },
-                timestamp: new Date()
-            };
-            await this.errorHandler.handleError(error as Error, context);
-            throw new BaseError('クリップボードへのコピーに失敗しました', 'ClipboardError', { originalError: error });
+            const matomeruError = new MatomeruError(
+                'クリップボードへのコピーに失敗しました',
+                ErrorCode.CLIPBOARD_ERROR,
+                {
+                    source: 'MacOSImplementation.copyToClipboard',
+                    details: {
+                        error: error instanceof Error ? error.message : String(error)
+                    },
+                    timestamp: new Date(),
+                    originalError: error
+                }
+            );
+            await this.errorHandler.handleError(matomeruError);
+            throw matomeruError;
         }
     }
 
     async checkAccessibilityPermission(): Promise<boolean> {
-        if (!this.isAvailable()) {
-            throw new UnsupportedPlatformError(
-                'この機能はmacOSでのみ利用可能です。他のプラットフォームではブラウザ版ChatGPTをご利用ください。'
-            );
-        }
-
         try {
             const script = `
                 tell application "System Events"
                     return true
                 end tell
             `;
-            const result = await this.runExecCommand(`osascript -e '${script}'`);
-            return result.stdout.trim() === 'true';
+            await this.runExecCommand(`osascript -e '${script}'`);
+            return true;
         } catch (error) {
-            await this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                source: 'MacOSImplementation.checkAccessibilityPermission',
-                timestamp: new Date(),
-                details: {
-                    platform: process.platform,
-                    osVersion: process.version
+            const matomeruError = new MatomeruError(
+                'アクセシビリティ権限が必要です',
+                ErrorCode.PERMISSION_ERROR,
+                {
+                    source: 'MacOSImplementation.checkAccessibilityPermission',
+                    details: {
+                        platform: process.platform,
+                        osVersion: process.version,
+                        error: error instanceof Error ? error.message : String(error)
+                    },
+                    timestamp: new Date()
                 }
-            });
+            );
+            await this.errorHandler.handleError(matomeruError);
             return false;
         }
     }
 
     async launchApplication(bundleId: string): Promise<void> {
+        if (!this.isAvailable()) {
+            throw new MatomeruError(
+                'この機能はmacOSでのみ利用可能です',
+                ErrorCode.PLATFORM_ERROR,
+                {
+                    source: 'MacOSImplementation.launchApplication',
+                    details: { platform: process.platform },
+                    timestamp: new Date()
+                }
+            );
+        }
+
+        const config = this.configManager.getConfiguration();
+        if (config.development.mockChatGPT) {
+            this.logger.debug('開発モード: アプリケーション起動をモック');
+            return;
+        }
+
         try {
-            // まずSpotlight検索でアプリの存在を確認
-            const searchResult = await this.runExecCommand(
+            const searchResult = await execAsync(
                 `mdfind "kMDItemCFBundleIdentifier = '${bundleId}'"`
             );
 
             if (searchResult.stdout.trim().length === 0) {
-                const error = new ChatGPTUIError(this.i18n.t('errors.chatGPTNotInstalled'));
-                await this.errorHandler.handleError(error, {
-                    source: 'MacOSImplementation.launchApplication',
-                    details: { bundleId },
-                    timestamp: new Date()
-                });
-                throw error;
+                throw new MatomeruError(
+                    'この機能はmacOSでのみ利用可能です',
+                    ErrorCode.PLATFORM_ERROR,
+                    {
+                        source: 'MacOSImplementation.launchApplication',
+                        details: { bundleId },
+                        timestamp: new Date()
+                    }
+                );
             }
 
-            // アプリを起動
-            const script = `
-                tell application id "${bundleId}"
-                    activate
-                end tell
-            `;
-            await this.runExecCommand(`osascript -e '${script}'`);
-            await this.delay(1000); // 起動完了を待機
+            await execAsync(`osascript -e 'tell application id "${bundleId}" to activate'`);
         } catch (error) {
-            if (error instanceof ChatGPTUIError) {
-                throw error;
-            }
-            console.error('アプリケーション起動エラー:', error);
-            const uiError = new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
-            await this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                source: 'MacOSImplementation.launchApplication',
-                details: { bundleId },
-                timestamp: new Date()
-            });
-            throw uiError;
+            throw new MatomeruError(
+                'この機能はmacOSでのみ利用可能です',
+                ErrorCode.PLATFORM_ERROR,
+                {
+                    source: 'MacOSImplementation.launchApplication',
+                    details: {
+                        bundleId,
+                        error: error instanceof Error ? error.message : String(error)
+                    },
+                    timestamp: new Date()
+                }
+            );
         }
     }
 
@@ -326,13 +352,27 @@ export class MacOSImplementation implements IPlatformImplementation {
             } catch (error) {
                 console.error(`ウィンドウのアクティブ化試行 ${i + 1} エラー:`, error);
                 if (i === ACTIVATION_RETRY_COUNT - 1) {
-                    throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
+                    throw new MatomeruError(
+                        this.i18n.t('errors.windowActivation'),
+                        ErrorCode.PLATFORM_ERROR,
+                        {
+                            source: 'MacOSImplementation.activateChatGPTWindow',
+                            timestamp: new Date()
+                        }
+                    );
                 }
                 await this.delay(ACTIVATION_RETRY_DELAY * (i + 1)); // 指数バックオフ
             }
         }
         
-        throw new ChatGPTUIError(this.i18n.t('errors.windowActivation'));
+        throw new MatomeruError(
+            this.i18n.t('errors.windowActivation'),
+            ErrorCode.PLATFORM_ERROR,
+            {
+                source: 'MacOSImplementation.activateChatGPTWindow',
+                timestamp: new Date()
+            }
+        );
     }
 
     private async pasteWithRetry(): Promise<void> {
@@ -413,13 +453,27 @@ export class MacOSImplementation implements IPlatformImplementation {
             } catch (error) {
                 console.error(`ペースト試行 ${i + 1} エラー:`, error);
                 if (i === PASTE_RETRY_COUNT - 1) {
-                    throw new ChatGPTUIError(this.i18n.t('errors.pasteFailed'));
+                    throw new MatomeruError(
+                        this.i18n.t('errors.pasteFailed'),
+                        ErrorCode.PLATFORM_ERROR,
+                        {
+                            source: 'MacOSImplementation.pasteWithRetry',
+                            timestamp: new Date()
+                        }
+                    );
                 }
                 await this.delay(PASTE_RETRY_DELAY * (i + 1)); // 指数バックオフ
             }
         }
         
-        throw new ChatGPTUIError(this.i18n.t('errors.pasteFailed'));
+        throw new MatomeruError(
+            this.i18n.t('errors.pasteFailed'),
+            ErrorCode.PLATFORM_ERROR,
+            {
+                source: 'MacOSImplementation.pasteWithRetry',
+                timestamp: new Date()
+            }
+        );
     }
 
     private async sendMessage(): Promise<void> {
@@ -470,13 +524,27 @@ export class MacOSImplementation implements IPlatformImplementation {
             } catch (error) {
                 console.error(`送信試行 ${i + 1} エラー:`, error);
                 if (i === MAX_SCRIPT_RETRIES - 1) {
-                    throw new ChatGPTUIError(this.i18n.t('errors.sendButtonNotFound'));
+                    throw new MatomeruError(
+                        this.i18n.t('errors.sendButtonNotFound'),
+                        ErrorCode.PLATFORM_ERROR,
+                        {
+                            source: 'MacOSImplementation.sendMessage',
+                            timestamp: new Date()
+                        }
+                    );
                 }
                 await this.delay(1000 * (i + 1)); // 指数バックオフ
             }
         }
         
-        throw new ChatGPTUIError(this.i18n.t('errors.sendButtonNotFound'));
+        throw new MatomeruError(
+            this.i18n.t('errors.sendButtonNotFound'),
+            ErrorCode.PLATFORM_ERROR,
+            {
+                source: 'MacOSImplementation.sendMessage',
+                timestamp: new Date()
+            }
+        );
     }
 
     private delay(ms: number): Promise<void> {

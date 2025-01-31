@@ -5,7 +5,7 @@ import { MarkdownGenerator, IMarkdownGenerator } from '../../../domain/output/Ma
 import { IFileSystem, DirectoryEntry, FileStats } from '../../../domain/files/FileSystemAdapter';
 import { ILogger } from '../../../infrastructure/logging/LoggingService';
 import * as path from 'path';
-import { BaseError } from '../../../shared/errors/base/BaseError';
+import { MatomeruError, ErrorCode } from '../../../shared/errors/MatomeruError';
 
 interface TestFile {
     path: string;
@@ -167,7 +167,15 @@ describe('MarkdownGenerator', () => {
 
             (fsAdapter.readFile as sinon.SinonStub)
                 .withArgs(absolutePath)
-                .rejects(new BaseError('ファイルが存在しません', 'FileSystemError', { path: absolutePath }));
+                .rejects(new MatomeruError(
+                    'ファイルが存在しません',
+                    ErrorCode.FILE_SYSTEM,
+                    {
+                        source: 'FileSystemAdapter.readFile',
+                        details: { path: absolutePath },
+                        timestamp: new Date()
+                    }
+                ));
 
             const markdown = await generator.generateMarkdown([relativePath], {
                 rootPath: workspaceFolder.uri.fsPath

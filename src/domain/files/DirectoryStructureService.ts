@@ -1,5 +1,6 @@
 import type { FileSystemEntity } from '../../types';
 import { IErrorHandler } from '../../shared/errors/services/ErrorService';
+import { MatomeruError, ErrorCode } from '../../shared/errors/MatomeruError';
 
 type FormatType = 'tree' | 'icon';
 
@@ -43,18 +44,34 @@ export class DirectoryStructureService implements IDirectoryStructureService {
     private generateStructure(entities: FileSystemEntity[], format: FormatType): string {
         try {
             if (!Array.isArray(entities)) {
-                throw new Error('Invalid entities provided');
+                throw new MatomeruError(
+                    'Invalid entities provided',
+                    ErrorCode.INVALID_INPUT,
+                    {
+                        source: 'DirectoryStructureService.generateStructure',
+                        details: {
+                            format,
+                            entitiesType: typeof entities
+                        },
+                        timestamp: new Date()
+                    }
+                );
             }
             return entities.map(entity => this.formatEntity(entity, 0, format)).join('\n');
         } catch (error) {
-            this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                source: 'DirectoryStructureService.generateStructure',
-                timestamp: new Date(),
-                details: {
-                    format,
-                    entitiesCount: entities?.length
+            const matomeruError = error instanceof MatomeruError ? error : new MatomeruError(
+                error instanceof Error ? error.message : String(error),
+                ErrorCode.UNKNOWN,
+                {
+                    source: 'DirectoryStructureService.generateStructure',
+                    timestamp: new Date(),
+                    details: {
+                        format,
+                        entitiesCount: entities?.length
+                    }
                 }
-            });
+            );
+            this.errorHandler.handleError(matomeruError);
             return '';
         }
     }

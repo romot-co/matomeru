@@ -22,17 +22,17 @@
     "commands": [
       {
         "command": "matomeru.combineDirectoryToEditor",
-        "title": "Combine to Editor",
+        "title": "Combine as Markdown → Editor",
         "category": "matomeru"
       },
       {
         "command": "matomeru.combineDirectoryToClipboard",
-        "title": "Combine to Clipboard",
+        "title": "Combine as Markdown → Clipboard",
         "category": "matomeru"
       },
       {
         "command": "matomeru.openInChatGPT",
-        "title": "Combine to ChatGPT App",
+        "title": "Combine as Markdown → ChatGPT App",
         "category": "matomeru"
       }
     ],
@@ -119,11 +119,13 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "node ./out/test/runTest.js",
+    "test": "node ./out/__tests__/runTest.js",
+    "test:performance": "RUN_PERFORMANCE_TESTS=true npm test",
     "package": "vsce package",
-    "install-extension": "npm run clean &&vsce package && code --install-extension *.vsix",
+    "install-extension": "npm run clean && vsce package && code --install-extension *.vsix",
     "clean": "rimraf out dist *.vsix",
-    "postinstall": "npm run compile"
+    "postinstall": "npm run compile",
+    "main": "./out/extension.js"
   },
   "dependencies": {
     "fast-glob": "^3.3.2",
@@ -134,6 +136,7 @@
     "@types/chai": "^4.3.11",
     "@types/chai-as-promised": "^8.0.1",
     "@types/glob": "^8.1.0",
+    "@types/jest": "^29.5.14",
     "@types/mocha": "^10.0.6",
     "@types/node": "20.x",
     "@types/sinon": "^17.0.3",

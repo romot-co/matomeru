@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import { UIService } from '../../../domain/output/UIService';
+import { UIService } from '../../../infrastructure/ui/UIService';
 import { IClipboardService } from '../../../infrastructure/platform/ClipboardService';
 import { ILogger } from '../../../infrastructure/logging/LoggingService';
 import { IConfigurationService } from '../../../infrastructure/config/ConfigurationService';
@@ -148,4 +148,4 @@ describe('UIService Tests', () => {
             expect(instance).to.be.instanceOf(UIService);
         });
     });
-}); 
+});
