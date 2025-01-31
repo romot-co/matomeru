@@ -47,9 +47,15 @@ export class PlatformService implements IPlatformService {
      * プラットフォームに応じた実装を作成します
      */
     private createImplementation(): IPlatformImplementation {
+        // 開発モードでネイティブ機能を無効化する設定がある場合
+        if (this.config.getConfiguration().development.disableNativeFeatures) {
+            return new CrossPlatformImplementation(this.errorHandler);
+        }
+
+        // プラットフォームに応じた実装を選択
         switch (process.platform) {
             case 'darwin':
-                const macOS = new MacOSImplementation(
+                const macOS = MacOSImplementation.createDefault(
                     this.errorHandler,
                     this.i18n,
                     this.config,
@@ -71,15 +77,12 @@ export class PlatformService implements IPlatformService {
      * 現在のプラットフォームの機能サポート状況を取得します
      */
     getFeatures(): PlatformFeatures {
-        const macOS = new MacOSImplementation(
-            this.errorHandler,
-            this.i18n,
-            this.config,
-            this.logger
-        );
+        const isMacOS = process.platform === 'darwin' && 
+            !this.config.getConfiguration().development.disableNativeFeatures;
+        
         return {
-            canUseChatGPT: macOS.isAvailable(),
-            canUseNativeFeatures: macOS.isAvailable()
+            canUseChatGPT: isMacOS,
+            canUseNativeFeatures: isMacOS
         };
     }
 
@@ -101,7 +104,15 @@ export class PlatformService implements IPlatformService {
      * アクセシビリティ権限を確認します
      */
     async checkAccessibilityPermission(): Promise<boolean> {
-        return this.implementation.checkAccessibilityPermission();
+        if (this.config.getConfiguration().development.disableNativeFeatures) {
+            return true;
+        }
+
+        if (process.platform === 'darwin') {
+            return await this.implementation.checkAccessibilityPermission();
+        }
+
+        return true;
     }
 
     /**

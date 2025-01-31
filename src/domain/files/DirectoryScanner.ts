@@ -3,12 +3,10 @@ import * as path from 'path';
 import { IConfigurationService } from '../../infrastructure/config/ConfigurationService';
 import { ILogger } from '../../infrastructure/logging/LoggingService';
 import { IErrorHandler } from '../../shared/errors/services/ErrorService';
-import { BaseError } from '../../shared/errors/base/BaseError';
-import type { ErrorContext } from '../../types';
-import { IWorkspaceService } from '../../domain/workspace/WorkspaceService';
+import { MatomeruError, ErrorCode, ErrorContext } from '../../shared/errors/MatomeruError';
+import { IWorkspaceService } from '../../infrastructure/workspace/WorkspaceService';
 import { IFileSystem } from './FileSystemAdapter';
 import { IFileTypeService } from './FileTypeService';
-import { ScanError } from '../../shared/errors/ScanError';
 
 export interface FileInfo {
     path: string;
@@ -21,6 +19,7 @@ export interface FileInfo {
 export interface ScanResult {
     files: FileInfo[];
     totalSize: number;
+    hasErrors: boolean;
 }
 
 export interface ScanOptions {
@@ -77,10 +76,14 @@ export class DirectoryScanner implements IDirectoryScanner {
         try {
             const workspaceFolder = await this.validateWorkspace(directoryPath);
             if (!workspaceFolder) {
-                throw new BaseError(
+                throw new MatomeruError(
                     'Directory is not in workspace',
-                    'InvalidDirectoryError',
-                    { directoryPath }
+                    ErrorCode.INVALID_DIRECTORY,
+                    {
+                        source: 'DirectoryScanner.scan',
+                        details: { directoryPath },
+                        timestamp: new Date()
+                    }
                 );
             }
 
@@ -95,14 +98,26 @@ export class DirectoryScanner implements IDirectoryScanner {
                 details: {
                     directoryPath,
                     fileCount: result.files.length,
-                    totalSize: result.totalSize
+                    totalSize: result.totalSize,
+                    hasErrors: result.hasErrors
                 }
             });
 
             return result;
         } catch (error) {
-            await this.handleError(error, 'scan', { directoryPath });
-            throw error;
+            const result: ScanResult = { files: [], totalSize: 0, hasErrors: true };
+            if (error instanceof MatomeruError) {
+                throw error;
+            }
+            throw new MatomeruError(
+                error instanceof Error ? error.message : String(error),
+                ErrorCode.FILE_SYSTEM,
+                {
+                    source: 'DirectoryScanner.scan',
+                    details: { directoryPath },
+                    timestamp: new Date()
+                }
+            );
         }
     }
 
@@ -113,8 +128,15 @@ export class DirectoryScanner implements IDirectoryScanner {
         try {
             return await this.workspaceService.getWorkspaceFolder(directoryPath);
         } catch (error) {
-            await this.handleError(error, 'validateWorkspace', { directoryPath });
-            throw error;
+            throw new MatomeruError(
+                'Failed to validate workspace',
+                ErrorCode.WORKSPACE_ERROR,
+                {
+                    source: 'DirectoryScanner.validateWorkspace',
+                    details: { directoryPath },
+                    timestamp: new Date()
+                }
+            );
         }
     }
 
@@ -122,31 +144,28 @@ export class DirectoryScanner implements IDirectoryScanner {
      * ファイルの収集
      */
     async collectFiles(
-        directoryPath: string, 
+        directoryPath: string,
         workspaceFolder: vscode.WorkspaceFolder,
         excludePatterns?: string[]
     ): Promise<vscode.Uri[]> {
         try {
             const pattern = new vscode.RelativePattern(directoryPath, '**/*');
             const excludePattern = this.getExcludePattern(excludePatterns);
-            
             return vscode.workspace.findFiles(pattern, excludePattern);
         } catch (error) {
-            const context: ErrorContext = {
-                source: 'DirectoryScanner.collectFiles',
-                details: { 
-                    directoryPath, 
-                    excludePatterns,
-                    errorMessage: error instanceof Error ? error.message : String(error)
-                },
-                timestamp: new Date()
-            };
-            this.logger.error('Failed to collect files', context);
-            await this.errorHandler.handleError(
-                error instanceof Error ? error : new Error(String(error)),
-                context
+            throw new MatomeruError(
+                'Failed to collect files',
+                ErrorCode.FILE_SYSTEM,
+                {
+                    source: 'DirectoryScanner.collectFiles',
+                    details: { 
+                        directoryPath,
+                        excludePatterns,
+                        error: error instanceof Error ? error.message : String(error)
+                    },
+                    timestamp: new Date()
+                }
             );
-            return [];
         }
     }
 
@@ -169,34 +188,67 @@ export class DirectoryScanner implements IDirectoryScanner {
     ): Promise<ScanResult> {
         try {
             const config = this.config.getConfiguration();
-            const result: ScanResult = { files: [], totalSize: 0 };
+            const result: ScanResult = { files: [], totalSize: 0, hasErrors: false };
             const batchSize = options?.batchSize ?? config.batchSize;
             const maxFileSize = options?.maxFileSize ?? config.maxFileSize;
             
             for (let i = 0; i < files.length; i += batchSize) {
                 const batch = files.slice(i, i + batchSize);
                 const processedFiles = await Promise.all(
-                    batch.map(file => this.processFile(file, workspaceFolder, maxFileSize))
+                    batch.map(async file => {
+                        try {
+                            const fileInfo = await this.processFile(file, workspaceFolder, maxFileSize);
+                            if (fileInfo) {
+                                return fileInfo;
+                            }
+                            return null;
+                        } catch (error) {
+                            result.hasErrors = true;
+                            await this.errorHandler.handleError(
+                                new MatomeruError(
+                                    'ファイルの処理に失敗しました',
+                                    ErrorCode.FILE_SYSTEM,
+                                    {
+                                        source: 'DirectoryScanner.processFiles',
+                                        details: {
+                                            path: file.fsPath,
+                                            error: error instanceof Error ? error.message : String(error)
+                                        },
+                                        timestamp: new Date()
+                                    }
+                                )
+                            );
+                            return null;
+                        }
+                    })
                 );
-                
+
                 const validFiles = processedFiles.filter((file): file is FileInfo => file !== null);
                 result.files.push(...validFiles);
-                result.totalSize = validFiles.reduce((sum, file) => sum + file.size, result.totalSize);
+                result.totalSize += validFiles.reduce((sum, file) => sum + file.size, 0);
 
                 this.logger.debug('Processed batch', {
                     source: 'DirectoryScanner.processFiles',
                     details: {
                         batchSize,
                         validFilesCount: validFiles.length,
-                        currentTotalSize: result.totalSize
+                        currentTotalSize: result.totalSize,
+                        hasErrors: result.hasErrors
                     }
                 });
             }
             
             return result;
         } catch (error) {
-            await this.handleError(error, 'processFiles', { filesCount: files.length });
-            throw error;
+            throw new MatomeruError(
+                'Failed to process files',
+                ErrorCode.FILE_SYSTEM,
+                {
+                    source: 'DirectoryScanner.processFiles',
+                    details: { filesCount: files.length },
+                    timestamp: new Date()
+                }
+            );
         }
     }
 
@@ -247,47 +299,15 @@ export class DirectoryScanner implements IDirectoryScanner {
 
             return fileInfo;
         } catch (error) {
-            const errorContext: ErrorContext = {
+            this.logger.error('Failed to process file', {
                 source: 'DirectoryScanner.processFile',
                 details: {
                     path: file.fsPath,
                     error: error instanceof Error ? error.message : String(error)
-                },
-                timestamp: new Date()
-            };
-
-            this.logger.error('Failed to process file', errorContext);
-            await this.errorHandler.handleError(
-                error instanceof Error ? error : new Error(String(error)),
-                errorContext
-            );
-            return null;
+                }
+            });
+            throw error;
         }
-    }
-
-    /**
-     * エラー処理の共通化
-     */
-    private async handleError(error: unknown, operation: string, details: Record<string, unknown>): Promise<void> {
-        const context: ErrorContext = {
-            source: `DirectoryScanner.${operation}`,
-            details,
-            timestamp: new Date()
-        };
-
-        this.logger.error('Operation failed', {
-            source: context.source,
-            details: {
-                ...context.details,
-                error: error instanceof Error ? error.message : String(error)
-            },
-            timestamp: context.timestamp
-        });
-
-        await this.errorHandler.handleError(
-            error instanceof Error ? error : new Error(String(error)),
-            context
-        );
     }
 
     private async validateFilePath(filePath: string): Promise<boolean> {

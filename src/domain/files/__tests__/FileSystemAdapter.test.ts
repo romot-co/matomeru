@@ -1,18 +1,9 @@
 import * as vscode from 'vscode';
-import { IErrorHandler } from '../../shared/errors/services/ErrorService';
-import { ILogger } from '../../infrastructure/logging/LoggingService';
+import { IErrorHandler } from '../../../shared/errors/services/ErrorService';
+import { ILogger } from '../../../infrastructure/logging/LoggingService';
 import * as path from 'path';
-import { MatomeruError, ErrorCode } from '../../shared/errors/MatomeruError';
-
-export interface FileStats {
-    size: number;
-    mtime: number;
-}
-
-export interface DirectoryEntry {
-    name: string;
-    type: vscode.FileType;
-}
+import { MatomeruError, ErrorCode } from '../../../shared/errors/MatomeruError';
+import { FileStats, DirectoryEntry } from '../FileSystemAdapter';
 
 export interface IFileSystem {
     readFile(filePath: string): Promise<string>;

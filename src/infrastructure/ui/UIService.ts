@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { II18nService } from '../../i18n/I18nService';
-import { ILogger } from '../../infrastructure/logging/LoggingService';
-import { IClipboardService } from '../../infrastructure/platform/ClipboardService';
+import { ILogger } from '../logging/LoggingService';
+import { IClipboardService } from '../platform/ClipboardService';
 
 export interface OutputDestination {
     id: string;

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { IPlatformImplementation } from './IPlatformImplementation';
 import { IErrorHandler } from '../../shared/errors/services/ErrorService';
-import { UnsupportedPlatformError } from '../../shared/errors/ChatGPTErrors';
+import { MatomeruError, ErrorCode } from '../../shared/errors/MatomeruError';
 
 /**
  * クロスプラットフォーム実装クラス
@@ -25,15 +25,32 @@ export class CrossPlatformImplementation implements IPlatformImplementation {
                 'ChatGPTをブラウザで開きました。コンテンツはクリップボードにコピーされています。'
             );
         } catch (error) {
-            await this.errorHandler.handleError(error instanceof Error ? error : new Error(String(error)), {
-                source: 'CrossPlatformImplementation.openInChatGPT',
-                timestamp: new Date()
-            });
+            throw new MatomeruError(
+                'この機能はmacOSでのみ利用可能です',
+                ErrorCode.PLATFORM_ERROR,
+                {
+                    source: 'CrossPlatformImplementation.openInChatGPT',
+                    timestamp: new Date()
+                }
+            );
         }
     }
 
     async copyToClipboard(text: string): Promise<void> {
-        await vscode.env.clipboard.writeText(text);
+        try {
+            await vscode.env.clipboard.writeText(text);
+        } catch (error) {
+            const matomeruError = new MatomeruError(
+                'クリップボードへのコピーに失敗しました',
+                ErrorCode.CLIPBOARD_ERROR,
+                {
+                    source: 'CrossPlatformImplementation.copyToClipboard',
+                    timestamp: new Date()
+                }
+            );
+            await this.errorHandler.handleError(matomeruError);
+            throw matomeruError;
+        }
     }
 
     async checkAccessibilityPermission(): Promise<boolean> {
@@ -41,6 +58,13 @@ export class CrossPlatformImplementation implements IPlatformImplementation {
     }
 
     async launchApplication(bundleId: string): Promise<void> {
-        throw new UnsupportedPlatformError('この機能はプラットフォーム固有の実装でのみ利用可能です');
+        throw new MatomeruError(
+            'この機能はmacOSでのみ利用可能です',
+            ErrorCode.PLATFORM_ERROR,
+            {
+                source: 'CrossPlatformImplementation.launchApplication',
+                timestamp: new Date()
+            }
+        );
     }
 } 
