@@ -1,206 +1,55 @@
-# Matomeru / まとめる
+# Matomeru VSCode拡張機能
 
-[English](./README.md) | [日本語](./README.md#まとめる)
+Matomeruは、Visual Studio Code上で動作する拡張機能で、複数のディレクトリやファイル（およびその配下のすべてのファイル）をスキャンし、その内容をMarkdown形式でまとめて表示します。
 
-# Matomeru
+## 主な機能
 
-A VS Code extension that instantly documents directory contents. Streamline code reviews, project documentation, and ChatGPT interactions.
+1. **複数ディレクトリ・ファイルの集約**
+   - ユーザーが選択した複数のディレクトリやファイルをスキャン
+   - 各ファイルのパス、内容、言語情報などを収集
+   - ディレクトリ構造をツリー形式で表示
 
-## ✨ Features
+2. **Markdown形式での出力**
+   - ディレクトリ構造を先頭に表示
+   - 各ファイルの情報（パス、言語）をヘッダーとして表示
+   - ファイル内容をコードブロックで表示
 
-### 📁 Fast Directory Visualization
-- Convert directory structures to beautiful markdown with emoji indicators (📁 for directories, 📄 for files)
-- Automatic file type detection and classification
-- Detailed information (size, line count, paths)
-- Clear hierarchical structure display
+3. **柔軟な出力オプション**
+   - エディタで表示
+   - クリップボードにコピー
+   - ChatGPTに送信（macOSのみ対応）
 
-### 🚀 Three Output Methods
-- **Open in Editor**: Instant VS Code preview
-- **Copy to Clipboard**: Quick sharing
-- **Send to ChatGPT**: AI analysis (macOS only)
+## 使い方
 
-### 📝 Output Format
-```markdown
-# Directory Structure
+1. エクスプローラーでディレクトリまたはファイルを右クリック
+2. コンテキストメニューから以下のいずれかを選択：
+   - 「Matomeru: ディレクトリ/ファイルをまとめて表示」
+   - 「Matomeru: エディタで表示」
+   - 「Matomeru: クリップボードにコピー」
+   - 「Matomeru: ChatGPTで開く」（macOSのみ、要設定）
 
-📁 src
-   📁 domain
-      📁 files
-         📄 FileSystemAdapter.ts
-      📁 output
-         📄 MarkdownGenerator.ts
-   📁 infrastructure
-      📁 logging
-         📄 LoggingService.ts
+## 設定項目
 
-# Files
+- `matomeru.maxFileSize`: 処理対象とする最大ファイルサイズ（バイト）
+  - デフォルト: 1048576（1MB）
 
-File: FileSystemAdapter.ts | Path: src/domain/files/FileSystemAdapter.ts
-```typescript
-// File contents here
-```
+- `matomeru.excludePatterns`: 除外するファイルパターン
+  - デフォルト:
+    - node_modules/**
+    - .git/**
+    - dist/**
+    - build/**
+    - coverage/**
 
-### ⚡️ Impressive Performance
-| Project Size | Processing Time | Memory Usage |
-|------------|------|---------|
-| Small (100 files) | 0.3s | 50MB |
-| Medium (1,000 files) | 2.1s | 120MB |
-| Large (10,000 files) | 3.2s | 450MB |
+- `matomeru.chatGptIntegration`: ChatGPT連携機能の有効化（macOSのみ対応）
+  - デフォルト: false
 
-## 🛠 Usage
+## 制限事項
 
-1. Right-click a directory in VS Code explorer
-2. Select Matomeru command:
-   - "Open in Editor"
-   - "Copy to Clipboard"
-   - "Open in ChatGPT" (macOS only)
+- ChatGPT連携機能はmacOSのみ対応しています
+- 大きなファイルは処理対象外となります（デフォルト: 1MB以上）
+- バイナリファイルは処理対象外です
 
-## ⚙️ Customization
+## ライセンス
 
-```json
-{
-  "matomeru.maxConcurrency": 5,     // Parallel operations (1-20)
-  "matomeru.batchSize": 100,        // Batch size (10-1000)
-  "matomeru.excludePatterns": [     // Exclude patterns
-    "node_modules/**",
-    ".git/**"
-  ]
-}
-```
-
-## 🔒 Security & Stability
-
-- Safe symlink handling
-- Binary file detection and exclusion
-- Detailed error messages and logs
-
-## 🤖 ChatGPT Integration (macOS only)
-
-### Requirements
-- macOS
-- ChatGPT desktop app
-- Accessibility permissions
-
-### Setup
-1. Install ChatGPT app
-2. Grant VS Code accessibility permissions
-
-## 🔄 Roadmap
-
-- Windows support
-- Enhanced analysis
-- Custom templates
-- GitHub integration
-
-## 📝 License
-
-MIT License
-
-## 👨‍💻 Developer
-
-Romot
-
----
-
-# まとめる
-
-ディレクトリの内容を瞬時にドキュメント化するVS Code拡張機能。コードレビュー、プロジェクト文書化、ChatGPTとの対話をスマートに。
-
-## 🌟 主な機能
-
-### 📁 高速なディレクトリ可視化
-- 絵文字を使用した分かりやすいディレクトリ構造の表示（📁 ディレクトリ、📄 ファイル）
-- ファイルタイプの自動検出と分類
-- 詳細な情報（サイズ、行数、パス）を表示
-- 階層構造の明確な表示
-
-### 🚀 3つの出力方法
-- **エディタで開く**: 即座にVS Codeで確認
-- **クリップボードにコピー**: すぐに共有可能
-- **ChatGPTに送信**: AIによる分析（macOSのみ）
-
-### 📝 出力形式
-```markdown
-# Directory Structure
-
-📁 src
-   📁 domain
-      📁 files
-         📄 FileSystemAdapter.ts
-      📁 output
-         📄 MarkdownGenerator.ts
-   📁 infrastructure
-      📁 logging
-         📄 LoggingService.ts
-
-# Files
-
-File: FileSystemAdapter.ts | Path: src/domain/files/FileSystemAdapter.ts
-```typescript
-// ファイルの内容
-```
-
-### ⚡️ 圧倒的なパフォーマンス
-| プロジェクトサイズ | 処理時間 | メモリ使用量 |
-|------------|------|---------|
-| 小規模 (100ファイル) | 0.3秒 | 50MB |
-| 中規模 (1,000ファイル) | 2.1秒 | 120MB |
-| 大規模 (10,000ファイル) | 3.2秒 | 450MB |
-
-## 🛠 使い方
-
-1. VS Codeのエクスプローラーでディレクトリを右クリック
-2. Matomeruコマンドを選択:
-   - 「エディタで開く」
-   - 「クリップボードにコピー」
-   - 「ChatGPTで開く」（macOSのみ）
-
-## ⚙️ カスタマイズ
-
-```json
-{
-  "matomeru.maxConcurrency": 5,     // 並列処理数（1-20）
-  "matomeru.batchSize": 100,        // バッチサイズ（10-1000）
-  "matomeru.excludePatterns": [     // 除外パターン
-    "node_modules/**",
-    ".git/**"
-  ]
-}
-```
-
-## 🔒 セキュリティと安定性
-
-- シンボリックリンクの自動スキップによる安全性確保
-- バイナリファイルの自動検出と除外
-- 詳細なエラーメッセージとログ
-
-## 🤖 ChatGPT連携（macOS専用）
-
-### 必要条件
-- macOS
-- ChatGPTデスクトップアプリ
-- アクセシビリティ権限
-
-### セットアップ
-1. ChatGPTアプリをインストール
-2. VS Codeにアクセシビリティ権限を付与
-
-## 🔄 今後の予定
-
-- Windowsサポート
-- より詳細な解析機能
-- カスタムテンプレート
-- GitHub連携
-
-## 📝 ライセンス
-
-MIT License
-
-## 👨‍💻 開発者
-
-Romot
-
----
-
-**Note**: This project is under active development. Your feedback and contributions are welcome!
-**注**: 活発に開発中です。フィードバックや貢献を歓迎します！
+MIT License - 詳細は[LICENSE](LICENSE)ファイルを参照してください。

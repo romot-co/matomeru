@@ -1,7 +1,7 @@
 {
   "name": "matomeru",
-  "displayName": "matomeru",
-  "description": "Visualize and combine directory contents into a single document. Perfect for project documentation and code review.",
+  "displayName": "Matomeru",
+  "description": "複数のディレクトリやファイルの内容をまとめて表示するVSCode拡張機能",
   "version": "0.0.1",
   "repository": {
     "type": "git",
@@ -9,7 +9,7 @@
   },
   "publisher": "romot-co",
   "engines": {
-    "vscode": "^1.96.0"
+    "vscode": "^1.85.0"
   },
   "extensionKind": [
     "workspace"
@@ -17,60 +17,56 @@
   "categories": [
     "Other"
   ],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "matomeru.combineDirectoryToEditor",
-        "title": "Combine as Markdown → Editor",
-        "category": "matomeru"
+        "command": "matomeru.process",
+        "title": "%cmd.process%"
       },
       {
-        "command": "matomeru.combineDirectoryToClipboard",
-        "title": "Combine as Markdown → Clipboard",
-        "category": "matomeru"
+        "command": "matomeru.quickProcessToEditor",
+        "title": "%cmd.quickProcessToEditor%"
       },
       {
-        "command": "matomeru.openInChatGPT",
-        "title": "Combine as Markdown → ChatGPT App",
-        "category": "matomeru"
+        "command": "matomeru.quickProcessToClipboard",
+        "title": "%cmd.quickProcessToClipboard%"
+      },
+      {
+        "command": "matomeru.quickProcessToChatGPT",
+        "title": "%cmd.quickProcessToChatGPT%",
+        "when": "config.matomeru.chatGptIntegration && isOSX"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "matomeru.combineDirectoryToEditor",
-          "group": "navigation",
-          "when": "explorerResourceIsFolder"
+          "command": "matomeru.process",
+          "group": "matomeru@1"
         },
         {
-          "when": "explorerResourceIsFolder",
-          "command": "matomeru.combineDirectoryToClipboard",
-          "group": "navigation@2"
+          "command": "matomeru.quickProcessToEditor",
+          "group": "matomeru@2"
         },
         {
-          "when": "explorerResourceIsFolder",
-          "command": "matomeru.openInChatGPT",
-          "group": "navigation@3"
+          "command": "matomeru.quickProcessToClipboard",
+          "group": "matomeru@3"
+        },
+        {
+          "command": "matomeru.quickProcessToChatGPT",
+          "group": "matomeru@4",
+          "when": "config.matomeru.chatGptIntegration && isOSX"
         }
       ]
     },
     "configuration": {
       "title": "Matomeru",
       "properties": {
-        "matomeru.maxConcurrency": {
+        "matomeru.maxFileSize": {
           "type": "number",
-          "default": 5,
-          "minimum": 1,
-          "maximum": 20,
-          "description": "Maximum number of concurrent file operations"
-        },
-        "matomeru.batchSize": {
-          "type": "number",
-          "default": 100,
-          "minimum": 10,
-          "maximum": 1000,
-          "description": "Number of files to process in a single batch"
+          "default": 1048576,
+          "description": "処理対象とする最大ファイルサイズ（バイト）"
         },
         "matomeru.excludePatterns": {
           "type": "array",
@@ -84,31 +80,34 @@
             "build/**",
             "coverage/**"
           ],
-          "description": "Exclude files by patterns"
-        },
-        "matomeru.maxFileSize": {
-          "type": "number",
-          "default": 1048576,
-          "description": "Maximum file size to process (bytes)"
-        },
-        "matomeru.maxConcurrentFiles": {
-          "type": "number",
-          "default": 10,
-          "description": "Maximum number of files to process concurrently"
-        },
-        "matomeru.defaultOutputType": {
-          "type": "string",
-          "enum": [
-            "editor",
-            "clipboard"
-          ],
-          "default": "editor",
-          "description": "Default output type"
+          "description": "除外するファイルパターン"
         },
         "matomeru.chatGptIntegration": {
           "type": "boolean",
           "default": false,
-          "description": "Enable send to ChatGPT App(macOS only)"
+          "description": "ChatGPT連携機能を有効化する（macOSのみ対応）"
+        },
+        "matomeru.directoryStructure.directoryIcon": {
+          "type": "string",
+          "default": "📁",
+          "description": "ディレクトリを表すアイコン"
+        },
+        "matomeru.directoryStructure.fileIcon": {
+          "type": "string",
+          "default": "📄",
+          "description": "ファイルを表すアイコン"
+        },
+        "matomeru.directoryStructure.indentSize": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8,
+          "description": "ディレクトリ構造のインデントサイズ"
+        },
+        "matomeru.directoryStructure.showFileExtensions": {
+          "type": "boolean",
+          "default": true,
+          "description": "ファイル名に拡張子を表示するかどうか"
         }
       }
     }
@@ -118,39 +117,31 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "node ./out/__tests__/runTest.js",
-    "test:performance": "RUN_PERFORMANCE_TESTS=true npm test",
+    "lint": "eslint src --ext ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "package": "vsce package",
     "install-extension": "npm run clean && vsce package && code --install-extension *.vsix",
-    "clean": "rimraf out dist *.vsix",
-    "postinstall": "npm run compile",
-    "main": "./out/extension.js"
-  },
-  "dependencies": {
-    "fast-glob": "^3.3.2",
-    "fs-extra": "^11.2.0",
-    "glob": "^10.3.10"
+    "clean": "rimraf out dist *.vsix"
   },
   "devDependencies": {
-    "@types/chai": "^4.3.11",
-    "@types/chai-as-promised": "^8.0.1",
-    "@types/glob": "^8.1.0",
-    "@types/jest": "^29.5.14",
-    "@types/mocha": "^10.0.6",
+    "@types/jest": "^29.5.11",
     "@types/node": "20.x",
-    "@types/sinon": "^17.0.3",
-    "@types/vscode": "^1.96.0",
+    "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/l10n-dev": "^0.0.30",
     "@vscode/test-electron": "^2.3.8",
-    "@vscode/vsce": "^2.24.0",
-    "chai": "^4.3.7",
-    "chai-as-promised": "^8.0.1",
     "eslint": "^8.56.0",
-    "mocha": "^10.2.0",
-    "sinon": "^19.0.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@types/minimatch": "^5.1.2",
+    "@vscode/l10n": "^0.0.16",
+    "minimatch": "^10.0.1"
   },
   "icon": "images/icon.png",
   "galleryBanner": {
