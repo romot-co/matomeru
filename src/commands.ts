@@ -13,7 +13,7 @@ export class CommandRegistrar {
         // ワークスペースのルートパスを取得
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (!workspaceRoot) {
-            throw new Error('ワークスペースが開かれていません');
+            throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
         }
         this.fileOps = new FileOperations(workspaceRoot);
         this.markdownGen = new MarkdownGenerator();
@@ -27,65 +27,89 @@ export class CommandRegistrar {
             vscode.commands.registerCommand('matomeru.quickProcessToClipboard', this.processToClipboard.bind(this)),
             vscode.commands.registerCommand('matomeru.quickProcessToChatGPT', this.processToChatGPT.bind(this))
         );
-        this.logger.info('コマンドを登録しました');
+        this.logger.info(vscode.l10n.t('msg.commandsRegistered'));
     }
 
     private async processDirectories(uris: vscode.Uri[]): Promise<string> {
         try {
+            this.logger.info(vscode.l10n.t('msg.processingUris', uris.length));
+            uris.forEach((uri, index) => {
+                this.logger.info(vscode.l10n.t('msg.scanningUri', index + 1, uri.fsPath, uri.scheme));
+            });
+
             const config = vscode.workspace.getConfiguration('matomeru');
             const dirInfos = await Promise.all(
-                uris.map(uri => this.fileOps.scanDirectory(uri.fsPath, {
-                    maxFileSize: config.get('maxFileSize', 1048576),
-                    excludePatterns: config.get('excludePatterns', [])
-                }))
+                uris.map(async (uri, index) => {
+                    this.logger.info(vscode.l10n.t('msg.scanningDirectory', index + 1, uri.fsPath));
+                    try {
+                        return await this.fileOps.scanDirectory(uri.fsPath, {
+                            maxFileSize: config.get('maxFileSize', 1048576),
+                            excludePatterns: config.get('excludePatterns', [])
+                        });
+                    } catch (error) {
+                        this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
+                        throw error;
+                    }
+                })
             );
             return this.markdownGen.generate(dirInfos);
         } catch (error) {
-            this.logger.error('ディレクトリ処理エラー:' + (error instanceof Error ? error.message : String(error)));
+            this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
             throw error;
         }
     }
 
-    private async processToEditor(uri?: vscode.Uri): Promise<void> {
+    async processToEditor(uri?: vscode.Uri, uris?: vscode.Uri[]): Promise<void> {
         try {
-            const uris = uri ? [uri] : await this.getSelectedUris();
-            if (!uris.length) {
-                throw new Error('ディレクトリまたはファイルが選択されていません');
+            const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
+            if (!selectedUris || selectedUris.length === 0) {
+                this.logger.warn(vscode.l10n.t('msg.noSelection'));
+                return;
             }
 
-            const markdown = await this.processDirectories(uris);
+            this.logger.info(vscode.l10n.t('msg.selectedUris', selectedUris.length));
+            for (const [index, uri] of selectedUris.entries()) {
+                try {
+                    const stats = await vscode.workspace.fs.stat(uri);
+                    this.logger.info(vscode.l10n.t('msg.selectedUriInfo', index + 1, uri.fsPath, stats.type === vscode.FileType.Directory ? 'directory' : 'file'));
+                } catch (error) {
+                    this.logger.info(vscode.l10n.t('msg.selectedUriInfo', index + 1, uri.fsPath, 'unknown'));
+                }
+            }
+
+            const markdown = await this.processDirectories(selectedUris);
             await showInEditor(markdown);
-            this.logger.info('エディタに出力しました');
+            this.logger.info(vscode.l10n.t('msg.outputToEditor'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
     }
 
-    private async processToClipboard(uri?: vscode.Uri): Promise<void> {
+    async processToClipboard(uri?: vscode.Uri, uris?: vscode.Uri[]): Promise<void> {
         try {
-            const uris = uri ? [uri] : await this.getSelectedUris();
-            if (!uris.length) {
-                throw new Error('ディレクトリまたはファイルが選択されていません');
+            const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
+            if (!selectedUris.length) {
+                throw new Error(vscode.l10n.t('msg.noSelection'));
             }
 
-            const markdown = await this.processDirectories(uris);
+            const markdown = await this.processDirectories(selectedUris);
             await copyToClipboard(markdown);
-            this.logger.info('クリップボードにコピーしました');
+            this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
     }
 
-    private async processToChatGPT(uri?: vscode.Uri): Promise<void> {
+    async processToChatGPT(uri?: vscode.Uri, uris?: vscode.Uri[]): Promise<void> {
         try {
-            const uris = uri ? [uri] : await this.getSelectedUris();
-            if (!uris.length) {
-                throw new Error('ディレクトリまたはファイルが選択されていません');
+            const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
+            if (!selectedUris.length) {
+                throw new Error(vscode.l10n.t('msg.noSelection'));
             }
 
-            const markdown = await this.processDirectories(uris);
+            const markdown = await this.processDirectories(selectedUris);
             await openInChatGPT(markdown);
-            this.logger.info('ChatGPTに送信しました');
+            this.logger.info(vscode.l10n.t('msg.sentToChatGPT'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
@@ -93,14 +117,14 @@ export class CommandRegistrar {
 
     private async getSelectedUris(): Promise<vscode.Uri[]> {
         if (!vscode.workspace.workspaceFolders) {
-            throw new Error('ワークスペースが開かれていません');
+            throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
         }
 
         return await vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectFolders: true,
             canSelectMany: true,
-            openLabel: '選択',
+            openLabel: vscode.l10n.t('msg.selectButton'),
             defaultUri: vscode.workspace.workspaceFolders[0].uri
         }) || [];
     }

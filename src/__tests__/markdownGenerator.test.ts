@@ -131,4 +131,33 @@ describe('MarkdownGenerator', () => {
         expect(result).toContain('- Size: 100 KB');
         expect(result).toContain('- Size: 2 MB');
     });
+
+    it('ファイルサイズが1024の倍数の場合、小数点以下を表示しない', () => {
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test/exact.txt'),
+                    relativePath: 'test/exact.txt',
+                    content: 'Exact size file',
+                    language: 'plaintext',
+                    size: 1024
+                },
+                {
+                    uri: vscode.Uri.file('/test/exact_mb.txt'),
+                    relativePath: 'test/exact_mb.txt',
+                    content: 'Exact MB size file',
+                    language: 'plaintext',
+                    size: 1024 * 1024
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = markdownGenerator.generate([dir]);
+        
+        expect(result).toContain('- Size: 1 KB');
+        expect(result).toContain('- Size: 1 MB');
+    });
 }); 

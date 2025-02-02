@@ -1,11 +1,27 @@
 import * as vscode from 'vscode';
 import { DirectoryStructure } from '../directoryStructure';
 import { DirectoryInfo } from '../types/fileTypes';
+import { ConfigService } from '../services/configService';
+
+jest.mock('../services/configService');
 
 describe('DirectoryStructure', () => {
     let directoryStructure: DirectoryStructure;
 
     beforeEach(() => {
+        jest.resetAllMocks();
+        // ConfigServiceのモックを設定
+        (ConfigService.getInstance as jest.Mock).mockReturnValue({
+            getConfig: jest.fn().mockReturnValue({
+                directoryStructure: {
+                    useEmoji: true,
+                    directoryIcon: '📁',
+                    fileIcon: '📄',
+                    indentSize: 2,
+                    showFileExtensions: true
+                }
+            })
+        });
         directoryStructure = new DirectoryStructure();
     });
 
@@ -98,5 +114,228 @@ describe('DirectoryStructure', () => {
         const dir2Index = lines.findIndex(line => line.includes('test2'));
         
         expect(dir1Index).toBeLessThan(dir2Index);
+    });
+
+    it('ルートディレクトリのパスが空の場合でも正しく処理する', () => {
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/'),
+            relativePath: '',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test.txt'),
+                    relativePath: 'test.txt',
+                    content: 'content',
+                    language: 'plaintext',
+                    size: 100
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).toContain('📁 .');
+        expect(result).toContain('📄 test.txt');
+    });
+
+    it('ファイル拡張子を非表示にする設定の場合、拡張子なしでファイル名を表示する', () => {
+        // ConfigServiceのモックを更新
+        (ConfigService.getInstance as jest.Mock).mockReturnValue({
+            getConfig: jest.fn().mockReturnValue({
+                directoryStructure: {
+                    useEmoji: true,
+                    directoryIcon: '📁',
+                    fileIcon: '📄',
+                    indentSize: 2,
+                    showFileExtensions: false
+                }
+            })
+        });
+        directoryStructure = new DirectoryStructure();
+
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test/file1.txt'),
+                    relativePath: 'test/file1.txt',
+                    content: 'content',
+                    language: 'plaintext',
+                    size: 100
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).toContain('📄 file1');
+        expect(result).not.toContain('📄 file1.txt');
+    });
+
+    it('拡張子のないファイル名を正しく処理する', () => {
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test/README'),
+                    relativePath: 'test/README',
+                    content: 'content',
+                    language: 'plaintext',
+                    size: 100
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).toContain('📄 README');
+    });
+
+    it('空のファイル名を正しく処理する', () => {
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test/'),
+                    relativePath: 'test/',
+                    content: 'content',
+                    language: 'plaintext',
+                    size: 100
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).toContain('📄 ');
+    });
+
+    it('絵文字を使用しない設定の場合、アイコンなしで表示する', () => {
+        // ConfigServiceのモックを更新
+        (ConfigService.getInstance as jest.Mock).mockReturnValue({
+            getConfig: jest.fn().mockReturnValue({
+                directoryStructure: {
+                    useEmoji: false,
+                    directoryIcon: '📁',
+                    fileIcon: '📄',
+                    indentSize: 2,
+                    showFileExtensions: true
+                }
+            })
+        });
+        directoryStructure = new DirectoryStructure();
+
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test/file1.txt'),
+                    relativePath: 'test/file1.txt',
+                    content: 'content',
+                    language: 'plaintext',
+                    size: 100
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).not.toContain('📁');
+        expect(result).not.toContain('📄');
+        expect(result).toContain(' test');
+        expect(result).toContain('  file1.txt');
+    });
+
+    it('サブディレクトリをアルファベット順に表示する', () => {
+        const subDir1: DirectoryInfo = {
+            uri: vscode.Uri.file('/test/b'),
+            relativePath: 'test/b',
+            files: [],
+            directories: new Map()
+        };
+
+        const subDir2: DirectoryInfo = {
+            uri: vscode.Uri.file('/test/a'),
+            relativePath: 'test/a',
+            files: [],
+            directories: new Map()
+        };
+
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [],
+            directories: new Map([
+                ['b', subDir1],
+                ['a', subDir2]
+            ])
+        };
+
+        const result = directoryStructure.generate([dir]);
+        const lines = result.split('\n');
+        
+        const subDir1Index = lines.findIndex(line => line.includes('b'));
+        const subDir2Index = lines.findIndex(line => line.includes('a'));
+        
+        expect(subDir2Index).toBeLessThan(subDir1Index);
+    });
+
+    it('ファイル名にドットが含まれない場合も正しく処理する', () => {
+        // ConfigServiceのモックを更新
+        (ConfigService.getInstance as jest.Mock).mockReturnValue({
+            getConfig: jest.fn().mockReturnValue({
+                directoryStructure: {
+                    useEmoji: true,
+                    directoryIcon: '📁',
+                    fileIcon: '📄',
+                    indentSize: 2,
+                    showFileExtensions: false
+                }
+            })
+        });
+        directoryStructure = new DirectoryStructure();
+
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [
+                {
+                    uri: vscode.Uri.file('/test/nodot'),
+                    relativePath: 'test/nodot',
+                    content: 'content',
+                    language: 'plaintext',
+                    size: 100
+                }
+            ],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).toContain('📄 nodot');
+    });
+
+    it('サブディレクトリのパスが空の場合も正しく処理する', () => {
+        const subDir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test/'),
+            relativePath: 'test/',
+            files: [],
+            directories: new Map()
+        };
+
+        const dir: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: 'test',
+            files: [],
+            directories: new Map([
+                ['', subDir]
+            ])
+        };
+
+        const result = directoryStructure.generate([dir]);
+        expect(result).toContain('📁 test');
+        expect(result).toContain('📁 ');
     });
 }); 

@@ -1,55 +1,138 @@
-# Matomeru VSCode拡張機能
+# Matomeru (まとめる)
 
-Matomeruは、Visual Studio Code上で動作する拡張機能で、複数のディレクトリやファイル（およびその配下のすべてのファイル）をスキャンし、その内容をMarkdown形式でまとめて表示します。
+VSCode extension to summarize directory structures and file contents.  
+ディレクトリ構造とファイル内容をまとめるVSCode拡張機能です。
 
-## 主な機能
+[English](#english) | [日本語](#japanese)
 
-1. **複数ディレクトリ・ファイルの集約**
-   - ユーザーが選択した複数のディレクトリやファイルをスキャン
-   - 各ファイルのパス、内容、言語情報などを収集
-   - ディレクトリ構造をツリー形式で表示
+## English
 
-2. **Markdown形式での出力**
-   - ディレクトリ構造を先頭に表示
-   - 各ファイルの情報（パス、言語）をヘッダーとして表示
-   - ファイル内容をコードブロックで表示
+### Features
 
-3. **柔軟な出力オプション**
-   - エディタで表示
-   - クリップボードにコピー
-   - ChatGPTに送信（macOSのみ対応）
+- Generate directory structure with file contents
+- Support for multiple output formats:
+  - Display in editor
+  - Copy to clipboard
+  - Send to ChatGPT (macOS only)
+- Customizable directory structure display:
+  - Emoji icons for directories and files
+  - Configurable indentation
+  - Optional file extension display
+- Localization support (English/Japanese)
 
-## 使い方
+### Installation
+
+1. Install from VSCode Marketplace
+2. Or download the `.vsix` file and install manually:
+   ```bash
+   code --install-extension matomeru-0.0.1.vsix
+   ```
+
+### Usage
+
+1. Right-click on a directory or file in the explorer
+2. Select "Matomeru: Summarize Directory/File"
+3. Choose output destination:
+   - Open in Editor
+   - Copy to Clipboard
+   - Send to ChatGPT (macOS only)
+
+### Configuration
+
+```json
+{
+  "matomeru.maxFileSize": 1048576,
+  "matomeru.excludePatterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "coverage/**"
+  ],
+  "matomeru.chatGptIntegration": false,
+  "matomeru.directoryStructure.directoryIcon": "📁",
+  "matomeru.directoryStructure.fileIcon": "📄",
+  "matomeru.directoryStructure.indentSize": 2,
+  "matomeru.directoryStructure.showFileExtensions": true,
+  "matomeru.directoryStructure.useEmoji": true
+}
+```
+
+### Requirements
+
+- VSCode 1.84.0 or later
+- For ChatGPT integration:
+  - macOS
+  - Google Chrome
+  - ChatGPT account
+
+### License
+
+MIT License
+
+---
+
+## Japanese
+
+### 機能
+
+- ディレクトリ構造とファイル内容の生成
+- 複数の出力形式に対応：
+  - エディタでの表示
+  - クリップボードへのコピー
+  - ChatGPTへの送信（macOSのみ）
+- カスタマイズ可能なディレクトリ構造表示：
+  - ディレクトリとファイルの絵文字アイコン
+  - インデントの設定
+  - ファイル拡張子の表示/非表示
+- 多言語対応（英語/日本語）
+
+### インストール
+
+1. VSCode マーケットプレイスからインストール
+2. または、`.vsix`ファイルをダウンロードして手動でインストール：
+   ```bash
+   code --install-extension matomeru-0.0.1.vsix
+   ```
+
+### 使い方
 
 1. エクスプローラーでディレクトリまたはファイルを右クリック
-2. コンテキストメニューから以下のいずれかを選択：
-   - 「Matomeru: ディレクトリ/ファイルをまとめて表示」
-   - 「Matomeru: エディタで表示」
-   - 「Matomeru: クリップボードにコピー」
-   - 「Matomeru: ChatGPTで開く」（macOSのみ、要設定）
+2. 「Matomeru: ディレクトリ/ファイルをまとめる」を選択
+3. 出力先を選択：
+   - エディタで開く
+   - クリップボードにコピー
+   - ChatGPTに送信（macOSのみ）
 
-## 設定項目
+### 設定
 
-- `matomeru.maxFileSize`: 処理対象とする最大ファイルサイズ（バイト）
-  - デフォルト: 1048576（1MB）
+```json
+{
+  "matomeru.maxFileSize": 1048576,
+  "matomeru.excludePatterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "coverage/**"
+  ],
+  "matomeru.chatGptIntegration": false,
+  "matomeru.directoryStructure.directoryIcon": "📁",
+  "matomeru.directoryStructure.fileIcon": "📄",
+  "matomeru.directoryStructure.indentSize": 2,
+  "matomeru.directoryStructure.showFileExtensions": true,
+  "matomeru.directoryStructure.useEmoji": true
+}
+```
 
-- `matomeru.excludePatterns`: 除外するファイルパターン
-  - デフォルト:
-    - node_modules/**
-    - .git/**
-    - dist/**
-    - build/**
-    - coverage/**
+### 必要要件
 
-- `matomeru.chatGptIntegration`: ChatGPT連携機能の有効化（macOSのみ対応）
-  - デフォルト: false
+- VSCode 1.84.0以降
+- ChatGPT連携機能を使用する場合：
+  - macOS
+  - Google Chrome
+  - ChatGPTアカウント
 
-## 制限事項
+### ライセンス
 
-- ChatGPT連携機能はmacOSのみ対応しています
-- 大きなファイルは処理対象外となります（デフォルト: 1MB以上）
-- バイナリファイルは処理対象外です
-
-## ライセンス
-
-MIT License - 詳細は[LICENSE](LICENSE)ファイルを参照してください。
+MIT License

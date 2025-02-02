@@ -31,8 +31,9 @@ export class DirectoryStructure {
         const isRoot = !prefix;
         const dirName = isRoot ? dir.relativePath || '.' : dir.relativePath.split('/').pop() || '';
 
-        // ディレクトリ名を追加
-        lines.push(`${prefix}${this.config.directoryIcon} ${dirName}`);
+        // ディレクトリ名を追加（アイコンを含む）
+        const icon = this.config.useEmoji ? this.config.directoryIcon : '';
+        lines.push(`${prefix}${icon} ${dirName}`);
 
         // インデントを計算
         const nextPrefix = `${prefix}${' '.repeat(this.config.indentSize)}`;
@@ -48,7 +49,8 @@ export class DirectoryStructure {
         // まずファイルを追加
         for (const file of sortedFiles) {
             const fileName = this.formatFileName(file.relativePath);
-            lines.push(`${nextPrefix}${this.config.fileIcon} ${fileName}`);
+            const fileIcon = this.config.useEmoji ? this.config.fileIcon : '';
+            lines.push(`${nextPrefix}${fileIcon} ${fileName}`);
         }
 
         // 次にサブディレクトリを追加

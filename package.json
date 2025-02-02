@@ -1,7 +1,7 @@
 {
   "name": "matomeru",
-  "displayName": "Matomeru",
-  "description": "複数のディレクトリやファイルの内容をまとめて表示するVSCode拡張機能",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "0.0.1",
   "repository": {
     "type": "git",
@@ -9,7 +9,7 @@
   },
   "publisher": "romot-co",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.96.0"
   },
   "extensionKind": [
     "workspace"
@@ -17,7 +17,12 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:matomeru.process",
+    "onCommand:matomeru.quickProcessToEditor",
+    "onCommand:matomeru.quickProcessToClipboard",
+    "onCommand:matomeru.quickProcessToChatGPT"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -66,7 +71,7 @@
         "matomeru.maxFileSize": {
           "type": "number",
           "default": 1048576,
-          "description": "処理対象とする最大ファイルサイズ（バイト）"
+          "description": "%config.maxFileSize.description%"
         },
         "matomeru.excludePatterns": {
           "type": "array",
@@ -78,36 +83,37 @@
             ".git/**",
             "dist/**",
             "build/**",
-            "coverage/**"
+            "coverage/**",
+            ".DS_Store"
           ],
-          "description": "除外するファイルパターン"
+          "description": "%config.excludePatterns.description%"
         },
         "matomeru.chatGptIntegration": {
           "type": "boolean",
           "default": false,
-          "description": "ChatGPT連携機能を有効化する（macOSのみ対応）"
+          "description": "%config.chatGptIntegration.description%"
         },
         "matomeru.directoryStructure.directoryIcon": {
           "type": "string",
           "default": "📁",
-          "description": "ディレクトリを表すアイコン"
+          "description": "%config.directoryStructure.directoryIcon.description%"
         },
         "matomeru.directoryStructure.fileIcon": {
           "type": "string",
           "default": "📄",
-          "description": "ファイルを表すアイコン"
+          "description": "%config.directoryStructure.fileIcon.description%"
         },
         "matomeru.directoryStructure.indentSize": {
           "type": "number",
           "default": 2,
           "minimum": 1,
           "maximum": 8,
-          "description": "ディレクトリ構造のインデントサイズ"
+          "description": "%config.directoryStructure.indentSize.description%"
         },
         "matomeru.directoryStructure.showFileExtensions": {
           "type": "boolean",
           "default": true,
-          "description": "ファイル名に拡張子を表示するかどうか"
+          "description": "%config.directoryStructure.showFileExtensions.description%"
         }
       }
     }
@@ -128,7 +134,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.11",
     "@types/node": "20.x",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.96.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "@vscode/l10n-dev": "^0.0.30",
@@ -155,5 +161,6 @@
     "directory",
     "combine",
     "visualization"
-  ]
+  ],
+  "l10n": "./l10n"
 }

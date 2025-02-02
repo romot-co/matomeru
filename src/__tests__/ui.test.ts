@@ -1,21 +1,7 @@
 import * as vscode from 'vscode';
 import { showInEditor, copyToClipboard, openInChatGPT } from '../ui';
-import { getLocalizedMessage } from '../l10n/index';
 import * as os from 'os';
 import { exec } from 'child_process';
-
-jest.mock('../l10n/index', () => ({
-    getLocalizedMessage: jest.fn((key: string) => {
-        const messages: { [key: string]: string } = {
-            'msg.editorOpenSuccess': 'エディタで開きました',
-            'msg.clipboardCopySuccess': 'クリップボードにコピーしました',
-            'msg.chatGPTSendSuccess': 'ChatGPTに送信しました',
-            'msg.chatGPTDisabled': 'ChatGPT連携が無効です',
-            'msg.chatGPTOnlyMac': 'ChatGPT連携はmacOSのみ対応しています'
-        };
-        return messages[key] || key;
-    })
-}));
 
 jest.mock('os', () => ({
     platform: jest.fn()
@@ -51,7 +37,7 @@ describe('UI Module', () => {
             });
             expect(vscode.window.showTextDocument).toHaveBeenCalledWith(mockDocument);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                getLocalizedMessage('msg.editorOpenSuccess')
+                vscode.l10n.t('msg.editorOpenSuccess')
             );
         });
 
@@ -61,6 +47,13 @@ describe('UI Module', () => {
 
             await expect(showInEditor(content)).rejects.toThrow();
         });
+
+        it('エラーメッセージが文字列の場合も適切に処理される', async () => {
+            const errorMessage = 'String error message';
+            (vscode.workspace.openTextDocument as jest.Mock).mockRejectedValue(errorMessage);
+
+            await expect(showInEditor(content)).rejects.toThrow(errorMessage);
+        });
     });
 
     describe('copyToClipboard', () => {
@@ -69,7 +62,7 @@ describe('UI Module', () => {
             
             expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith(content);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                getLocalizedMessage('msg.clipboardCopySuccess')
+                vscode.l10n.t('msg.clipboardCopySuccess')
             );
         });
 
@@ -78,6 +71,13 @@ describe('UI Module', () => {
             (vscode.env.clipboard.writeText as jest.Mock).mockRejectedValue(error);
 
             await expect(copyToClipboard(content)).rejects.toThrow();
+        });
+
+        it('エラーメッセージが文字列の場合も適切に処理される', async () => {
+            const errorMessage = 'String error message';
+            (vscode.env.clipboard.writeText as jest.Mock).mockRejectedValue(errorMessage);
+
+            await expect(copyToClipboard(content)).rejects.toThrow(errorMessage);
         });
     });
 
@@ -88,7 +88,7 @@ describe('UI Module', () => {
             });
 
             await expect(openInChatGPT(content)).rejects.toThrow(
-                getLocalizedMessage('msg.chatGPTDisabled')
+                vscode.l10n.t('msg.chatGPTDisabled')
             );
         });
 
@@ -96,7 +96,7 @@ describe('UI Module', () => {
             (os.platform as jest.Mock).mockReturnValue('win32');
 
             await expect(openInChatGPT(content)).rejects.toThrow(
-                getLocalizedMessage('msg.chatGPTOnlyMac')
+                vscode.l10n.t('msg.chatGPTOnlyMac')
             );
         });
 
@@ -106,7 +106,7 @@ describe('UI Module', () => {
             expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith(content);
             expect(exec).toHaveBeenCalled();
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                getLocalizedMessage('msg.chatGPTSendSuccess')
+                vscode.l10n.t('msg.chatGPTSendSuccess')
             );
         });
 
@@ -119,6 +119,17 @@ describe('UI Module', () => {
             );
 
             await expect(openInChatGPT(content)).rejects.toThrow();
+        });
+
+        it('エラーメッセージが文字列の場合も適切に処理される', async () => {
+            const errorMessage = 'String error message';
+            (exec as unknown as jest.Mock).mockImplementationOnce(
+                (_cmd: string, callback: (error: Error | null, stdout: string, stderr: string) => void) => {
+                    callback(errorMessage as unknown as Error, '', '');
+                }
+            );
+
+            await expect(openInChatGPT(content)).rejects.toThrow(errorMessage);
         });
     });
 }); 

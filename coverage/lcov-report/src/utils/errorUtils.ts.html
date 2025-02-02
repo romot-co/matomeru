@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/types/configTypes.ts</title>
+    <title>Code coverage report for src/utils/errorUtils.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/types</a> configTypes.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/utils</a> errorUtils.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
@@ -95,23 +95,37 @@
 <a name='L30'></a><a href='#L30'>30</a>
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a>
-<a name='L33'></a><a href='#L33'>33</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -120,46 +134,59 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export interface DirectoryStructureConfig {
-    directoryIcon: string;    // ディレクトリを表すアイコン
-    fileIcon: string;         // ファイルを表すアイコン
-    indentSize: number;       // インデントのサイズ
-    showFileExtensions: boolean;  // ファイル拡張子を表示するかどうか
-    useEmoji: boolean;        // 絵文字を使用するかどうか
-}
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { MatomeruError } from '../errors/errors';
 &nbsp;
-export interface MatomeruConfig {
-    maxFileSize: number;
-    excludePatterns: string[];
-    chatGptIntegration: boolean;
-    directoryStructure: DirectoryStructureConfig;
-}
-&nbsp;
-export const defaultConfig: MatomeruConfig = {
-    maxFileSize: 1048576,
-    excludePatterns: [
-        'node_modules/**',
-        '.git/**',
-        'dist/**',
-        'build/**',
-        'coverage/**'
-    ],
-    chatGptIntegration: false,
-    directoryStructure: {
-        directoryIcon: '📁',
-        fileIcon: '📄',
-        indentSize: 2,
-        showFileExtensions: true,
-        useEmoji: true
+/**
+ * エラーオブジェクトからメッセージを抽出するヘルパー関数
+ * @param error エラーオブジェクト
+ * @returns 抽出されたエラーメッセージ
+ */
+export function extractErrorMessage(error: unknown): string {
+    if (error instanceof MatomeruError) {
+        return error.getLocalizedMessage();
     }
-}; </pre></td></tr></table></pre>
+&nbsp;
+    if (error instanceof Error) {
+        // カスタムパラメータを持つエラーの処理
+        if ((error as any).params?.[0]) {
+            return (error as any).params[0];
+        }
+        return error.message;
+    }
+&nbsp;
+    // その他の型のエラー（文字列など）
+    return String(error);
+}
+&nbsp;
+/**
+ * エラーをログに記録し、適切なエラーメッセージを表示するヘルパー関数
+ * @param logger Loggerインスタンス
+ * @param error エラーオブジェクト
+ * @param isWarning 警告として扱うかどうか
+ */
+export function logError(
+    logger: { warn: (message: string) =&gt; void; error: (message: string | Error) =&gt; void },
+    error: unknown,
+    isWarning = false
+): void {
+    const message = extractErrorMessage(error);
+    if (isWarning) {
+        logger.warn(message);
+    } else {
+        logger.error(message);
+    }
+} </pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->

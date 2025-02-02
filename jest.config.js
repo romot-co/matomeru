@@ -7,7 +7,7 @@ module.exports = {
     '^.+\\.tsx?$': 'ts-jest',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  setupFiles: ['<rootDir>/src/__tests__/setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],
@@ -18,7 +18,8 @@ module.exports = {
     '!**/node_modules/**',
   ],
   maxWorkers: 1,
-  workerIdleMemoryLimit: '512MB',
+  workerIdleMemoryLimit: '256MB',
   maxConcurrency: 1,
-  testTimeout: 10000
+  testTimeout: 10000,
+  bail: true
 }; 

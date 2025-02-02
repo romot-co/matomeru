@@ -27,7 +27,7 @@ export class MatomeruError extends Error {
 
 export class FileOperationError extends MatomeruError {
     constructor(code: string, params?: any[]) {
-        super(code, code, params);
+        super(code, vscode.l10n.t(code, ...(params || [])), params);
         this.name = 'FileOperationError';
     }
 }
@@ -56,38 +56,41 @@ export class ScanError extends FileOperationError {
     }
 }
 
-export class WorkspaceNotFoundError extends MatomeruError {
+export class WorkspaceNotFoundError extends FileOperationError {
     constructor() {
-        super('msg.workspaceNotFound', 'ワークスペースが開かれていません');
+        super('msg.workspaceNotFound');
     }
 }
 
 export class FileReadError extends FileOperationError {
-    constructor(path: string, originalError: Error) {
-        super('msg.fileReadError', [path, originalError.message]);
+    constructor(path: string, message: string) {
+        super('msg.fileReadError', [path, message]);
     }
 }
 
 export class DirectoryScanError extends FileOperationError {
-    constructor(path: string, originalError: Error) {
-        super('msg.directoryScanError', [path, originalError.message]);
+    constructor(path: string, message: string) {
+        super('msg.directoryScanError', [path, message]);
     }
 }
 
 export class ChatGPTError extends MatomeruError {
     constructor(message: string) {
-        super('msg.chatGPTError', message);
+        super('msg.chatGPTError', message, [message]);
+        this.name = 'ChatGPTError';
     }
 }
 
 export class ClipboardError extends MatomeruError {
     constructor(message: string) {
-        super('msg.clipboardError', message);
+        super('msg.clipboardError', message, [message]);
+        this.name = 'ClipboardError';
     }
 }
 
 export class EditorError extends MatomeruError {
     constructor(message: string) {
-        super('msg.editorError', message);
+        super('msg.editorError', message, [message]);
+        this.name = 'EditorError';
     }
 } 

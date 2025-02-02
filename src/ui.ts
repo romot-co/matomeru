@@ -4,7 +4,6 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Logger } from './utils/logger';
 import { ChatGPTError, ClipboardError, EditorError } from './errors/errors';
-import { getLocalizedMessage } from './l10n/index';
 
 const execAsync = promisify(exec);
 const logger = Logger.getInstance('UI');
@@ -16,11 +15,11 @@ export async function showInEditor(content: string): Promise<void> {
             language: 'markdown'
         });
         await vscode.window.showTextDocument(document);
-        logger.info('エディタに出力しました');
-        vscode.window.showInformationMessage(getLocalizedMessage('msg.editorOpenSuccess'));
+        logger.info(vscode.l10n.t('msg.editorOpenSuccess'));
+        vscode.window.showInformationMessage(vscode.l10n.t('msg.editorOpenSuccess'));
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error(`エディタ表示エラー: ${errorMessage}`);
+        logger.error(vscode.l10n.t('msg.editorError', errorMessage));
         throw new EditorError(errorMessage);
     }
 }
@@ -28,53 +27,50 @@ export async function showInEditor(content: string): Promise<void> {
 export async function copyToClipboard(content: string): Promise<void> {
     try {
         await vscode.env.clipboard.writeText(content);
-        logger.info('クリップボードにコピーしました');
-        vscode.window.showInformationMessage(getLocalizedMessage('msg.clipboardCopySuccess'));
+        logger.info(vscode.l10n.t('msg.clipboardCopySuccess'));
+        vscode.window.showInformationMessage(vscode.l10n.t('msg.clipboardCopySuccess'));
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error(`クリップボードコピーエラー: ${errorMessage}`);
+        logger.error(vscode.l10n.t('msg.clipboardError', errorMessage));
         throw new ClipboardError(errorMessage);
     }
 }
 
 export async function openInChatGPT(content: string): Promise<void> {
     const config = vscode.workspace.getConfiguration('matomeru');
-    const chatGptEnabled = config.get<boolean>('chatGptIntegration', false);
+    const chatGptIntegration = config.get<boolean>('chatGptIntegration', false);
 
-    if (!chatGptEnabled) {
-        const error = new ChatGPTError(getLocalizedMessage('msg.chatGPTDisabled'));
-        logger.error(error.message);
-        throw error;
+    if (!chatGptIntegration) {
+        logger.warn(vscode.l10n.t('msg.chatGPTDisabled'));
+        throw new ChatGPTError(vscode.l10n.t('msg.chatGPTDisabled'));
     }
 
     if (os.platform() !== 'darwin') {
-        const error = new ChatGPTError(getLocalizedMessage('msg.chatGPTOnlyMac'));
-        logger.error(error.message);
-        throw error;
+        logger.warn(vscode.l10n.t('msg.chatGPTOnlyMac'));
+        throw new ChatGPTError(vscode.l10n.t('msg.chatGPTOnlyMac'));
     }
 
     try {
-        // クリップボードにコピー
-        await copyToClipboard(content);
-
-        // ChatGPTを開く
         const script = `
-            tell application "ChatGPT"
-                activate
-                delay 1
-                tell application "System Events"
-                    keystroke "v" using command down
-                    keystroke return
-                end tell
+        tell application "Google Chrome"
+            activate
+            open location "https://chat.openai.com"
+            delay 1
+            tell application "System Events"
+                keystroke "v" using command down
+                delay 0.5
+                keystroke return
             end tell
-        `.trim().replace(/\n\s+/g, ' ');
+        end tell
+        `;
 
+        await copyToClipboard(content);
         await execAsync(`osascript -e '${script}'`);
-        logger.info('ChatGPTに送信しました');
-        vscode.window.showInformationMessage(getLocalizedMessage('msg.chatGPTSendSuccess'));
+        logger.info(vscode.l10n.t('msg.chatGPTSendSuccess'));
+        vscode.window.showInformationMessage(vscode.l10n.t('msg.chatGPTSendSuccess'));
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error(`ChatGPT送信エラー: ${errorMessage}`);
+        logger.error(vscode.l10n.t('msg.chatGPTError', errorMessage));
         throw new ChatGPTError(errorMessage);
     }
 } 
