@@ -1,206 +1,138 @@
-# Matomeru / まとめる
+# Matomeru (まとめる)
 
-[English](./README.md) | [日本語](./README.md#まとめる)
+VSCode extension to summarize directory structures and file contents.  
+ディレクトリ構造とファイル内容をまとめるVSCode拡張機能です。
 
-# Matomeru
+[English](#english) | [日本語](#japanese)
 
-A VS Code extension that instantly documents directory contents. Streamline code reviews, project documentation, and ChatGPT interactions.
+## English
 
-## ✨ Features
+### Features
 
-### 📁 Fast Directory Visualization
-- Convert directory structures to beautiful markdown with emoji indicators (📁 for directories, 📄 for files)
-- Automatic file type detection and classification
-- Detailed information (size, line count, paths)
-- Clear hierarchical structure display
+- Generate directory structure with file contents
+- Support for multiple output formats:
+  - Display in editor
+  - Copy to clipboard
+  - Send to ChatGPT (macOS only)
+- Customizable directory structure display:
+  - Emoji icons for directories and files
+  - Configurable indentation
+  - Optional file extension display
+- Localization support (English/Japanese)
 
-### 🚀 Three Output Methods
-- **Open in Editor**: Instant VS Code preview
-- **Copy to Clipboard**: Quick sharing
-- **Send to ChatGPT**: AI analysis (macOS only)
+### Installation
 
-### 📝 Output Format
-```markdown
-# Directory Structure
+1. Install from VSCode Marketplace
+2. Or download the `.vsix` file and install manually:
+   ```bash
+   code --install-extension matomeru-0.0.1.vsix
+   ```
 
-📁 src
-   📁 domain
-      📁 files
-         📄 FileSystemAdapter.ts
-      📁 output
-         📄 MarkdownGenerator.ts
-   📁 infrastructure
-      📁 logging
-         📄 LoggingService.ts
+### Usage
 
-# Files
+1. Right-click on a directory or file in the explorer
+2. Select "Matomeru: Summarize Directory/File"
+3. Choose output destination:
+   - Open in Editor
+   - Copy to Clipboard
+   - Send to ChatGPT (macOS only)
 
-File: FileSystemAdapter.ts | Path: src/domain/files/FileSystemAdapter.ts
-```typescript
-// File contents here
-```
-
-### ⚡️ Impressive Performance
-| Project Size | Processing Time | Memory Usage |
-|------------|------|---------|
-| Small (100 files) | 0.3s | 50MB |
-| Medium (1,000 files) | 2.1s | 120MB |
-| Large (10,000 files) | 3.2s | 450MB |
-
-## 🛠 Usage
-
-1. Right-click a directory in VS Code explorer
-2. Select Matomeru command:
-   - "Open in Editor"
-   - "Copy to Clipboard"
-   - "Open in ChatGPT" (macOS only)
-
-## ⚙️ Customization
+### Configuration
 
 ```json
 {
-  "matomeru.maxConcurrency": 5,     // Parallel operations (1-20)
-  "matomeru.batchSize": 100,        // Batch size (10-1000)
-  "matomeru.excludePatterns": [     // Exclude patterns
+  "matomeru.maxFileSize": 1048576,
+  "matomeru.excludePatterns": [
     "node_modules/**",
-    ".git/**"
-  ]
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "coverage/**"
+  ],
+  "matomeru.chatGptIntegration": false,
+  "matomeru.directoryStructure.directoryIcon": "📁",
+  "matomeru.directoryStructure.fileIcon": "📄",
+  "matomeru.directoryStructure.indentSize": 2,
+  "matomeru.directoryStructure.showFileExtensions": true,
+  "matomeru.directoryStructure.useEmoji": true
 }
 ```
-
-## 🔒 Security & Stability
-
-- Safe symlink handling
-- Binary file detection and exclusion
-- Detailed error messages and logs
-
-## 🤖 ChatGPT Integration (macOS only)
 
 ### Requirements
-- macOS
-- ChatGPT desktop app
-- Accessibility permissions
 
-### Setup
-1. Install ChatGPT app
-2. Grant VS Code accessibility permissions
+- VSCode 1.84.0 or later
+- For ChatGPT integration:
+  - macOS
+  - Google Chrome
+  - ChatGPT account
 
-## 🔄 Roadmap
-
-- Windows support
-- Enhanced analysis
-- Custom templates
-- GitHub integration
-
-## 📝 License
+### License
 
 MIT License
 
-## 👨‍💻 Developer
-
-Romot
-
 ---
 
-# まとめる
+## Japanese
 
-ディレクトリの内容を瞬時にドキュメント化するVS Code拡張機能。コードレビュー、プロジェクト文書化、ChatGPTとの対話をスマートに。
+### 機能
 
-## 🌟 主な機能
+- ディレクトリ構造とファイル内容の生成
+- 複数の出力形式に対応：
+  - エディタでの表示
+  - クリップボードへのコピー
+  - ChatGPTへの送信（macOSのみ）
+- カスタマイズ可能なディレクトリ構造表示：
+  - ディレクトリとファイルの絵文字アイコン
+  - インデントの設定
+  - ファイル拡張子の表示/非表示
+- 多言語対応（英語/日本語）
 
-### 📁 高速なディレクトリ可視化
-- 絵文字を使用した分かりやすいディレクトリ構造の表示（📁 ディレクトリ、📄 ファイル）
-- ファイルタイプの自動検出と分類
-- 詳細な情報（サイズ、行数、パス）を表示
-- 階層構造の明確な表示
+### インストール
 
-### 🚀 3つの出力方法
-- **エディタで開く**: 即座にVS Codeで確認
-- **クリップボードにコピー**: すぐに共有可能
-- **ChatGPTに送信**: AIによる分析（macOSのみ）
+1. VSCode マーケットプレイスからインストール
+2. または、`.vsix`ファイルをダウンロードして手動でインストール：
+   ```bash
+   code --install-extension matomeru-0.0.1.vsix
+   ```
 
-### 📝 出力形式
-```markdown
-# Directory Structure
+### 使い方
 
-📁 src
-   📁 domain
-      📁 files
-         📄 FileSystemAdapter.ts
-      📁 output
-         📄 MarkdownGenerator.ts
-   📁 infrastructure
-      📁 logging
-         📄 LoggingService.ts
+1. エクスプローラーでディレクトリまたはファイルを右クリック
+2. 「Matomeru: ディレクトリ/ファイルをまとめる」を選択
+3. 出力先を選択：
+   - エディタで開く
+   - クリップボードにコピー
+   - ChatGPTに送信（macOSのみ）
 
-# Files
-
-File: FileSystemAdapter.ts | Path: src/domain/files/FileSystemAdapter.ts
-```typescript
-// ファイルの内容
-```
-
-### ⚡️ 圧倒的なパフォーマンス
-| プロジェクトサイズ | 処理時間 | メモリ使用量 |
-|------------|------|---------|
-| 小規模 (100ファイル) | 0.3秒 | 50MB |
-| 中規模 (1,000ファイル) | 2.1秒 | 120MB |
-| 大規模 (10,000ファイル) | 3.2秒 | 450MB |
-
-## 🛠 使い方
-
-1. VS Codeのエクスプローラーでディレクトリを右クリック
-2. Matomeruコマンドを選択:
-   - 「エディタで開く」
-   - 「クリップボードにコピー」
-   - 「ChatGPTで開く」（macOSのみ）
-
-## ⚙️ カスタマイズ
+### 設定
 
 ```json
 {
-  "matomeru.maxConcurrency": 5,     // 並列処理数（1-20）
-  "matomeru.batchSize": 100,        // バッチサイズ（10-1000）
-  "matomeru.excludePatterns": [     // 除外パターン
+  "matomeru.maxFileSize": 1048576,
+  "matomeru.excludePatterns": [
     "node_modules/**",
-    ".git/**"
-  ]
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "coverage/**"
+  ],
+  "matomeru.chatGptIntegration": false,
+  "matomeru.directoryStructure.directoryIcon": "📁",
+  "matomeru.directoryStructure.fileIcon": "📄",
+  "matomeru.directoryStructure.indentSize": 2,
+  "matomeru.directoryStructure.showFileExtensions": true,
+  "matomeru.directoryStructure.useEmoji": true
 }
 ```
 
-## 🔒 セキュリティと安定性
+### 必要要件
 
-- シンボリックリンクの自動スキップによる安全性確保
-- バイナリファイルの自動検出と除外
-- 詳細なエラーメッセージとログ
+- VSCode 1.84.0以降
+- ChatGPT連携機能を使用する場合：
+  - macOS
+  - Google Chrome
+  - ChatGPTアカウント
 
-## 🤖 ChatGPT連携（macOS専用）
-
-### 必要条件
-- macOS
-- ChatGPTデスクトップアプリ
-- アクセシビリティ権限
-
-### セットアップ
-1. ChatGPTアプリをインストール
-2. VS Codeにアクセシビリティ権限を付与
-
-## 🔄 今後の予定
-
-- Windowsサポート
-- より詳細な解析機能
-- カスタムテンプレート
-- GitHub連携
-
-## 📝 ライセンス
+### ライセンス
 
 MIT License
-
-## 👨‍💻 開発者
-
-Romot
-
----
-
-**Note**: This project is under active development. Your feedback and contributions are welcome!
-**注**: 活発に開発中です。フィードバックや貢献を歓迎します！

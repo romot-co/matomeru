@@ -4,16 +4,31 @@
 
 # Development files
 .vscode/**
-node_modules/**
-!out/
-*.vsix
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+vsc-extension-quickstart.md
+**/tsconfig.json
+**/.eslintrc.json
+**/*.map
+**/*.ts
+coverage/**
+jest.config.js
+.eslintrc.js
 
 # Source files
 src/**/*.ts
 !src/**/*.d.ts
 
+# Node modules
+node_modules/**
+!node_modules/minimatch/**
+!node_modules/@types/minimatch/**
+!node_modules/brace-expansion/**
+!node_modules/balanced-match/**
+
 # Other development files
-.gitignore
 .eslintrc.json
-tsconfig.json
 webpack.config.js
+*.vsix
