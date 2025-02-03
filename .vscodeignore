@@ -27,6 +27,7 @@ node_modules/**
 !node_modules/@types/minimatch/**
 !node_modules/brace-expansion/**
 !node_modules/balanced-match/**
+!node_modules/isbinaryfile/**
 
 # Other development files
 .eslintrc.json
