@@ -3,9 +3,6 @@
 VSCode extension to summarize directory structures and file contents in Markdown format.  
 ディレクトリ構造とファイル内容をMarkdown形式でまとめるVSCode拡張機能です。
 
-> 📝 **Key Feature**: Automatically generates well-formatted Markdown documentation of your project's directory structure and file contents.  
-> 📝 **主な機能**: プロジェクトのディレクトリ構造とファイル内容を、整形されたMarkdownドキュメントとして自動生成します。
-
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
 
 [English](#english) | [日本語](#japanese)
@@ -14,10 +11,11 @@ VSCode extension to summarize directory structures and file contents in Markdown
 
 ### Features
 
-- Generate well-formatted Markdown documentation:
-  - Directory structure visualization
-  - File contents summary
-  - Automatic Markdown formatting
+- **Generate Markdown documentation** for directory structures and file contents
+- **Automatically format and organize** your project documentation:
+  - Directory tree structure
+  - File contents with syntax highlighting
+  - Markdown-compatible output
 - Support for multiple output formats:
   - Display in editor
   - Copy to clipboard
@@ -84,7 +82,11 @@ MIT License
 
 ### 機能
 
-- ディレクトリ構造とファイル内容の生成
+- ディレクトリ構造とファイル内容を**Markdown形式で自動生成**
+- プロジェクトドキュメントを**自動的にフォーマットして整理**：
+  - ディレクトリツリー構造
+  - シンタックスハイライト付きファイル内容
+  - Markdown互換の出力
 - 複数の出力形式に対応：
   - エディタでの表示
   - クリップボードへのコピー
