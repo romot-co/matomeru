@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
   },
-  "publisher": "romot-co",
+  "publisher": "romot",
   "engines": {
     "vscode": "^1.96.0"
   },
