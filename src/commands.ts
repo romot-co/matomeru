@@ -20,16 +20,6 @@ export class CommandRegistrar {
         this.logger = Logger.getInstance('CommandRegistrar');
     }
 
-    register(context: vscode.ExtensionContext): void {
-        context.subscriptions.push(
-            vscode.commands.registerCommand('matomeru.process', this.processToEditor.bind(this)),
-            vscode.commands.registerCommand('matomeru.quickProcessToEditor', this.processToEditor.bind(this)),
-            vscode.commands.registerCommand('matomeru.quickProcessToClipboard', this.processToClipboard.bind(this)),
-            vscode.commands.registerCommand('matomeru.quickProcessToChatGPT', this.processToChatGPT.bind(this))
-        );
-        this.logger.info(vscode.l10n.t('msg.commandsRegistered'));
-    }
-
     private async processDirectories(uris: vscode.Uri[]): Promise<string> {
         try {
             this.logger.info(vscode.l10n.t('msg.processingUris', uris.length));
@@ -42,10 +32,13 @@ export class CommandRegistrar {
                 uris.map(async (uri, index) => {
                     this.logger.info(vscode.l10n.t('msg.scanningDirectory', index + 1, uri.fsPath));
                     try {
-                        return await this.fileOps.scanDirectory(uri.fsPath, {
+                        this.fileOps.setCurrentSelectedPath(uri.fsPath);
+                        const result = await this.fileOps.scanDirectory(uri.fsPath, {
                             maxFileSize: config.get('maxFileSize', 1048576),
                             excludePatterns: config.get('excludePatterns', [])
                         });
+                        this.fileOps.setCurrentSelectedPath(undefined);
+                        return result;
                     } catch (error) {
                         this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
                         throw error;
@@ -120,12 +113,15 @@ export class CommandRegistrar {
             throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
         }
 
-        return await vscode.window.showOpenDialog({
+        const uris = await vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectFolders: true,
             canSelectMany: true,
             openLabel: vscode.l10n.t('msg.selectButton'),
             defaultUri: vscode.workspace.workspaceFolders[0].uri
         }) || [];
+
+        // URIのfsPathをキーにして一意化
+        return Array.from(new Map(uris.map(uri => [uri.fsPath, uri])).values());
     }
 } 

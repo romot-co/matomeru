@@ -3,9 +3,20 @@
 VSCode extension to summarize directory structures and file contents.  
 ディレクトリ構造とファイル内容をまとめるVSCode拡張機能です。
 
+<img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
+
 [English](#english) | [日本語](#japanese)
 
 ## English
+
+### Design Philosophy
+
+The extension's icon embodies Nordic minimalism principles:
+- Simplicity: Clean circular form with essential elements
+- Functionality: Clear "M" representation
+- Timelessness: Monochromatic color scheme
+- Balance: Harmonious spacing and proportions
+- Accessibility: High contrast for better visibility
 
 ### Features
 
@@ -60,7 +71,7 @@ VSCode extension to summarize directory structures and file contents.
 
 ### Requirements
 
-- VSCode 1.84.0 or later
+- VSCode 1.96.0 or later
 - For ChatGPT integration:
   - macOS
   - Google Chrome
@@ -73,6 +84,15 @@ MIT License
 ---
 
 ## Japanese
+
+### デザイン哲学
+
+拡張機能のアイコンは北欧ミニマリズムの原則を体現しています：
+- シンプルさ：必要最小限の要素による円形のデザイン
+- 機能性：明確な「M」の表現
+- 普遍性：モノトーンによる時代を超えた美しさ
+- バランス：調和の取れた余白とプロポーション
+- アクセシビリティ：高いコントラストによる視認性
 
 ### 機能
 
@@ -127,7 +147,7 @@ MIT License
 
 ### 必要要件
 
-- VSCode 1.84.0以降
+- VSCode 1.96.0以降
 - ChatGPT連携機能を使用する場合：
   - macOS
   - Google Chrome

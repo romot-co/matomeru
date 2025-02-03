@@ -55,10 +55,10 @@ export async function openInChatGPT(content: string): Promise<void> {
         tell application "Google Chrome"
             activate
             open location "https://chat.openai.com"
-            delay 1
+            delay 2
             tell application "System Events"
                 keystroke "v" using command down
-                delay 0.5
+                delay 1
                 keystroke return
             end tell
         end tell

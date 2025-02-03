@@ -103,7 +103,8 @@ jest.mock('vscode', () => {
         stat: jest.fn(),
         readFile: jest.fn(),
         writeFile: jest.fn()
-      }
+      },
+      onDidChangeConfiguration: jest.fn()
     },
     env: {
       clipboard: {
@@ -115,7 +116,8 @@ jest.mock('vscode', () => {
       parse: (path: string) => ({ fsPath: path, scheme: 'file', path })
     },
     commands: {
-      registerCommand: jest.fn()
+      registerCommand: jest.fn(),
+      executeCommand: jest.fn()
     },
     l10n: {
       t: (key: string, ...args: any[]) => {
