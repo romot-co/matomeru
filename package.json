@@ -145,6 +145,7 @@
   "dependencies": {
     "@types/minimatch": "^5.1.2",
     "@vscode/l10n": "^0.0.16",
+    "isbinaryfile": "^5.0.4",
     "minimatch": "^10.0.1"
   },
   "icon": "images/icon.png",

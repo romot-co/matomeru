@@ -338,4 +338,116 @@ describe('DirectoryStructure', () => {
         expect(result).toContain('📁 test');
         expect(result).toContain('📁 ');
     });
+
+    it('重複するトップレベルディレクトリが１件に統合されること', () => {
+        const dir1: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: '',  // 空文字は '.' として扱う
+            files: [{
+                uri: vscode.Uri.file('/test/README.md'),
+                relativePath: 'README.md',
+                content: 'content1',
+                language: 'markdown',
+                size: 100
+            }],
+            directories: new Map()
+        };
+        const dir2: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: '',  // 空文字は '.' として扱う
+            files: [{
+                uri: vscode.Uri.file('/test/LICENSE'),
+                relativePath: 'LICENSE',
+                content: 'content2',
+                language: 'plaintext',
+                size: 200
+            }],
+            directories: new Map()
+        };
+
+        const result = directoryStructure.generate([dir1, dir2]);
+        
+        // 統合結果としてトップレベルが1件のみ
+        const topDirCount = result.split('\n').filter(line => line.includes('📁')).length;
+        expect(topDirCount).toBe(1);
+        expect(result).toContain('📄 README.md');
+        expect(result).toContain('📄 LICENSE');
+    });
+
+    it('重複するトップレベルディレクトリのサブディレクトリも正しく統合されること', () => {
+        const subDir1: DirectoryInfo = {
+            uri: vscode.Uri.file('/test/src'),
+            relativePath: 'src',
+            files: [{
+                uri: vscode.Uri.file('/test/src/index.ts'),
+                relativePath: 'src/index.ts',
+                content: 'content1',
+                language: 'typescript',
+                size: 100
+            }],
+            directories: new Map()
+        };
+
+        const subDir2: DirectoryInfo = {
+            uri: vscode.Uri.file('/test/docs'),
+            relativePath: 'docs',
+            files: [{
+                uri: vscode.Uri.file('/test/docs/README.md'),
+                relativePath: 'docs/README.md',
+                content: 'content2',
+                language: 'markdown',
+                size: 200
+            }],
+            directories: new Map()
+        };
+
+        const dir1: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: '.',
+            files: [{
+                uri: vscode.Uri.file('/test/package.json'),
+                relativePath: 'package.json',
+                content: 'content3',
+                language: 'json',
+                size: 300
+            }],
+            directories: new Map([['src', subDir1]])
+        };
+
+        const dir2: DirectoryInfo = {
+            uri: vscode.Uri.file('/test'),
+            relativePath: '.',
+            files: [{
+                uri: vscode.Uri.file('/test/README.md'),
+                relativePath: 'README.md',
+                content: 'content4',
+                language: 'markdown',
+                size: 400
+            }],
+            directories: new Map([['docs', subDir2]])
+        };
+
+        const result = directoryStructure.generate([dir1, dir2]);
+        
+        // 統合結果としてトップレベルが1件のみ
+        const topDirCount = result.split('\n').filter(line => line.match(/^📁/)).length;
+        expect(topDirCount).toBe(1);
+
+        // すべてのファイルとサブディレクトリが含まれていること
+        expect(result).toContain('📄 package.json');
+        expect(result).toContain('📄 README.md');
+        expect(result).toContain('📁 src');
+        expect(result).toContain('📄 index.ts');
+        expect(result).toContain('📁 docs');
+        expect(result).toContain('📄 README.md');
+
+        // ディレクトリ構造が正しく維持されていること
+        const lines = result.split('\n');
+        const srcIndex = lines.findIndex(line => line.includes('📁 src'));
+        const docsIndex = lines.findIndex(line => line.includes('📁 docs'));
+        expect(srcIndex).not.toBe(-1);
+        expect(docsIndex).not.toBe(-1);
+        expect(lines[srcIndex + 1]).toContain('📄 index.ts');
+        expect(lines[docsIndex + 1]).toContain('📄 README.md');
+    });
 }); 

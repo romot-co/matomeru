@@ -6,6 +6,7 @@ import { minimatch } from 'minimatch';
 import { DirectoryNotFoundError, FileSizeLimitError, ScanError } from './errors/errors';
 import { Logger } from './utils/logger';
 import { extractErrorMessage, logError } from './utils/errorUtils';
+import { isBinaryFile } from './utils/fileUtils';
 
 export class FileOperations {
     private readonly logger: Logger;
@@ -37,7 +38,19 @@ export class FileOperations {
                     throw new FileSizeLimitError(relativePath, stats.size, options.maxFileSize);
                 }
 
-                const content = await fs.readFile(absolutePath, 'utf-8');
+                // バイナリファイルのチェック
+                const buffer = await fs.readFile(absolutePath);
+                if (isBinaryFile(buffer)) {
+                    this.logger.info(`バイナリファイルをスキップ: ${relativePath}`);
+                    return {
+                        uri: vscode.Uri.file(path.dirname(absolutePath)),
+                        relativePath: path.dirname(relativePath),
+                        files: [],
+                        directories: new Map()
+                    };
+                }
+
+                const content = buffer.toString('utf-8');
                 const fileInfo: FileInfo = {
                     uri: vscode.Uri.file(absolutePath),
                     relativePath,
@@ -48,7 +61,7 @@ export class FileOperations {
 
                 return {
                     uri: vscode.Uri.file(path.dirname(absolutePath)),
-                    relativePath: path.dirname(relativePath) || '.',
+                    relativePath: path.dirname(relativePath),
                     files: [fileInfo],
                     directories: new Map()
                 };
@@ -85,7 +98,14 @@ export class FileOperations {
                             continue;
                         }
 
-                        const content = await fs.readFile(entryPath, 'utf-8');
+                        // バイナリファイルのチェック
+                        const buffer = await fs.readFile(entryPath);
+                        if (isBinaryFile(buffer)) {
+                            this.logger.info(`バイナリファイルをスキップ: ${entryRelativePath}`);
+                            continue;
+                        }
+
+                        const content = buffer.toString('utf-8');
                         files.push({
                             uri: vscode.Uri.file(entryPath),
                             relativePath: entryRelativePath,
