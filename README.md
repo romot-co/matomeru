@@ -9,15 +9,6 @@ VSCode extension to summarize directory structures and file contents.
 
 ## English
 
-### Design Philosophy
-
-The extension's icon embodies Nordic minimalism principles:
-- Simplicity: Clean circular form with essential elements
-- Functionality: Clear "M" representation
-- Timelessness: Monochromatic color scheme
-- Balance: Harmonious spacing and proportions
-- Accessibility: High contrast for better visibility
-
 ### Features
 
 - Generate directory structure with file contents
@@ -84,15 +75,6 @@ MIT License
 ---
 
 ## Japanese
-
-### デザイン哲学
-
-拡張機能のアイコンは北欧ミニマリズムの原則を体現しています：
-- シンプルさ：必要最小限の要素による円形のデザイン
-- 機能性：明確な「M」の表現
-- 普遍性：モノトーンによる時代を超えた美しさ
-- バランス：調和の取れた余白とプロポーション
-- アクセシビリティ：高いコントラストによる視認性
 
 ### 機能
 
