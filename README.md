@@ -3,6 +3,8 @@
 VSCode extension to summarize directory structures and file contents.  
 ディレクトリ構造とファイル内容をまとめるVSCode拡張機能です。
 
+<img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
+
 [English](#english) | [日本語](#japanese)
 
 ## English
@@ -60,7 +62,7 @@ VSCode extension to summarize directory structures and file contents.
 
 ### Requirements
 
-- VSCode 1.84.0 or later
+- VSCode 1.96.0 or later
 - For ChatGPT integration:
   - macOS
   - Google Chrome
@@ -127,7 +129,7 @@ MIT License
 
 ### 必要要件
 
-- VSCode 1.84.0以降
+- VSCode 1.96.0以降
 - ChatGPT連携機能を使用する場合：
   - macOS
   - Google Chrome

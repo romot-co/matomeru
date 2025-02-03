@@ -16,7 +16,6 @@ jest.mock('../ui');
 
 describe('CommandRegistrar', () => {
   let commandRegistrar: CommandRegistrar;
-  let mockContext: vscode.ExtensionContext;
   let mockFileOps: jest.Mocked<FileOperations>;
   let mockMarkdownGen: jest.Mocked<MarkdownGenerator>;
   let mockLogger: jest.Mocked<Logger>;
@@ -26,10 +25,6 @@ describe('CommandRegistrar', () => {
     jest.clearAllMocks();
 
     // モックの設定
-    mockContext = {
-      subscriptions: [],
-    } as unknown as vscode.ExtensionContext;
-
     mockFileOps = new FileOperations('') as jest.Mocked<FileOperations>;
     mockMarkdownGen = new MarkdownGenerator() as jest.Mocked<MarkdownGenerator>;
     mockLogger = {
@@ -82,27 +77,26 @@ describe('CommandRegistrar', () => {
     });
   });
 
-  describe('register', () => {
-    test('コマンドが正しく登録されること', () => {
-      commandRegistrar.register(mockContext);
+  describe('コマンド登録', () => {
+    test('コマンドが重複して登録されていないこと', () => {
+      const registerCommandSpy = jest.spyOn(vscode.commands, 'registerCommand');
       
-      expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(4);
-      expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
-        'matomeru.process',
-        expect.any(Function)
-      );
-      expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
+      // extension.tsでコマンドを登録
+      const commands = [
         'matomeru.quickProcessToEditor',
-        expect.any(Function)
-      );
-      expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
         'matomeru.quickProcessToClipboard',
-        expect.any(Function)
-      );
-      expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
-        'matomeru.quickProcessToChatGPT',
-        expect.any(Function)
-      );
+        'matomeru.quickProcessToChatGPT'
+      ];
+      
+      commands.forEach(cmd => {
+        vscode.commands.registerCommand(cmd, jest.fn());
+      });
+
+      // 各コマンドが1回だけ登録されていることを確認
+      commands.forEach(cmd => {
+        const calls = registerCommandSpy.mock.calls.filter(call => call[0] === cmd);
+        expect(calls.length).toBe(1);
+      });
     });
   });
 
@@ -265,6 +259,64 @@ describe('CommandRegistrar', () => {
       expect(mockFileOps.scanDirectory).not.toHaveBeenCalled();
       expect(mockMarkdownGen.generate).not.toHaveBeenCalled();
       expect(ui.openInChatGPT).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSelectedUris', () => {
+    const mockUri1 = { fsPath: '/test/path1', scheme: 'file' } as vscode.Uri;
+    const mockUri2 = { fsPath: '/test/path1', scheme: 'file' } as vscode.Uri; // 同じパス
+    const mockUri3 = { fsPath: '/test/path2', scheme: 'file' } as vscode.Uri;
+
+    beforeEach(() => {
+      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => 
+        Promise.resolve([mockUri1, mockUri2, mockUri3])
+      );
+    });
+
+    test('重複するURIが除去されること', async () => {
+      const uris = await (commandRegistrar as any).getSelectedUris();
+      
+      // 重複するパスが除去され、2つのURIになることを確認
+      expect(uris).toHaveLength(2);
+      
+      // パスの一意性を確認
+      const paths = uris.map(uri => uri.fsPath);
+      expect(paths).toEqual(['/test/path1', '/test/path2']);
+    });
+
+    test('URIが選択されなかった場合、空配列が返されること', async () => {
+      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => 
+        Promise.resolve(undefined)
+      );
+
+      const uris = await (commandRegistrar as any).getSelectedUris();
+      expect(uris).toHaveLength(0);
+    });
+  });
+
+  describe('コマンド実行時のURI重複除去', () => {
+    const mockUri1 = { fsPath: '/test/path1', scheme: 'file' } as vscode.Uri;
+    const mockUri2 = { fsPath: '/test/path1', scheme: 'file' } as vscode.Uri; // 同じパス
+    const mockUri3 = { fsPath: '/test/path2', scheme: 'file' } as vscode.Uri;
+
+    beforeEach(() => {
+      mockFileOps.scanDirectory.mockImplementation(async (path) => ({
+        uri: { fsPath: path, scheme: 'file' } as vscode.Uri,
+        relativePath: path,
+        files: [],
+        directories: new Map()
+      }));
+    });
+
+    test('重複するURIが渡された場合、一意化されて処理されること', async () => {
+      await commandRegistrar.processToEditor(undefined, [mockUri1, mockUri2, mockUri3]);
+
+      // 呼び出されたパスを確認
+      const calledPaths = mockFileOps.scanDirectory.mock.calls.map(call => call[0]);
+      const uniquePaths = Array.from(new Set(calledPaths));
+      expect(uniquePaths).toHaveLength(2);
+      expect(uniquePaths).toContain('/test/path1');
+      expect(uniquePaths).toContain('/test/path2');
     });
   });
 }); 

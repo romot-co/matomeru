@@ -17,6 +17,10 @@ export class FileOperations {
         this.logger = Logger.getInstance('FileOperations');
     }
 
+    setCurrentSelectedPath(path: string | undefined): void {
+        this.currentSelectedPath = path;
+    }
+
     async scanDirectory(targetPath: string, options: ScanOptions): Promise<DirectoryInfo> {
         try {
             const absolutePath = path.isAbsolute(targetPath)

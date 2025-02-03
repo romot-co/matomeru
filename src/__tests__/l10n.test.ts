@@ -8,6 +8,8 @@ import {
     DirectoryScanError,
     MatomeruError
 } from '../errors/errors';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 describe('Localization', () => {
   describe('vscode.l10n.t', () => {
@@ -104,6 +106,39 @@ describe('Localization', () => {
 
       const scanError = new DirectoryScanError('/test/dir', 'アクセス拒否');
       expect(scanError.getLocalizedMessage()).toBe('ディレクトリスキャンエラー: /test/dir - アクセス拒否');
+    });
+  });
+
+  test('package.nls.json（英語）とpackage.nls.ja.json（日本語）のキーが一致すること', async () => {
+    const enPath = path.join(__dirname, '../../package.nls.json');
+    const jaPath = path.join(__dirname, '../../package.nls.ja.json');
+
+    const enContent = await fs.readFile(enPath, 'utf-8');
+    const jaContent = await fs.readFile(jaPath, 'utf-8');
+
+    const enKeys = Object.keys(JSON.parse(enContent)).sort();
+    const jaKeys = Object.keys(JSON.parse(jaContent)).sort();
+
+    expect(enKeys).toEqual(jaKeys);
+  });
+
+  test('package.jsonのプレースホルダーが正しい形式であること', async () => {
+    const pkgPath = path.join(__dirname, '../../package.json');
+    const pkgContent = await fs.readFile(pkgPath, 'utf-8');
+    const pkg = JSON.parse(pkgContent);
+
+    // displayNameとdescriptionのチェック
+    expect(pkg.displayName).toBe('%displayName%');
+    expect(pkg.description).toBe('%description%');
+
+    // コマンドのタイトルのチェック
+    pkg.contributes.commands.forEach((cmd: { title: string }) => {
+      expect(cmd.title).toMatch(/^%[a-zA-Z.]+%$/);
+    });
+
+    // 設定の説明のチェック
+    Object.values(pkg.contributes.configuration.properties).forEach((prop: any) => {
+      expect(prop.description).toMatch(/^%[a-zA-Z.]+%$/);
     });
   });
 }); 
