@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -121,7 +121,7 @@
     "test:coverage": "jest --coverage",
     "package": "vsce package",
     "prepackage": "npm run clean && npm run l10n && npm run compile && npm run convert-icon",
-    "postpackage": "echo 'パッケージが作成されました: ' && ls *.vsix",
+    "postpackage": "echo 'Package generated: ' && ls *.vsix",
     "install-extension": "npm run package && code --install-extension *.vsix --force && echo 'インストールが完了しました。VSCodeを再起動してください。'",
     "uninstall-extension": "code --uninstall-extension romot-co.matomeru",
     "clean": "rimraf out dist *.vsix coverage",
@@ -155,11 +155,16 @@
   },
   "license": "MIT",
   "keywords": [
+    "file management",
+    "export",
+    "directory structure",
+    "file structure",
     "documentation",
     "markdown",
-    "directory",
+    "summarize",
     "combine",
-    "visualization"
+    "tree",
+    "llm"
   ],
   "l10n": "./l10n"
 }

@@ -1,7 +1,7 @@
-# Matomeru (まとめる)
+# Matomeru
 
-VSCode extension to summarize directory structures and file contents in Markdown format.  
-ディレクトリ構造とファイル内容をMarkdown形式でまとめるVSCode拡張機能です。
+Combine your entire project into one LLM-ready Markdown. 
+プロジェクトを一つのMarkdownにまとめる、LLMに投げる
 
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
 
@@ -11,10 +11,9 @@ VSCode extension to summarize directory structures and file contents in Markdown
 
 ### Features
 
-- **Generate Markdown documentation** for directory structures and file contents
-- **Automatically format and organize** your project documentation:
+- **Generate Markdown documentation** for your directory structures and file contents
+- **Automatically format and organize**:
   - Directory tree structure
-  - File contents with syntax highlighting
   - Markdown-compatible output
 - Support for multiple output formats:
   - Display in editor
@@ -66,7 +65,7 @@ VSCode extension to summarize directory structures and file contents in Markdown
 
 ### Requirements
 
-- VSCode 1.96.0 or later
+- VSCode 1.085.0 or later
 - For ChatGPT integration:
   - macOS
   - Google Chrome
@@ -82,10 +81,9 @@ MIT License
 
 ### 機能
 
-- ディレクトリ構造とファイル内容を**Markdown形式で自動生成**
-- プロジェクトドキュメントを**自動的にフォーマットして整理**：
+- 選択したディレクトリ構造とファイル内容を**Markdown形式で自動生成**
+- **自動的にフォーマットして整理**：
   - ディレクトリツリー構造
-  - シンタックスハイライト付きファイル内容
   - Markdown互換の出力
 - 複数の出力形式に対応：
   - エディタでの表示
@@ -137,7 +135,7 @@ MIT License
 
 ### 必要要件
 
-- VSCode 1.96.0以降
+- VSCode 1.85.0以降
 - ChatGPT連携機能を使用する場合：
   - macOS
   - Google Chrome
