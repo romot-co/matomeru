@@ -4,7 +4,7 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [Unreleased]
+## [0.0.4]
 
 ### Added
 - 生成されるMarkdownの先頭に固定文言を追加する機能
