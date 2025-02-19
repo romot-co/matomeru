@@ -1,5 +1,6 @@
 import { DirectoryInfo, FileInfo } from './types/fileTypes';
 import { DirectoryStructure } from './directoryStructure';
+import * as vscode from 'vscode';
 
 export class MarkdownGenerator {
     constructor(
@@ -12,6 +13,15 @@ export class MarkdownGenerator {
         }
 
         const sections: string[] = [];
+
+        // 設定から固定文言を取得
+        const config = vscode.workspace.getConfiguration('matomeru');
+        const prefixText = config.get<string>('prefixText', '');
+
+        // 固定文言があれば追加
+        if (prefixText) {
+            sections.push(prefixText + '\n');
+        }
 
         // ディレクトリ構造を追加
         sections.push(this.directoryStructure.generate(directories));

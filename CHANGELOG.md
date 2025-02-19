@@ -6,4 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+### Added
+- 生成されるMarkdownの先頭に固定文言を追加する機能
+  - 設定: `matomeru.prefixText`
+  - プロジェクトの概要や説明文などを自動的に追加可能
+
+## [0.0.3]
+
 - Initial release

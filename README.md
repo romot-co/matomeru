@@ -1,6 +1,7 @@
 # Matomeru
 
-Combine your entire project into one LLM-ready Markdown. 
+Combine your entire project into one LLM-ready Markdown.
+
 プロジェクトを一つのMarkdownにまとめる、LLMに投げる
 
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
@@ -59,7 +60,12 @@ Combine your entire project into one LLM-ready Markdown.
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
-  "matomeru.directoryStructure.useEmoji": true
+  "matomeru.directoryStructure.useEmoji": true,
+  "matomeru.prefixText": {
+    "type": "string",
+    "default": "",
+    "description": "Text to be added at the beginning of the generated Markdown"
+  }
 }
 ```
 
@@ -112,7 +118,7 @@ MIT License
    - クリップボードにコピー
    - ChatGPTに送信（macOSのみ）
 
-### 設定
+### 設定例
 
 ```json
 {
@@ -129,8 +135,35 @@ MIT License
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
-  "matomeru.directoryStructure.useEmoji": true
+  "matomeru.prefixText": "# Project Overview\nThis is a sample project."
 }
+```
+
+### 出力例
+
+```markdown
+# Project Overview
+This is a sample project.
+
+# Directory Structure
+📁 src
+  📄 index.ts
+  📄 utils.ts
+📁 tests
+  📄 index.test.ts
+
+# File Contents
+
+## src/index.ts
+- Size: 1.2 KB
+- Language: TypeScript
+
+```typescript
+// ... file content ...
+```
+
+## src/utils.ts
+...
 ```
 
 ### 必要要件

@@ -10,5 +10,6 @@
     "config.directoryStructure.directoryIcon.description": "Icon to represent directories",
     "config.directoryStructure.fileIcon.description": "Icon to represent files",
     "config.directoryStructure.indentSize.description": "Indentation size for directory structure",
-    "config.directoryStructure.showFileExtensions.description": "Show file extensions in file names"
+    "config.directoryStructure.showFileExtensions.description": "Whether to show file extensions in the directory structure.",
+    "config.prefixText.description": "Text to be added at the beginning of the generated Markdown."
 } 

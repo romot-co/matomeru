@@ -1,17 +1,94 @@
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import * as vscode from 'vscode';
 import { MarkdownGenerator } from '../markdownGenerator';
+import { DirectoryStructure } from '../directoryStructure';
 import { DirectoryInfo } from '../types/fileTypes';
+
+jest.mock('vscode');
+jest.mock('../directoryStructure');
 
 describe('MarkdownGenerator', () => {
     let markdownGenerator: MarkdownGenerator;
+    let mockDirectoryStructure: jest.Mocked<DirectoryStructure>;
+    let mockConfig: { get: jest.Mock };
 
     beforeEach(() => {
-        markdownGenerator = new MarkdownGenerator();
+        jest.clearAllMocks();
+
+        mockDirectoryStructure = new DirectoryStructure() as jest.Mocked<DirectoryStructure>;
+        mockDirectoryStructure.generate.mockImplementation((dirs) => {
+            if (dirs.length === 0) return '';
+            return '# Directory Structure\n📁 test\n  📄 file1.ts\n  📁 src\n    📄 main.ts\n';
+        });
+
+        mockConfig = { get: jest.fn() };
+        (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(mockConfig);
+
+        markdownGenerator = new MarkdownGenerator(mockDirectoryStructure);
     });
 
-    it('空のディレクトリリストに対して空文字列を返す', () => {
-        const result = markdownGenerator.generate([]);
-        expect(result).toBe('');
+    describe('generate', () => {
+        const mockDirectoryInfo: DirectoryInfo = {
+            uri: { fsPath: '/test/path' } as vscode.Uri,
+            relativePath: 'test/path',
+            files: [{
+                uri: { fsPath: '/test/path/file.txt' } as vscode.Uri,
+                relativePath: 'test/path/file.txt',
+                content: 'test content',
+                size: 1024,
+                language: 'plaintext'
+            }],
+            directories: new Map()
+        };
+
+        test('空のディレクトリリストの場合、空文字列を返すこと', () => {
+            const result = markdownGenerator.generate([]);
+            expect(result).toBe('');
+        });
+
+        test('固定文言が設定されていない場合、通常の出力を生成すること', () => {
+            mockConfig.get.mockReturnValue('');
+
+            const result = markdownGenerator.generate([mockDirectoryInfo]);
+
+            expect(result).toContain('# Directory Structure');
+            expect(result).toContain('# File Contents');
+            expect(result).not.toMatch(/^.+\n# Directory Structure/);
+        });
+
+        test('固定文言が設定されている場合、先頭に追加されること', () => {
+            const prefixText = '# Project Overview\nThis is a test project.';
+            mockConfig.get.mockReturnValue(prefixText);
+
+            const result = markdownGenerator.generate([mockDirectoryInfo]);
+
+            expect(result).toMatch(/^# Project Overview\nThis is a test project.\n/);
+            expect(result).toContain('# Directory Structure');
+            expect(result).toContain('# File Contents');
+        });
+
+        test('ファイルサイズが適切にフォーマットされること', () => {
+            const files = [
+                { size: 500, expected: '500 B' },
+                { size: 1024, expected: '1 KB' },
+                { size: 1536, expected: '1.5 KB' },
+                { size: 1048576, expected: '1 MB' },
+                { size: 1073741824, expected: '1 GB' }
+            ];
+
+            files.forEach(({ size, expected }) => {
+                const directoryInfo: DirectoryInfo = {
+                    ...mockDirectoryInfo,
+                    files: [{
+                        ...mockDirectoryInfo.files[0],
+                        size
+                    }]
+                };
+
+                const result = markdownGenerator.generate([directoryInfo]);
+                expect(result).toContain(`Size: ${expected}`);
+            });
+        });
     });
 
     it('単一のファイルを含むディレクトリを正しく処理する', () => {
@@ -77,6 +154,7 @@ describe('MarkdownGenerator', () => {
             directories: new Map([['src', subDir]])
         };
 
+        mockDirectoryStructure.generate.mockReturnValue('# Directory Structure\n📁 test\n  📄 README.md\n  📁 src\n    📄 main.ts\n');
         const result = markdownGenerator.generate([dir]);
         
         // ディレクトリ構造の検証

@@ -1,6 +1,6 @@
 {
     "displayName": "Matomeru",
-    "description": "複数のディレクトリやファイルの内容をMarkdownでまとめる",
+    "description": "複数のディレクトリやファイルをまとめて1つのMarkdownで出力",
     "cmd.quickProcessToEditor": "Matomeru: エディタに出力",
     "cmd.quickProcessToClipboard": "Matomeru: クリップボードにコピー",
     "cmd.quickProcessToChatGPT": "Matomeru: ChatGPTに送信",
@@ -10,5 +10,6 @@
     "config.directoryStructure.directoryIcon.description": "ディレクトリを表すアイコン",
     "config.directoryStructure.fileIcon.description": "ファイルを表すアイコン",
     "config.directoryStructure.indentSize.description": "ディレクトリ構造のインデントサイズ",
-    "config.directoryStructure.showFileExtensions.description": "ファイル名に拡張子を表示するかどうか"
+    "config.directoryStructure.showFileExtensions.description": "ディレクトリ構造でファイル拡張子を表示するかどうか",
+    "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト"
 } 
