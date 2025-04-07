@@ -18,10 +18,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:matomeru.quickProcessToEditor",
-    "onCommand:matomeru.quickProcessToClipboard",
-    "onCommand:matomeru.quickProcessToChatGPT"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {

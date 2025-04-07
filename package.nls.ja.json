@@ -11,5 +11,6 @@
     "config.directoryStructure.fileIcon.description": "ファイルを表すアイコン",
     "config.directoryStructure.indentSize.description": "ディレクトリ構造のインデントサイズ",
     "config.directoryStructure.showFileExtensions.description": "ディレクトリ構造でファイル拡張子を表示するかどうか",
+    "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する",
     "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト"
 } 
