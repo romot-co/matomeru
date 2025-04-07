@@ -35,7 +35,8 @@ export class CommandRegistrar {
                         this.fileOps.setCurrentSelectedPath(uri.fsPath);
                         const result = await this.fileOps.scanDirectory(uri.fsPath, {
                             maxFileSize: config.get('maxFileSize', 1048576),
-                            excludePatterns: config.get('excludePatterns', [])
+                            excludePatterns: config.get('excludePatterns', []),
+                            useGitignore: config.get('useGitignore', false)
                         });
                         this.fileOps.setCurrentSelectedPath(undefined);
                         return result;

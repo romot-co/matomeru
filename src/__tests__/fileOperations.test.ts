@@ -819,4 +819,130 @@ describe('FileOperations', () => {
             expect(result.files).toHaveLength(1);
         });
     });
+
+    describe('gitignore integration', () => {
+        beforeEach(() => {
+            fileOps = new FileOperations(workspaceRoot);
+            jest.clearAllMocks();
+            
+            // .gitignoreファイルのモック
+            mockedFs.readFile.mockImplementation(async (_path, _options?) => {
+                if (String(_path).endsWith('.gitignore')) {
+                    return Buffer.from('node_modules/\n# コメント行\ndist/\n.DS_Store\n*.log');
+                }
+                return Buffer.from('file content');
+            });
+        });
+        
+        it('useGitignoreオプションの有効/無効で正しく動作する', async () => {
+            // Arrange
+            mockedFs.stat.mockImplementation(async (_filePath: PathLike) => ({
+                isDirectory: () => true,
+                isFile: () => false,
+                size: 0
+            } as any));
+            
+            const testFiles = [
+                { name: 'test.log', isDirectory: () => false, isFile: () => true },
+                { name: 'dist', isDirectory: () => true, isFile: () => false },
+                { name: 'regular.txt', isDirectory: () => false, isFile: () => true },
+            ] as unknown as Dirent[];
+            
+            mockedFs.readdir.mockImplementation(async () => testFiles);
+            
+            // Act: useGitignore = false
+            const resultWithoutGitignore = await fileOps.scanDirectory('test', {
+                maxFileSize: 1048576,
+                excludePatterns: [],
+                useGitignore: false
+            });
+            
+            // Assert: useGitignore = false
+            expect(resultWithoutGitignore.directories.size).toBe(1);
+            expect(resultWithoutGitignore.files.length).toBe(2);
+            
+            // Reset mocks
+            jest.clearAllMocks();
+            mockedFs.readdir.mockImplementation(async () => testFiles);
+            mockedFs.readFile.mockImplementation(async (_path, _options?) => {
+                if (String(_path).endsWith('.gitignore')) {
+                    return Buffer.from('node_modules/\n# コメント行\ndist/\n.DS_Store\n*.log');
+                }
+                return Buffer.from('file content');
+            });
+            
+            // Act: useGitignore = true
+            const resultWithGitignore = await fileOps.scanDirectory('test', {
+                maxFileSize: 1048576,
+                excludePatterns: [],
+                useGitignore: true
+            });
+            
+            // Assert: useGitignore = true (.gitignoreのパターンでdistディレクトリとtest.logファイルが除外される)
+            expect(resultWithGitignore.directories.size).toBe(0);
+            expect(resultWithGitignore.files.length).toBe(1);
+            expect(resultWithGitignore.files[0].relativePath).toContain('regular.txt');
+        });
+        
+        it('.gitignoreが有効の場合、パターンが適用される', async () => {
+            mockedFs.stat.mockImplementation(async (_filePath: PathLike) => ({
+                isDirectory: () => String(_filePath).endsWith('/test') || String(_filePath).endsWith('/dist'),
+                isFile: () => !String(_filePath).endsWith('/test') && !String(_filePath).endsWith('/dist'),
+                size: 0
+            } as any));
+            
+            mockedFs.readdir.mockImplementation(async (_path: PathLike) => {
+                const pathStr = String(_path);
+                if (pathStr === `${workspaceRoot}/test`) {
+                    return [
+                        { name: 'test.log', isDirectory: () => false, isFile: () => true },
+                        { name: 'dist', isDirectory: () => true, isFile: () => false },
+                        { name: 'regular.txt', isDirectory: () => false, isFile: () => true },
+                    ] as unknown as Dirent[];
+                } else if (pathStr === `${workspaceRoot}/test/dist`) {
+                    return [
+                        { name: 'bundle.js', isDirectory: () => false, isFile: () => true }
+                    ] as unknown as Dirent[];
+                }
+                return [] as unknown as Dirent[];
+            });
+            
+            const result = await fileOps.scanDirectory('test', {
+                maxFileSize: 1048576,
+                excludePatterns: [],
+                useGitignore: true
+            });
+            
+            // .gitignoreが有効なので、dist/とtest.logは除外される
+            expect(result.directories.size).toBe(0); // distディレクトリは.gitignoreで除外
+            expect(result.files.length).toBe(1);
+            expect(result.files[0].relativePath).toContain('regular.txt');
+        });
+        
+        it('.gitignoreに加えて除外パターンも適用される', async () => {
+            mockedFs.stat.mockImplementation(async (_filePath: PathLike) => ({
+                isDirectory: () => String(_filePath).endsWith('/test'),
+                isFile: () => !String(_filePath).endsWith('/test'),
+                size: 0
+            } as any));
+            
+            mockedFs.readdir.mockImplementation(async (_path: PathLike) => {
+                return [
+                    { name: 'test.log', isDirectory: () => false, isFile: () => true },
+                    { name: 'regular.txt', isDirectory: () => false, isFile: () => true },
+                    { name: 'custom.exclude', isDirectory: () => false, isFile: () => true },
+                ] as unknown as Dirent[];
+            });
+            
+            const result = await fileOps.scanDirectory('test', {
+                maxFileSize: 1048576,
+                excludePatterns: ['*.exclude'],
+                useGitignore: true
+            });
+            
+            // .gitignoreパターン(*.log)と除外パターン(*.exclude)の両方が適用される
+            expect(result.files.length).toBe(1);
+            expect(result.files[0].relativePath).toContain('regular.txt');
+        });
+    });
 }); 

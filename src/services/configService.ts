@@ -53,7 +53,8 @@ export class ConfigService {
                 indentSize: directoryStructure.indentSize ?? defaultConfig.directoryStructure.indentSize,
                 showFileExtensions: directoryStructure.showFileExtensions ?? defaultConfig.directoryStructure.showFileExtensions,
                 useEmoji: directoryStructure.useEmoji ?? defaultConfig.directoryStructure.useEmoji
-            }
+            },
+            useGitignore: config.get<boolean>('useGitignore') ?? defaultConfig.useGitignore
         };
     }
 } 

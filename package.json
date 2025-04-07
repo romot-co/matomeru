@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -111,6 +111,11 @@
           "type": "string",
           "default": "",
           "description": "%config.prefixText.description%"
+        },
+        "matomeru.useGitignore": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.useGitignore.description%"
         }
       }
     }

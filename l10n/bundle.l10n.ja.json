@@ -43,6 +43,8 @@
   "config.directoryStructure.fileIcon.description": "ファイルを表すアイコン",
   "config.directoryStructure.indentSize.description": "ディレクトリ構造のインデントサイズ",
   "config.directoryStructure.showFileExtensions.description": "ファイル名に拡張子を表示するかどうか",
+  "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト",
+  "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する",
   "displayName": "Matomeru",
   "description": "複数のディレクトリやファイルの内容をMarkdownでまとめる"
 } 

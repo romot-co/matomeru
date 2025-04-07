@@ -11,6 +11,7 @@ export interface MatomeruConfig {
     excludePatterns: string[];
     chatGptIntegration: boolean;
     directoryStructure: DirectoryStructureConfig;
+    useGitignore: boolean;    // .gitignoreファイルのパターンを使用するかどうか
 }
 
 export const defaultConfig: MatomeruConfig = {
@@ -29,5 +30,6 @@ export const defaultConfig: MatomeruConfig = {
         indentSize: 2,
         showFileExtensions: true,
         useEmoji: true
-    }
+    },
+    useGitignore: false       // デフォルトでは無効
 }; 

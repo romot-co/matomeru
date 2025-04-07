@@ -24,6 +24,9 @@ Combine your entire project into one LLM-ready Markdown.
   - Emoji icons for directories and files
   - Configurable indentation
   - Optional file extension display
+- Flexible file exclusion:
+  - Configure custom patterns to exclude
+  - Use .gitignore patterns to automatically exclude files (optional)
 - Localization support (English/Japanese)
 
 ### Installation
@@ -65,7 +68,8 @@ Combine your entire project into one LLM-ready Markdown.
     "type": "string",
     "default": "",
     "description": "Text to be added at the beginning of the generated Markdown"
-  }
+  },
+  "matomeru.useGitignore": false
 }
 ```
 
@@ -99,6 +103,9 @@ MIT License
   - ディレクトリとファイルの絵文字アイコン
   - インデントの設定
   - ファイル拡張子の表示/非表示
+- 柔軟なファイル除外機能：
+  - カスタムパターンで除外設定
+  - .gitignoreファイルのパターンを使用して自動的にファイルを除外（オプション）
 - 多言語対応（英語/日本語）
 
 ### インストール
@@ -135,7 +142,8 @@ MIT License
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
-  "matomeru.prefixText": "# Project Overview\nThis is a sample project."
+  "matomeru.prefixText": "# Project Overview\nThis is a sample project.",
+  "matomeru.useGitignore": false
 }
 ```
 

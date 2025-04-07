@@ -43,6 +43,8 @@
   "config.directoryStructure.fileIcon.description": "Icon to represent files",
   "config.directoryStructure.indentSize.description": "Indentation size for directory structure",
   "config.directoryStructure.showFileExtensions.description": "Show file extensions in file names",
+  "config.prefixText.description": "Text to be added at the beginning of the generated Markdown",
+  "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
   "displayName": "Matomeru",
   "description": "Combine and display contents of multiple directories and files in Markdown format"
 } 

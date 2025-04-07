@@ -18,4 +18,5 @@ export interface DirectoryInfo {
 export interface ScanOptions {
     maxFileSize: number;
     excludePatterns: string[];
+    useGitignore?: boolean;
 } 

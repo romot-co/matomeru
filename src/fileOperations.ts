@@ -12,6 +12,8 @@ export class FileOperations {
     private readonly logger: Logger;
     private readonly workspaceRoot: string;
     private currentSelectedPath: string | undefined;
+    private gitignorePatterns: string[] = [];
+    private gitignoreLoaded: boolean = false;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -24,6 +26,11 @@ export class FileOperations {
 
     async scanDirectory(targetPath: string, options: ScanOptions): Promise<DirectoryInfo> {
         try {
+            // .gitignoreパターンを読み込む（初回のみ）
+            if (options.useGitignore && !this.gitignoreLoaded) {
+                await this.loadGitignorePatterns();
+            }
+
             const absolutePath = path.isAbsolute(targetPath)
                 ? targetPath
                 : path.join(this.workspaceRoot, targetPath);
@@ -77,7 +84,7 @@ export class FileOperations {
                 const entryRelativePath = path.relative(this.workspaceRoot, entryPath);
 
                 // 選択されたディレクトリ自体は除外しない
-                if (entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options.excludePatterns)) {
+                if (entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options)) {
                     this.logger.info(vscode.l10n.t('msg.excluded', entryRelativePath));
                     continue;
                 }
@@ -134,7 +141,7 @@ export class FileOperations {
         }
     }
 
-    private async shouldExclude(relativePath: string, patterns: string[]): Promise<boolean> {
+    private async shouldExclude(relativePath: string, options: ScanOptions): Promise<boolean> {
         // ルートの選択ディレクトリ自体は除外しない
         const currentSelectedRelativePath = this.currentSelectedPath
             ? path.relative(this.workspaceRoot, this.currentSelectedPath)
@@ -143,28 +150,68 @@ export class FileOperations {
             return false;
         }
 
-        // 各パターンで評価
-        for (const pattern of patterns) {
-            // パターンが "excluded-dir/**" のようなディレクトリ指定の場合
-            if (pattern.endsWith('/**')) {
-                const basePattern = pattern.slice(0, -3);
-                // もし対象のパスのベースネームがパターンと一致すれば除外
-                if (path.basename(relativePath) === basePattern) {
-                    return true;
-                }
-            } else {
-                // その他は minimatch を利用（matchBase:true によりベースネームのみも評価）
-                const options = {
-                    dot: true,
-                    matchBase: true,
-                    nocase: process.platform === 'win32'
-                };
-                if (minimatch(relativePath, pattern, options)) {
+        // .gitignoreパターンを考慮
+        if (options.useGitignore && this.gitignorePatterns.length > 0) {
+            for (const pattern of this.gitignorePatterns) {
+                if (this.matchPattern(relativePath, pattern)) {
                     return true;
                 }
             }
         }
+
+        // 設定された除外パターン
+        for (const pattern of options.excludePatterns) {
+            if (this.matchPattern(relativePath, pattern)) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    private matchPattern(filePath: string, pattern: string): boolean {
+        // パターンが "excluded-dir/**" のようなディレクトリ指定の場合
+        if (pattern.endsWith('/**')) {
+            const basePattern = pattern.slice(0, -3);
+            // もし対象のパスのベースネームがパターンと一致すれば除外
+            if (path.basename(filePath) === basePattern) {
+                return true;
+            }
+        } else {
+            // その他は minimatch を利用（matchBase:true によりベースネームのみも評価）
+            const options = {
+                dot: true,
+                matchBase: true,
+                nocase: process.platform === 'win32'
+            };
+            if (minimatch(filePath, pattern, options)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private async loadGitignorePatterns(): Promise<void> {
+        try {
+            const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
+            try {
+                const content = await fs.readFile(gitignorePath, 'utf-8');
+                this.gitignorePatterns = content
+                    .split('\n')
+                    .map(line => line.trim())
+                    // コメント行や空行を除外
+                    .filter(line => line && !line.startsWith('#'))
+                    // 否定パターン(!で始まるパターン)は現在サポート外
+                    .filter(line => !line.startsWith('!'));
+                
+                this.logger.info(`${this.gitignorePatterns.length}件の.gitignoreパターンを読み込みました`);
+            } catch (error) {
+                // .gitignoreファイルが存在しなくてもエラーにはしない
+                this.logger.info(`.gitignoreファイルが見つかりません: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        } finally {
+            this.gitignoreLoaded = true;
+        }
     }
 
     private detectLanguage(fileName: string): string {
