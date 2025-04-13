@@ -35,7 +35,15 @@ export function formatFileSize(bytes: number, decimalPoint = 1): string {
   // 0より大きい値で、切り捨てできる範囲にdecimalPointを制限
   const dp = Math.max(0, Math.min(decimalPoint, 20));
   
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dp)) + ' ' + sizes[i];
+  // バイト単位の場合は小数点なし、それ以外は指定された小数点桁数で表示
+  if (i === 0) {
+    return `${bytes} ${sizes[i]}`;
+  } else {
+    const size = bytes / Math.pow(k, i);
+    // 整数部分が表示されるようにする
+    const formattedSize = size.toFixed(dp);
+    return `${formattedSize} ${sizes[i]}`;
+  }
 }
 
 /**
@@ -50,4 +58,22 @@ export function calculateContentMetrics(content: string): { size: number, tokens
   const formattedSize = formatFileSize(size);
   
   return { size, tokens, formattedSize };
+}
+
+/**
+ * トークン数を読みやすい形式（K単位）に変換する
+ * @param tokens トークン数
+ * @returns フォーマットされたトークン数
+ */
+export function formatTokenCount(tokens: number): string {
+  if (tokens < 1000) {
+    return tokens.toString();
+  }
+  
+  // 1000以上の場合はK単位で表示
+  const tokenInK = tokens / 1000;
+  // 小数点以下1桁で表示（.0の場合は表示しない）
+  return tokenInK % 1 === 0 
+    ? `${tokenInK.toFixed(0)}K`
+    : `${tokenInK.toFixed(1)}K`;
 } 

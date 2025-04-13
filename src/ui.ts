@@ -4,24 +4,29 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Logger } from './utils/logger';
 import { ChatGPTError, ClipboardError, EditorError } from './errors/errors';
-import { calculateContentMetrics } from './utils/fileUtils';
+import { calculateContentMetrics, formatTokenCount } from './utils/fileUtils';
 
 const execAsync = promisify(exec);
 const logger = Logger.getInstance('UI');
 
 export async function showInEditor(content: string): Promise<void> {
     try {
-        const { formattedSize, tokens } = calculateContentMetrics(content);
-        
         const document = await vscode.workspace.openTextDocument({
-            content,
+            content: content,
             language: 'markdown'
         });
+        
         await vscode.window.showTextDocument(document);
-        logger.info(vscode.l10n.t('msg.editorOpenSuccess'));
+        const { formattedSize, tokens } = calculateContentMetrics(content);
+        const formattedTokens = formatTokenCount(tokens);
+        
         vscode.window.showInformationMessage(
-            vscode.l10n.t('msg.editorOpenSuccessWithSize', formattedSize, tokens.toString())
+            content.length === 0
+                ? vscode.l10n.t('msg.editorOpenSuccess')
+                : vscode.l10n.t('msg.editorOpenSuccessWithSize', formattedSize, formattedTokens)
         );
+        
+        logger.info('エディタに出力しました');
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(vscode.l10n.t('msg.editorError', errorMessage));
@@ -31,13 +36,18 @@ export async function showInEditor(content: string): Promise<void> {
 
 export async function copyToClipboard(content: string): Promise<void> {
     try {
-        const { formattedSize, tokens } = calculateContentMetrics(content);
-        
         await vscode.env.clipboard.writeText(content);
-        logger.info(vscode.l10n.t('msg.clipboardCopySuccess'));
+        
+        const { formattedSize, tokens } = calculateContentMetrics(content);
+        const formattedTokens = formatTokenCount(tokens);
+        
         vscode.window.showInformationMessage(
-            vscode.l10n.t('msg.clipboardCopySuccessWithSize', formattedSize, tokens.toString())
+            content.length === 0
+                ? vscode.l10n.t('msg.clipboardCopySuccess')
+                : vscode.l10n.t('msg.clipboardCopySuccessWithSize', formattedSize, formattedTokens)
         );
+        
+        logger.info('クリップボードにコピーしました');
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(vscode.l10n.t('msg.clipboardError', errorMessage));
@@ -78,8 +88,9 @@ export async function openInChatGPT(content: string): Promise<void> {
         await copyToClipboard(content);
         await execAsync(`osascript -e '${script}'`);
         logger.info(vscode.l10n.t('msg.chatGPTSendSuccess'));
+        const formattedTokens = formatTokenCount(tokens);
         vscode.window.showInformationMessage(
-            vscode.l10n.t('msg.chatGPTSendSuccessWithSize', formattedSize, tokens.toString())
+            vscode.l10n.t('msg.chatGPTSendSuccessWithSize', formattedSize, formattedTokens)
         );
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
