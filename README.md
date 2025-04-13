@@ -26,15 +26,16 @@ Combine your entire project into one LLM-ready Markdown.
   - Optional file extension display
 - Flexible file exclusion:
   - Configure custom patterns to exclude
-  - Use .gitignore patterns to automatically exclude files (optional)
+  - Use .gitignore .vscodeignore patterns to automatically exclude files (optional)
 - Localization support (English/Japanese)
+- Estimate size before processing large projects
 
 ### Installation
 
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.0.1.vsix
+   code --install-extension matomeru-0.0.6.vsix
    ```
 
 ### Usage
@@ -45,6 +46,9 @@ Combine your entire project into one LLM-ready Markdown.
    - Open in Editor
    - Copy to Clipboard
    - Send to ChatGPT (macOS only)
+4. To check the size before processing:
+   - Right-click and select "Matomeru: Estimate Size"
+   - This shows file count, total size, and estimated token count without generating the full output
 
 ### Configuration
 
@@ -56,7 +60,12 @@ Combine your entire project into one LLM-ready Markdown.
     ".git/**",
     "dist/**",
     "build/**",
-    "coverage/**"
+    "coverage/**",
+    ".DS_Store",
+    "Thumbs.db",
+    "*.key",
+    "*.env*",
+    "package-lock.json"
   ],
   "matomeru.chatGptIntegration": false,
   "matomeru.directoryStructure.directoryIcon": "📁",
@@ -69,8 +78,42 @@ Combine your entire project into one LLM-ready Markdown.
     "default": "",
     "description": "Text to be added at the beginning of the generated Markdown"
   },
-  "matomeru.useGitignore": false
+  "matomeru.useGitignore": false,
+  "matomeru.useVscodeignore": false
 }
+```
+
+> **Note on Security**: By default, Matomeru automatically excludes sensitive files like secret keys, 
+> credentials, certificates, and environment files (`*.key`, `*.pem`, `*.env`, etc.) to prevent accidental 
+> inclusion of confidential information in the generated output. Additionally, many common non-source files
+> like lock files, cache directories, build artifacts, and temporary files are excluded by default.
+> These exclusions are part of the default configuration and will apply even if you customize the `excludePatterns` setting.
+
+### Output Example
+
+```markdown
+# Project Overview
+This is a sample project.
+
+# Directory Structure
+📁 src
+  📄 index.ts
+  📄 utils.ts
+📁 tests
+  📄 index.test.ts
+
+# File Contents
+
+## src/index.ts
+- Size: 1.2 KB
+- Language: TypeScript
+
+```typescript
+// ... file content ...
+```
+
+## src/utils.ts
+...
 ```
 
 ### Requirements
@@ -105,25 +148,24 @@ MIT License
   - ファイル拡張子の表示/非表示
 - 柔軟なファイル除外機能：
   - カスタムパターンで除外設定
-  - .gitignoreファイルのパターンを使用して自動的にファイルを除外（オプション）
+  - .gitignore/.vscodeignoreファイルのパターンを使用して自動的にファイルを除外（オプション）
 - 多言語対応（英語/日本語）
+- サイズ見積り機能で大きなプロジェクトを処理前に確認可能
 
 ### インストール
 
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.0.1.vsix
+   code --install-extension matomeru-0.0.6.vsix
    ```
 
 ### 使い方
 
 1. エクスプローラーでディレクトリまたはファイルを右クリック
-2. 「Matomeru: ディレクトリ/ファイルをまとめる」を選択
-3. 出力先を選択：
-   - エディタで開く
-   - クリップボードにコピー
-   - ChatGPTに送信（macOSのみ）
+2. 「Matomeru: クリップボードにコピー」などを出力先に合わせて選択
+3. 処理前にサイズを確認するには：
+   - 右クリックして「Matomeru: サイズを見積る」を選択
 
 ### 設定例
 
@@ -135,7 +177,12 @@ MIT License
     ".git/**",
     "dist/**",
     "build/**",
-    "coverage/**"
+    "coverage/**",
+    ".DS_Store",
+    "Thumbs.db",
+    "*.key",
+    "*.env*",
+    "package-lock.json"
   ],
   "matomeru.chatGptIntegration": false,
   "matomeru.directoryStructure.directoryIcon": "📁",
@@ -143,9 +190,15 @@ MIT License
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
   "matomeru.prefixText": "# Project Overview\nThis is a sample project.",
-  "matomeru.useGitignore": false
+  "matomeru.useGitignore": false,
+  "matomeru.useVscodeignore": false
 }
 ```
+
+> **セキュリティに関する注記**: Matomeruはデフォルトで、シークレットキー、認証情報、証明書、環境設定ファイル
+> (`*.key`、`*.pem`、`*.env`など) のような機密ファイルを自動的に除外します。さらに、ロックファイル、キャッシュディレクトリ、
+> ビルド成果物、一時ファイルなど、多くの一般的な非ソースファイルもデフォルトで除外されます。
+> これらの除外パターンはデフォルト設定の一部であり、`excludePatterns`設定をカスタマイズした場合でも適用されます。
 
 ### 出力例
 

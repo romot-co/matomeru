@@ -1,7 +1,10 @@
 {
   "msg.editorOpenSuccess": "Opened in editor",
+  "msg.editorOpenSuccessWithSize": "Opened in editor (Size: {0}, ~{1} tokens)",
   "msg.clipboardCopySuccess": "Copied to clipboard",
+  "msg.clipboardCopySuccessWithSize": "Copied to clipboard (Size: {0}, ~{1} tokens)",
   "msg.chatGPTSendSuccess": "Sent to ChatGPT",
+  "msg.chatGPTSendSuccessWithSize": "Sent to ChatGPT (Size: {0}, ~{1} tokens)",
   "msg.chatGPTDisabled": "ChatGPT integration is disabled",
   "msg.chatGPTOnlyMac": "ChatGPT integration is only supported on macOS",
   "msg.directoryNotFound": "Directory not found: {0}",
@@ -32,6 +35,7 @@
   "msg.sentToChatGPT": "Sent to ChatGPT",
   "msg.commandsRegistered": "Commands registered",
   "msg.selectButton": "Select",
+  "msg.sizeEstimation": "Estimated: {0} files, {1} (~{2} tokens), with Markdown formatting: {3} (~{4} tokens)",
   "cmd.process": "Process Directory/File",
   "cmd.quickProcessToEditor": "Matomeru: Output to Editor",
   "cmd.quickProcessToClipboard": "Matomeru: Copy to Clipboard",
@@ -45,6 +49,12 @@
   "config.directoryStructure.showFileExtensions.description": "Show file extensions in file names",
   "config.prefixText.description": "Text to be added at the beginning of the generated Markdown",
   "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
+  "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
+  "msg.vscodeignorePatternLoaded": "Loaded {0} patterns and {1} negation patterns from .vscodeignore",
+  "msg.vscodeignoreFileNotFound": ".vscodeignore file not found",
+  "msg.vscodeignoreLoadError": "Error loading .vscodeignore: {0}",
+  "msg.negationPatternMatched": "Negation pattern matched ({0}): {1} -> {2}",
+  "msg.normalPatternMatched": "Pattern matched ({0}): {1} -> {2}",
   "displayName": "Matomeru",
   "description": "Combine and display contents of multiple directories and files in Markdown format"
 } 

@@ -35,6 +35,10 @@
         "command": "matomeru.quickProcessToChatGPT",
         "title": "%cmd.quickProcessToChatGPT%",
         "when": "matomeru.chatGptIntegration && isOSX"
+      },
+      {
+        "command": "matomeru.estimateSize",
+        "title": "%cmd.estimateSize%"
       }
     ],
     "menus": {
@@ -51,6 +55,10 @@
           "command": "matomeru.quickProcessToChatGPT",
           "group": "matomeru@3",
           "when": "matomeru.chatGptIntegration && isOSX"
+        },
+        {
+          "command": "matomeru.estimateSize",
+          "group": "matomeru@4"
         }
       ]
     },
@@ -73,7 +81,18 @@
             "dist/**",
             "build/**",
             "coverage/**",
-            ".DS_Store"
+            ".DS_Store",
+            "Thumbs.db",
+            "*.key", "*.pem", "*.crt", "id_rsa", "id_dsa", 
+            "*.p12", "*.pfx", "*.jks", "*secret*.*", 
+            "*password*.*", "*token*.*", "*.env*", "credential*",
+            "config.*secret*.json", "private.*",
+            "pnpm-lock.yaml", "yarn.lock", "package-lock.json",
+            ".yarn/**", ".pnp.*", ".npm/**", "*.lock",
+            "temp/", "tmp/", "*.tmp", ".idea/**", ".vscode/**",
+            ".history/**", "*.pyc", "__pycache__/", ".pytest_cache/",
+            ".mypy_cache/", ".ruff_cache/", ".next/**", ".nuxt/**",
+            ".svelte-kit/**", "out/**", "vendor/**", "Pods/**"
           ],
           "description": "%config.excludePatterns.description%"
         },
@@ -113,6 +132,11 @@
           "type": "boolean",
           "default": false,
           "description": "%config.useGitignore.description%"
+        },
+        "matomeru.useVscodeignore": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.useVscodeignore.description%"
         }
       }
     }

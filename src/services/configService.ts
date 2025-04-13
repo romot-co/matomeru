@@ -54,7 +54,9 @@ export class ConfigService {
                 showFileExtensions: directoryStructure.showFileExtensions ?? defaultConfig.directoryStructure.showFileExtensions,
                 useEmoji: directoryStructure.useEmoji ?? defaultConfig.directoryStructure.useEmoji
             },
-            useGitignore: config.get<boolean>('useGitignore') ?? defaultConfig.useGitignore
+            useGitignore: config.get<boolean>('useGitignore') ?? defaultConfig.useGitignore,
+            useVscodeignore: config.get<boolean>('useVscodeignore') ?? defaultConfig.useVscodeignore,
+            prefixText: config.get<string>('prefixText') ?? defaultConfig.prefixText
         };
     }
 } 

@@ -4,6 +4,7 @@ import { CommandRegistrar } from './commands';
 import { Logger } from './utils/logger';
 
 const logger = Logger.getInstance('Extension');
+let commandRegistrar: CommandRegistrar | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     logger.info(vscode.l10n.t('msg.extensionActivated'));
@@ -11,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
     // OSがmacOS（darwin）なら isOSX を true に設定する
     vscode.commands.executeCommand('setContext', 'isOSX', process.platform === 'darwin');
     
-    const commandRegistrar = new CommandRegistrar();
+    commandRegistrar = new CommandRegistrar();
     
     // 設定の初期状態を反映
     const config = vscode.workspace.getConfiguration('matomeru');
@@ -83,11 +84,19 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         registerCommand('matomeru.quickProcessToEditor', commandRegistrar.processToEditor.bind(commandRegistrar)),
         registerCommand('matomeru.quickProcessToClipboard', commandRegistrar.processToClipboard.bind(commandRegistrar)),
-        registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar.processToChatGPT.bind(commandRegistrar))
+        registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar.processToChatGPT.bind(commandRegistrar)),
+        registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar))
     );
 }
 
 export function deactivate() {
     logger.info(vscode.l10n.t('msg.extensionDeactivated'));
+    
+    // CommandRegistrarインスタンスを通じてFileOperationsを破棄
+    if (commandRegistrar) {
+        commandRegistrar.dispose();
+        commandRegistrar = undefined;
+    }
+    
     logger.dispose();
 }

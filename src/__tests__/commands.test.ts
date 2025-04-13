@@ -26,6 +26,10 @@ describe('CommandRegistrar', () => {
 
     // モックの設定
     mockFileOps = new FileOperations('') as jest.Mocked<FileOperations>;
+    mockFileOps.scanDirectory = jest.fn();
+    mockFileOps.estimateDirectorySize = jest.fn();
+    mockFileOps.setCurrentSelectedPath = jest.fn();
+    mockFileOps.dispose = jest.fn();
     mockMarkdownGen = new MarkdownGenerator() as jest.Mocked<MarkdownGenerator>;
     mockLogger = {
       info: jest.fn(),
@@ -317,6 +321,44 @@ describe('CommandRegistrar', () => {
       expect(uniquePaths).toHaveLength(2);
       expect(uniquePaths).toContain('/test/path1');
       expect(uniquePaths).toContain('/test/path2');
+    });
+  });
+
+  describe('estimateSize', () => {
+    const mockUri = { fsPath: '/test/path', scheme: 'file' } as vscode.Uri;
+
+    beforeEach(() => {
+      mockFileOps.estimateDirectorySize.mockResolvedValue({ totalFiles: 5, totalSize: 1024 });
+      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
+      (vscode.window.showInformationMessage as jest.Mock).mockImplementation(() => Promise.resolve());
+      (vscode.window.showErrorMessage as jest.Mock).mockImplementation(() => Promise.resolve());
+    });
+
+    test('サイズ見積もりが正しく実行されること', async () => {
+      await commandRegistrar.estimateSize(mockUri);
+
+      expect(mockFileOps.setCurrentSelectedPath).toHaveBeenCalledWith(mockUri.fsPath);
+      expect(mockFileOps.estimateDirectorySize).toHaveBeenCalledWith(mockUri.fsPath, expect.any(Object));
+      expect(mockFileOps.setCurrentSelectedPath).toHaveBeenCalledWith(undefined);
+    });
+
+    test('サイズ見積もり結果が表示されること', async () => {
+      await commandRegistrar.estimateSize(mockUri);
+
+      expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+        expect.stringContaining('msg.sizeEstimation')
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('サイズ見積り結果'));
+    });
+
+    test('エラーが発生した場合に適切に処理されること', async () => {
+      const error = new Error('Estimation error');
+      mockFileOps.estimateDirectorySize.mockRejectedValue(error);
+
+      await commandRegistrar.estimateSize(mockUri);
+
+      expect(mockLogger.error).toHaveBeenCalledWith('見積りエラー: ' + error.message);
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(`見積りエラー: ${error.message}`);
     });
   });
 }); 

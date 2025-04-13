@@ -4,19 +4,24 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Logger } from './utils/logger';
 import { ChatGPTError, ClipboardError, EditorError } from './errors/errors';
+import { calculateContentMetrics } from './utils/fileUtils';
 
 const execAsync = promisify(exec);
 const logger = Logger.getInstance('UI');
 
 export async function showInEditor(content: string): Promise<void> {
     try {
+        const { formattedSize, tokens } = calculateContentMetrics(content);
+        
         const document = await vscode.workspace.openTextDocument({
             content,
             language: 'markdown'
         });
         await vscode.window.showTextDocument(document);
         logger.info(vscode.l10n.t('msg.editorOpenSuccess'));
-        vscode.window.showInformationMessage(vscode.l10n.t('msg.editorOpenSuccess'));
+        vscode.window.showInformationMessage(
+            vscode.l10n.t('msg.editorOpenSuccessWithSize', formattedSize, tokens.toString())
+        );
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(vscode.l10n.t('msg.editorError', errorMessage));
@@ -26,9 +31,13 @@ export async function showInEditor(content: string): Promise<void> {
 
 export async function copyToClipboard(content: string): Promise<void> {
     try {
+        const { formattedSize, tokens } = calculateContentMetrics(content);
+        
         await vscode.env.clipboard.writeText(content);
         logger.info(vscode.l10n.t('msg.clipboardCopySuccess'));
-        vscode.window.showInformationMessage(vscode.l10n.t('msg.clipboardCopySuccess'));
+        vscode.window.showInformationMessage(
+            vscode.l10n.t('msg.clipboardCopySuccessWithSize', formattedSize, tokens.toString())
+        );
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(vscode.l10n.t('msg.clipboardError', errorMessage));
@@ -51,6 +60,8 @@ export async function openInChatGPT(content: string): Promise<void> {
     }
 
     try {
+        const { formattedSize, tokens } = calculateContentMetrics(content);
+        
         const script = `
         tell application "Google Chrome"
             activate
@@ -67,7 +78,9 @@ export async function openInChatGPT(content: string): Promise<void> {
         await copyToClipboard(content);
         await execAsync(`osascript -e '${script}'`);
         logger.info(vscode.l10n.t('msg.chatGPTSendSuccess'));
-        vscode.window.showInformationMessage(vscode.l10n.t('msg.chatGPTSendSuccess'));
+        vscode.window.showInformationMessage(
+            vscode.l10n.t('msg.chatGPTSendSuccessWithSize', formattedSize, tokens.toString())
+        );
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(vscode.l10n.t('msg.chatGPTError', errorMessage));

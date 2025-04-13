@@ -13,7 +13,8 @@ jest.mock('../commands', () => ({
     CommandRegistrar: jest.fn().mockImplementation(() => ({
         processToEditor: jest.fn(),
         processToClipboard: jest.fn(),
-        processToChatGPT: jest.fn()
+        processToChatGPT: jest.fn(),
+        estimateSize: jest.fn()
     }))
 }));
 
@@ -182,6 +183,7 @@ describe('Extension Activation', () => {
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.quickProcessToEditor', expect.any(Function));
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.quickProcessToClipboard', expect.any(Function));
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.quickProcessToChatGPT', expect.any(Function));
+            expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.estimateSize', expect.any(Function));
         });
     });
 });

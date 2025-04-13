@@ -2,9 +2,18 @@ import * as vscode from 'vscode';
 import { showInEditor, copyToClipboard, openInChatGPT } from '../ui';
 import * as os from 'os';
 import { exec } from 'child_process';
+import { calculateContentMetrics } from '../utils/fileUtils';
 
 jest.mock('os', () => ({
     platform: jest.fn()
+}));
+
+jest.mock('../utils/fileUtils', () => ({
+    calculateContentMetrics: jest.fn().mockReturnValue({
+        size: 1024,
+        tokens: 256,
+        formattedSize: '1.0 KB'
+    })
 }));
 
 jest.mock('child_process', () => ({
@@ -36,8 +45,9 @@ describe('UI Module', () => {
                 language: 'markdown'
             });
             expect(vscode.window.showTextDocument).toHaveBeenCalledWith(mockDocument);
+            expect(calculateContentMetrics).toHaveBeenCalledWith(content);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                vscode.l10n.t('msg.editorOpenSuccess')
+                vscode.l10n.t('msg.editorOpenSuccessWithSize', '1.0 KB', '256')
             );
         });
 
@@ -61,8 +71,9 @@ describe('UI Module', () => {
             await copyToClipboard(content);
             
             expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith(content);
+            expect(calculateContentMetrics).toHaveBeenCalledWith(content);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                vscode.l10n.t('msg.clipboardCopySuccess')
+                vscode.l10n.t('msg.clipboardCopySuccessWithSize', '1.0 KB', '256')
             );
         });
 
@@ -105,8 +116,9 @@ describe('UI Module', () => {
 
             expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith(content);
             expect(exec).toHaveBeenCalled();
+            expect(calculateContentMetrics).toHaveBeenCalledWith(content);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-                vscode.l10n.t('msg.chatGPTSendSuccess')
+                vscode.l10n.t('msg.chatGPTSendSuccessWithSize', '1.0 KB', '256')
             );
         });
 

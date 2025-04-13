@@ -4,6 +4,7 @@
     "cmd.quickProcessToEditor": "Matomeru: Output to Editor",
     "cmd.quickProcessToClipboard": "Matomeru: Copy to Clipboard",
     "cmd.quickProcessToChatGPT": "Matomeru: Send to ChatGPT",
+    "cmd.estimateSize": "Matomeru: Estimate Size",
     "config.maxFileSize.description": "The maximum file size (in bytes) to process",
     "config.excludePatterns.description": "File patterns to exclude",
     "config.chatGptIntegration.description": "Enable ChatGPT integration (macOS only)",
@@ -12,5 +13,6 @@
     "config.directoryStructure.indentSize.description": "Indentation size for directory structure",
     "config.directoryStructure.showFileExtensions.description": "Whether to show file extensions in the directory structure.",
     "config.prefixText.description": "Text to be added at the beginning of the generated Markdown.",
-    "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する"
+    "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
+    "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files"
 } 
