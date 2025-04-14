@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { showInEditor, copyToClipboard, openInChatGPT } from '../ui';
 import * as os from 'os';
 import { exec } from 'child_process';
-import { calculateContentMetrics } from '../utils/fileUtils';
+import { calculateContentMetrics, formatTokenCount } from '../utils/fileUtils';
 
 jest.mock('os', () => ({
     platform: jest.fn()
@@ -13,7 +13,8 @@ jest.mock('../utils/fileUtils', () => ({
         size: 1024,
         tokens: 256,
         formattedSize: '1.0 KB'
-    })
+    }),
+    formatTokenCount: jest.fn().mockReturnValue('256')
 }));
 
 jest.mock('child_process', () => ({
@@ -46,6 +47,7 @@ describe('UI Module', () => {
             });
             expect(vscode.window.showTextDocument).toHaveBeenCalledWith(mockDocument);
             expect(calculateContentMetrics).toHaveBeenCalledWith(content);
+            expect(formatTokenCount).toHaveBeenCalledWith(256);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
                 vscode.l10n.t('msg.editorOpenSuccessWithSize', '1.0 KB', '256')
             );
@@ -72,6 +74,7 @@ describe('UI Module', () => {
             
             expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith(content);
             expect(calculateContentMetrics).toHaveBeenCalledWith(content);
+            expect(formatTokenCount).toHaveBeenCalledWith(256);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
                 vscode.l10n.t('msg.clipboardCopySuccessWithSize', '1.0 KB', '256')
             );
@@ -117,6 +120,7 @@ describe('UI Module', () => {
             expect(vscode.env.clipboard.writeText).toHaveBeenCalledWith(content);
             expect(exec).toHaveBeenCalled();
             expect(calculateContentMetrics).toHaveBeenCalledWith(content);
+            expect(formatTokenCount).toHaveBeenCalledWith(256);
             expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
                 vscode.l10n.t('msg.chatGPTSendSuccessWithSize', '1.0 KB', '256')
             );
@@ -142,6 +146,31 @@ describe('UI Module', () => {
             );
 
             await expect(openInChatGPT(content)).rejects.toThrow(errorMessage);
+        });
+    });
+
+    describe('空のコンテンツの処理', () => {
+        beforeEach(() => {
+            (calculateContentMetrics as jest.Mock).mockReturnValue({
+                size: 0,
+                tokens: 0,
+                formattedSize: '0 B'
+            });
+            (formatTokenCount as jest.Mock).mockReturnValue('0');
+        });
+
+        it('空のコンテンツをエディタで表示するとき簡潔なメッセージを表示する', async () => {
+            await showInEditor('');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+                vscode.l10n.t('msg.editorOpenSuccess')
+            );
+        });
+
+        it('空のコンテンツをクリップボードにコピーするとき簡潔なメッセージを表示する', async () => {
+            await copyToClipboard('');
+            expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+                vscode.l10n.t('msg.clipboardCopySuccess')
+            );
         });
     });
 }); 

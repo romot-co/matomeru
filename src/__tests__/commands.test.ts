@@ -7,12 +7,17 @@ import { Logger } from '../utils/logger';
 import * as ui from '../ui';
 import { DirectoryInfo } from '../types/fileTypes';
 import { DirectoryNotFoundError, FileSizeLimitError } from '../errors/errors';
+import { formatFileSize, formatTokenCount } from '../utils/fileUtils';
 
 // モックの設定
 jest.mock('../fileOperations');
 jest.mock('../markdownGenerator');
 jest.mock('../utils/logger');
 jest.mock('../ui');
+jest.mock('../utils/fileUtils', () => ({
+  formatFileSize: jest.fn().mockReturnValue('1.0 KB'),
+  formatTokenCount: jest.fn().mockReturnValue('256')
+}));
 
 describe('CommandRegistrar', () => {
   let commandRegistrar: CommandRegistrar;
@@ -332,6 +337,8 @@ describe('CommandRegistrar', () => {
       (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
       (vscode.window.showInformationMessage as jest.Mock).mockImplementation(() => Promise.resolve());
       (vscode.window.showErrorMessage as jest.Mock).mockImplementation(() => Promise.resolve());
+      (formatFileSize as jest.Mock).mockReturnValue('1.0 KB');
+      (formatTokenCount as jest.Mock).mockReturnValue('256');
     });
 
     test('サイズ見積もりが正しく実行されること', async () => {
@@ -342,18 +349,39 @@ describe('CommandRegistrar', () => {
       expect(mockFileOps.setCurrentSelectedPath).toHaveBeenCalledWith(undefined);
     });
 
-    test('サイズ見積もり結果が表示されること', async () => {
+    test('サイズとトークン数が正しくフォーマットされて表示されること', async () => {
       await commandRegistrar.estimateSize(mockUri);
 
+      // トークン数は約 1024 / 4 = 256
+      expect(formatFileSize).toHaveBeenCalledWith(1024);
+      expect(formatTokenCount).toHaveBeenCalledWith(256);
+      
+      // マークダウン変換後の見積もり
+      // markdownOverhead = 5 * 100 = 500
+      // totalEstimatedSize = 1024 + 500 = 1524
+      // totalEstimatedTokens = Math.ceil(1524 / 4) = 381
+      expect(formatFileSize).toHaveBeenCalledWith(1524);
+      expect(formatTokenCount).toHaveBeenCalledWith(381);
+      
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
         expect.stringContaining('msg.sizeEstimation')
       );
-      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('サイズ見積り結果'));
+    });
+
+    test('ロガーに正しくフォーマットされたサイズとトークン数が記録されること', async () => {
+      // formatFileSize と formatTokenCount のモックの戻り値を設定
+      (formatFileSize as jest.Mock).mockReturnValueOnce('1.0 KB').mockReturnValueOnce('1.5 KB');
+      (formatTokenCount as jest.Mock).mockReturnValueOnce('256').mockReturnValueOnce('381');
+      
+      await commandRegistrar.estimateSize(mockUri);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('サイズ見積り結果: 5ファイル, 1.0 KB, 約256トークン'));
+      expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('Markdown変換後の見積り: 1.5 KB, 約381トークン'));
     });
 
     test('エラーが発生した場合に適切に処理されること', async () => {
       const error = new Error('Estimation error');
-      mockFileOps.estimateDirectorySize.mockRejectedValue(error);
+      mockFileOps.estimateDirectorySize.mockRejectedValueOnce(error);
 
       await commandRegistrar.estimateSize(mockUri);
 
