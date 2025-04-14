@@ -4,6 +4,14 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.7]
+
+### Improved
+- ファイルサイズとトークン数の表示形式を改善
+  - ファイルサイズをKB単位で読みやすく表示
+  - 1000以上のトークン数をK単位（1K、1.5Kなど）で表示
+  - 空のコンテンツの場合は簡潔なメッセージを表示
+
 ## [0.0.6]
 
 ### Added
