@@ -147,4 +147,33 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// web-tree-sitterのモック設定
+jest.mock('web-tree-sitter', () => {
+  const mockParser = {
+    parse: jest.fn().mockReturnValue({
+      rootNode: {
+        descendantsOfType: jest.fn().mockImplementation((type) => {
+          if (type === 'comment') {
+            return [
+              { startIndex: 0, endIndex: 6 },    // "// abc"
+              { startIndex: 19, endIndex: 29 }   // "/* test */"
+            ];
+          }
+          return [];
+        })
+      }
+    }),
+    setLanguage: jest.fn()
+  };
+
+  const MockParser: any = jest.fn().mockImplementation(() => mockParser);
+  
+  MockParser.init = jest.fn().mockImplementation(() => Promise.resolve());
+  MockParser.Language = {
+    load: jest.fn().mockImplementation(() => Promise.resolve({})),
+  };
+
+  return MockParser;
+}, { virtual: true });
+
 export default vscode; 

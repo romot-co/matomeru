@@ -1,13 +1,18 @@
 import { DirectoryInfo, FileInfo } from './types/fileTypes';
 import { DirectoryStructure } from './directoryStructure';
 import * as vscode from 'vscode';
+import { stripComments } from './utils/compressUtils';
+import { getExtensionContext } from './extension';
+import { Logger } from './utils/logger';
+
+const logger = Logger.getInstance('MarkdownGenerator');
 
 export class MarkdownGenerator {
     constructor(
         private readonly directoryStructure: DirectoryStructure = new DirectoryStructure()
     ) {}
 
-    generate(directories: DirectoryInfo[]): string {
+    async generate(directories: DirectoryInfo[]): Promise<string> {
         if (!directories.length) {
             return '';
         }
@@ -31,7 +36,7 @@ export class MarkdownGenerator {
         
         const allFiles = this.getAllFiles(directories);
         for (const file of allFiles) {
-            sections.push(this.generateFileSection(file));
+            sections.push(await this.generateFileSection(file));
         }
 
         return sections.join('\n');
@@ -52,7 +57,7 @@ export class MarkdownGenerator {
         }
     }
 
-    private generateFileSection(file: FileInfo): string {
+    private async generateFileSection(file: FileInfo): Promise<string> {
         const sections: string[] = [];
 
         // ファイル名をヘッダーとして追加
@@ -62,9 +67,27 @@ export class MarkdownGenerator {
         sections.push(`- Size: ${this.formatFileSize(file.size)}`);
         sections.push(`- Language: ${file.language}\n`);
 
+        // コード圧縮機能が有効な場合、Tree-sitterを使ってコメントを削除
+        const config = vscode.workspace.getConfiguration('matomeru');
+        let content = file.content;
+        
+        if (config.get('enableCompression')) {
+            try {
+                const ctx = getExtensionContext();
+                content = await stripComments(file.content, file.language, ctx);
+                
+                // コンテンツが変更された場合にはログを残す
+                if (content !== file.content) {
+                    logger.info(`Compressed content for ${file.relativePath}`);
+                }
+            } catch (error) {
+                logger.error(`Failed to compress content: ${error}`);
+            }
+        }
+
         // ファイルの内容をコードブロックとして追加
         sections.push('```' + file.language);
-        sections.push(file.content);
+        sections.push(content);
         sections.push('```\n');
 
         return sections.join('\n');

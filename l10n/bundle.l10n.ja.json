@@ -50,6 +50,7 @@
   "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト",
   "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する",
   "config.useVscodeignore.description": ".vscodeignoreファイルのパターンを使用してファイルを除外する",
+  "config.enableCompression": "コードのコメントなどを削除し圧縮する(Tree-sitter)",
   "displayName": "Matomeru",
   "description": "複数のディレクトリやファイルをまとめて1つのMarkdownで出力",
   "msg.vscodeignorePatternLoaded": ".vscodeignoreから{0}個のパターンと{1}個の否定パターンを読み込みました",

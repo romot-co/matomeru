@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 export class Logger {
-    private static instance: Logger;
+    private static instance: Logger | undefined;
     private readonly outputChannel: vscode.OutputChannel;
     private readonly context: string;
 
@@ -11,7 +11,7 @@ export class Logger {
     }
 
     static getInstance(context: string): Logger {
-        if (!Logger.instance) {
+        if (Logger.instance === undefined) {
             Logger.instance = new Logger(context);
         }
         return Logger.instance;
@@ -72,5 +72,6 @@ export class Logger {
      */
     dispose(): void {
         this.outputChannel.dispose();
+        Logger.instance = undefined;
     }
 } 

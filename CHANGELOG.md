@@ -4,6 +4,25 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.8] - 2025-04-18
+
+### Added
+
+- - Tree-sitter を利用した主要言語のコード圧縮機能 (コメント除去・LLMのコンテスト長を圧迫しない) を追加
+
+### Fixed
+- コメント除去 (`stripComments`) 時に、ブロックコメント末尾の `/` が除去されずに残る問題を修正 (#1)
+- Windows 環境において、パス区切り文字 (`\`) が原因でファイル除外パターン (`shouldExclude`) が正しく機能しない問題を修正 (#2)
+- ファイル除外パターンマッチング (minimatch) で `nocase: true` と `dot: true` オプションを一貫して使用するように修正 (#2)
+- ワークスペースを開かずに単一ファイルを開いた場合に、拡張機能が有効化されない問題を修正 (Activation Events に `onCommand` と `workspaceContains` を追加) (#5)
+- Logger が Singleton パターンにより、テスト中に `dispose` された後、後続のテストで問題が発生する可能性があった問題を修正 (`dispose` 時にインスタンスをリセットするように変更) (#6)
+- `estimateSize` コマンドのエラーハンドリングに関するテストが、エラーメッセージの変更により失敗していた問題を修正
+
+### Improved
+- `estimateSize` におけるトークン数の概算精度をわずかに向上 (除数を 4 から 3.5 に変更) (#8)
+- 対応言語判定 (`detectLanguage`) のための拡張子マップを拡充 (Dockerfile, Makefile, .env, .lua, .pl, .r, .dart など) (#3 関連)
+- README において、コード圧縮機能 (コメント除去) がベストエフォートであることを明確化 (#9 関連)
+
 ## [0.0.7]
 
 ### Improved

@@ -41,33 +41,33 @@ describe('MarkdownGenerator', () => {
             directories: new Map()
         };
 
-        test('空のディレクトリリストの場合、空文字列を返すこと', () => {
-            const result = markdownGenerator.generate([]);
+        test('空のディレクトリリストの場合、空文字列を返すこと', async () => {
+            const result = await markdownGenerator.generate([]);
             expect(result).toBe('');
         });
 
-        test('固定文言が設定されていない場合、通常の出力を生成すること', () => {
+        test('固定文言が設定されていない場合、通常の出力を生成すること', async () => {
             mockConfig.get.mockReturnValue('');
 
-            const result = markdownGenerator.generate([mockDirectoryInfo]);
+            const result = await markdownGenerator.generate([mockDirectoryInfo]);
 
             expect(result).toContain('# Directory Structure');
             expect(result).toContain('# File Contents');
             expect(result).not.toMatch(/^.+\n# Directory Structure/);
         });
 
-        test('固定文言が設定されている場合、先頭に追加されること', () => {
+        test('固定文言が設定されている場合、先頭に追加されること', async () => {
             const prefixText = '# Project Overview\nThis is a test project.';
             mockConfig.get.mockReturnValue(prefixText);
 
-            const result = markdownGenerator.generate([mockDirectoryInfo]);
+            const result = await markdownGenerator.generate([mockDirectoryInfo]);
 
             expect(result).toMatch(/^# Project Overview\nThis is a test project.\n/);
             expect(result).toContain('# Directory Structure');
             expect(result).toContain('# File Contents');
         });
 
-        test('ファイルサイズが適切にフォーマットされること', () => {
+        test('ファイルサイズが適切にフォーマットされること', async () => {
             const files = [
                 { size: 500, expected: '500 B' },
                 { size: 1024, expected: '1 KB' },
@@ -76,7 +76,7 @@ describe('MarkdownGenerator', () => {
                 { size: 1073741824, expected: '1 GB' }
             ];
 
-            files.forEach(({ size, expected }) => {
+            for (const { size, expected } of files) {
                 const directoryInfo: DirectoryInfo = {
                     ...mockDirectoryInfo,
                     files: [{
@@ -85,13 +85,13 @@ describe('MarkdownGenerator', () => {
                     }]
                 };
 
-                const result = markdownGenerator.generate([directoryInfo]);
+                const result = await markdownGenerator.generate([directoryInfo]);
                 expect(result).toContain(`Size: ${expected}`);
-            });
+            }
         });
     });
 
-    it('単一のファイルを含むディレクトリを正しく処理する', () => {
+    it('単一のファイルを含むディレクトリを正しく処理する', async () => {
         const dir: DirectoryInfo = {
             uri: vscode.Uri.file('/test'),
             relativePath: 'test',
@@ -107,7 +107,7 @@ describe('MarkdownGenerator', () => {
             directories: new Map()
         };
 
-        const result = markdownGenerator.generate([dir]);
+        const result = await markdownGenerator.generate([dir]);
         
         // ディレクトリ構造のセクション
         expect(result).toContain('# Directory Structure');
@@ -123,7 +123,7 @@ describe('MarkdownGenerator', () => {
         expect(result).toContain('console.log("Hello");');
     });
 
-    it('複数のファイルとディレクトリを正しく処理する', () => {
+    it('複数のファイルとディレクトリを正しく処理する', async () => {
         const subDir: DirectoryInfo = {
             uri: vscode.Uri.file('/test/src'),
             relativePath: 'test/src',
@@ -155,7 +155,7 @@ describe('MarkdownGenerator', () => {
         };
 
         mockDirectoryStructure.generate.mockReturnValue('# Directory Structure\n📁 test\n  📄 README.md\n  📁 src\n    📄 main.ts\n');
-        const result = markdownGenerator.generate([dir]);
+        const result = await markdownGenerator.generate([dir]);
         
         // ディレクトリ構造の検証
         expect(result).toContain('📁 test');
@@ -173,7 +173,7 @@ describe('MarkdownGenerator', () => {
         expect(result).toContain('export const main = () => {};');
     });
 
-    it('ファイルサイズを適切にフォーマットする', () => {
+    it('ファイルサイズを適切にフォーマットする', async () => {
         const dir: DirectoryInfo = {
             uri: vscode.Uri.file('/test'),
             relativePath: 'test',
@@ -203,14 +203,14 @@ describe('MarkdownGenerator', () => {
             directories: new Map()
         };
 
-        const result = markdownGenerator.generate([dir]);
+        const result = await markdownGenerator.generate([dir]);
         
         expect(result).toContain('- Size: 512 B');
         expect(result).toContain('- Size: 100 KB');
         expect(result).toContain('- Size: 2 MB');
     });
 
-    it('ファイルサイズが1024の倍数の場合、小数点以下を表示しない', () => {
+    it('ファイルサイズが1024の倍数の場合、小数点以下を表示しない', async () => {
         const dir: DirectoryInfo = {
             uri: vscode.Uri.file('/test'),
             relativePath: 'test',
@@ -233,7 +233,7 @@ describe('MarkdownGenerator', () => {
             directories: new Map()
         };
 
-        const result = markdownGenerator.generate([dir]);
+        const result = await markdownGenerator.generate([dir]);
         
         expect(result).toContain('- Size: 1 KB');
         expect(result).toContain('- Size: 1 MB');

@@ -57,7 +57,7 @@ export class CommandRegistrar {
                     }
                 })
             );
-            return this.markdownGen.generate(dirInfos);
+            return await this.markdownGen.generate(dirInfos);
         } catch (error) {
             this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
             throw error;
@@ -139,33 +139,29 @@ export class CommandRegistrar {
             // 各URIごとに見積りを行い、合計を計算
             for (const [index, uri] of selectedUris.entries()) {
                 this.logger.info(`見積り中: ${index + 1}/${selectedUris.length} ${uri.fsPath}`);
-                try {
-                    this.fileOps.setCurrentSelectedPath(uri.fsPath);
-                    const result = await this.fileOps.estimateDirectorySize(uri.fsPath, {
-                        maxFileSize: config.get('maxFileSize', 1048576),
-                        excludePatterns: config.get('excludePatterns', []),
-                        useGitignore: config.get('useGitignore', false),
-                        useVscodeignore: config.get('useVscodeignore', false)
-                    });
-                    
-                    totalFiles += result.totalFiles;
-                    totalSize += result.totalSize;
-                    
-                    this.fileOps.setCurrentSelectedPath(undefined);
-                } catch (error) {
-                    this.logger.error(`見積りエラー: ${error instanceof Error ? error.message : String(error)}`);
-                }
+                this.fileOps.setCurrentSelectedPath(uri.fsPath);
+                const result = await this.fileOps.estimateDirectorySize(uri.fsPath, {
+                    maxFileSize: config.get('maxFileSize', 1048576),
+                    excludePatterns: config.get('excludePatterns', []),
+                    useGitignore: config.get('useGitignore', false),
+                    useVscodeignore: config.get('useVscodeignore', false)
+                });
+                
+                totalFiles += result.totalFiles;
+                totalSize += result.totalSize;
+                
+                this.fileOps.setCurrentSelectedPath(undefined);
             }
 
-            // トークン数を概算（文字バイト数を4で割った値を使用）
-            const estimatedTokens = Math.ceil(totalSize / 4);
+            // トークン数を概算（文字バイト数を3.5で割った値を使用し、精度を少し向上）
+            const estimatedTokens = Math.ceil(totalSize / 3.5);
             const formattedSize = formatFileSize(totalSize);
             const formattedTokens = formatTokenCount(estimatedTokens);
             
             // マークダウン形式のための追加サイズを考慮
             const markdownOverhead = totalFiles * 100; // ファイルごとにヘッダー情報や区切り文字などが追加されると仮定
             const totalEstimatedSize = totalSize + markdownOverhead;
-            const totalEstimatedTokens = Math.ceil(totalEstimatedSize / 4);
+            const totalEstimatedTokens = Math.ceil(totalEstimatedSize / 3.5);
             const formattedTotalSize = formatFileSize(totalEstimatedSize);
             const formattedTotalTokens = formatTokenCount(totalEstimatedTokens);
 
@@ -183,7 +179,7 @@ export class CommandRegistrar {
             this.logger.info(`サイズ見積り結果: ${totalFiles}ファイル, ${formattedSize}, 約${formattedTokens}トークン`);
             this.logger.info(`Markdown変換後の見積り: ${formattedTotalSize}, 約${formattedTotalTokens}トークン`);
         } catch (error) {
-            this.logger.error(error instanceof Error ? error.message : String(error));
+            this.logger.error(`見積り処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
             vscode.window.showErrorMessage(`見積りエラー: ${error instanceof Error ? error.message : String(error)}`);
         }
     }

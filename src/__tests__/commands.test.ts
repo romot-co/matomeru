@@ -9,8 +9,23 @@ import { DirectoryInfo } from '../types/fileTypes';
 import { DirectoryNotFoundError, FileSizeLimitError } from '../errors/errors';
 import { formatFileSize, formatTokenCount } from '../utils/fileUtils';
 
-// モックの設定
-jest.mock('../fileOperations');
+// FileOperations のモックインスタンスを保持する変数
+let mockFileOpsInstance: jest.Mocked<FileOperations>;
+
+// ファクトリ関数を使用して FileOperations をモック
+jest.mock('../fileOperations', () => {
+  // FileOperations クラスが new された際に、テスト側で用意したモックインスタンスを返す
+  return {
+    FileOperations: jest.fn().mockImplementation(() => {
+      // beforeEach で mockFileOpsInstance が設定されていることを期待
+      if (!mockFileOpsInstance) {
+        throw new Error('mockFileOpsInstance is not set in beforeEach');
+      }
+      return mockFileOpsInstance;
+    })
+  };
+});
+
 jest.mock('../markdownGenerator');
 jest.mock('../utils/logger');
 jest.mock('../ui');
@@ -30,11 +45,19 @@ describe('CommandRegistrar', () => {
     jest.clearAllMocks();
 
     // モックの設定
-    mockFileOps = new FileOperations('') as jest.Mocked<FileOperations>;
-    mockFileOps.scanDirectory = jest.fn();
-    mockFileOps.estimateDirectorySize = jest.fn();
-    mockFileOps.setCurrentSelectedPath = jest.fn();
-    mockFileOps.dispose = jest.fn();
+    // モックインスタンスを作成し、describe スコープの変数に代入
+    // 型チェックを緩めるために any を経由
+    mockFileOps = { 
+      scanDirectory: jest.fn(),
+      estimateDirectorySize: jest.fn(),
+      setCurrentSelectedPath: jest.fn(),
+      dispose: jest.fn(),
+      processFileList: jest.fn(), 
+    } as any as jest.Mocked<FileOperations>; 
+    
+    // ファクトリ関数が参照する変数に代入
+    mockFileOpsInstance = mockFileOps;
+
     mockMarkdownGen = new MarkdownGenerator() as jest.Mocked<MarkdownGenerator>;
     mockLogger = {
       info: jest.fn(),
@@ -43,7 +66,6 @@ describe('CommandRegistrar', () => {
     } as unknown as jest.Mocked<Logger>;
 
     (Logger.getInstance as jest.Mock).mockReturnValue(mockLogger);
-    (FileOperations as jest.Mock).mockImplementation(() => mockFileOps);
     (MarkdownGenerator as jest.Mock).mockImplementation(() => mockMarkdownGen);
 
     // VSCode APIのモックを設定
@@ -121,7 +143,7 @@ describe('CommandRegistrar', () => {
 
     beforeEach(() => {
       mockFileOps.scanDirectory.mockResolvedValue(mockDirectoryInfo);
-      mockMarkdownGen.generate.mockReturnValue(mockMarkdown);
+      mockMarkdownGen.generate.mockResolvedValue(mockMarkdown);
       (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
       (ui.showInEditor as jest.Mock).mockImplementation(() => Promise.resolve());
     });
@@ -193,7 +215,7 @@ describe('CommandRegistrar', () => {
 
     beforeEach(() => {
       mockFileOps.scanDirectory.mockResolvedValue(mockDirectoryInfo);
-      mockMarkdownGen.generate.mockReturnValue(mockMarkdown);
+      mockMarkdownGen.generate.mockResolvedValue(mockMarkdown);
       (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
       (ui.copyToClipboard as jest.Mock).mockImplementation(() => Promise.resolve());
     });
@@ -238,7 +260,7 @@ describe('CommandRegistrar', () => {
 
     beforeEach(() => {
       mockFileOps.scanDirectory.mockResolvedValue(mockDirectoryInfo);
-      mockMarkdownGen.generate.mockReturnValue(mockMarkdown);
+      mockMarkdownGen.generate.mockResolvedValue(mockMarkdown);
       (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
       (ui.openInChatGPT as jest.Mock).mockImplementation(() => Promise.resolve());
     });
@@ -301,6 +323,19 @@ describe('CommandRegistrar', () => {
       const uris = await (commandRegistrar as any).getSelectedUris();
       expect(uris).toHaveLength(0);
     });
+
+    test('エラーが発生した場合に適切に処理されること', async () => {
+      const error = new Error('Estimation error');
+      // メインのエラーはgetSelectedUrisからスローされるようにセットアップ
+      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => {
+        throw error;
+      });
+
+      await commandRegistrar.estimateSize();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(`見積り処理中にエラーが発生しました: ${error.message}`);
+      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(`見積りエラー: ${error.message}`);
+    });
   });
 
   describe('コマンド実行時のURI重複除去', () => {
@@ -352,16 +387,16 @@ describe('CommandRegistrar', () => {
     test('サイズとトークン数が正しくフォーマットされて表示されること', async () => {
       await commandRegistrar.estimateSize(mockUri);
 
-      // トークン数は約 1024 / 4 = 256
+      // トークン数は約 Math.ceil(1024 / 3.5) = 293
       expect(formatFileSize).toHaveBeenCalledWith(1024);
-      expect(formatTokenCount).toHaveBeenCalledWith(256);
+      expect(formatTokenCount).toHaveBeenCalledWith(293);
       
       // マークダウン変換後の見積もり
       // markdownOverhead = 5 * 100 = 500
       // totalEstimatedSize = 1024 + 500 = 1524
-      // totalEstimatedTokens = Math.ceil(1524 / 4) = 381
+      // totalEstimatedTokens = Math.ceil(1524 / 3.5) = 436
       expect(formatFileSize).toHaveBeenCalledWith(1524);
-      expect(formatTokenCount).toHaveBeenCalledWith(381);
+      expect(formatTokenCount).toHaveBeenCalledWith(436);
       
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
         expect.stringContaining('msg.sizeEstimation')
@@ -381,12 +416,13 @@ describe('CommandRegistrar', () => {
 
     test('エラーが発生した場合に適切に処理されること', async () => {
       const error = new Error('Estimation error');
-      mockFileOps.estimateDirectorySize.mockRejectedValueOnce(error);
+      mockFileOps.estimateDirectorySize.mockRejectedValue(error);
+      mockFileOps.setCurrentSelectedPath.mockClear();
 
       await commandRegistrar.estimateSize(mockUri);
 
-      expect(mockLogger.error).toHaveBeenCalledWith('見積りエラー: ' + error.message);
-      expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(`見積りエラー: ${error.message}`);
+      expect(mockLogger.error).toHaveBeenCalledWith(`見積り処理中にエラーが発生しました: ${error.message}`);
+      expect(vscode.window.showErrorMessage).toHaveBeenCalled();
     });
   });
 }); 

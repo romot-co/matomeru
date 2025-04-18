@@ -5,8 +5,15 @@ import { Logger } from './utils/logger';
 
 const logger = Logger.getInstance('Extension');
 let commandRegistrar: CommandRegistrar | undefined;
+let extensionContext: vscode.ExtensionContext;
+
+// グローバルにコンテキストを取得するための関数
+export function getExtensionContext(): vscode.ExtensionContext {
+  return extensionContext;
+}
 
 export function activate(context: vscode.ExtensionContext) {
+    extensionContext = context;
     logger.info(vscode.l10n.t('msg.extensionActivated'));
     
     // OSがmacOS（darwin）なら isOSX を true に設定する

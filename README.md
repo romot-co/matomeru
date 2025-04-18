@@ -1,8 +1,8 @@
 # Matomeru
 
-Combine your entire project into one LLM-ready Markdown.
+Combine and copy your entire codes into one LLM-ready Markdown.
 
-プロジェクトを一つのMarkdownにまとめる、LLMに投げる
+複数のコードをAI向けの一つのMarkdownにまとめる
 
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
 
@@ -24,6 +24,7 @@ Combine your entire project into one LLM-ready Markdown.
   - Emoji icons for directories and files
   - Configurable indentation
   - Optional file extension display
+- **Code Compression (Experimental)**: Attempts to remove comments using Tree-sitter to reduce context length for LLMs. (See Configuration section for details)
 - Flexible file exclusion:
   - Configure custom patterns to exclude
   - Use .gitignore .vscodeignore patterns to automatically exclude files (optional)
@@ -35,7 +36,7 @@ Combine your entire project into one LLM-ready Markdown.
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.0.6.vsix
+   code --install-extension matomeru-0.0.8.vsix
    ```
 
 ### Usage
@@ -72,22 +73,25 @@ Combine your entire project into one LLM-ready Markdown.
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
-  "matomeru.directoryStructure.useEmoji": true,
-  "matomeru.prefixText": {
-    "type": "string",
-    "default": "",
-    "description": "Text to be added at the beginning of the generated Markdown"
-  },
+  "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
-  "matomeru.useVscodeignore": false
+  "matomeru.useVscodeignore": false,
+  "matomeru.enableCompression": false
 }
 ```
 
-> **Note on Security**: By default, Matomeru automatically excludes sensitive files like secret keys, 
-> credentials, certificates, and environment files (`*.key`, `*.pem`, `*.env`, etc.) to prevent accidental 
-> inclusion of confidential information in the generated output. Additionally, many common non-source files
-> like lock files, cache directories, build artifacts, and temporary files are excluded by default.
-> These exclusions are part of the default configuration and will apply even if you customize the `excludePatterns` setting.
+**Code Compression**: When `matomeru.enableCompression` is set to `true`, Matomeru *attempts* to remove comments and unnecessary code using Tree-sitter for the following languages, making the code more compact for LLMs. (If parsing fails, the original code will be used.)
+
+```txt
+javascript, typescript, python, json, css, php, ruby, 
+csharp, c, cpp, go, rust, java, bash, html
+```
+
+**Note on Security**: By default, Matomeru automatically excludes sensitive files like secret keys, 
+credentials, certificates, and environment files (`*.key`, `*.pem`, `*.env`, etc.) to prevent accidental 
+inclusion of confidential information in the generated output. Additionally, many common non-source files
+like lock files, cache directories, build artifacts, and temporary files are excluded by default.
+These exclusions are part of the default configuration and will apply even if you customize the `excludePatterns` setting.
 
 ### Output Example
 
@@ -118,7 +122,7 @@ This is a sample project.
 
 ### Requirements
 
-- VSCode 1.085.0 or later
+- VSCode 1.96.0 or later
 - For ChatGPT integration:
   - macOS
   - Google Chrome
@@ -146,6 +150,7 @@ MIT License
   - ディレクトリとファイルの絵文字アイコン
   - インデントの設定
   - ファイル拡張子の表示/非表示
+- **コード圧縮機能 (実験的)**: Tree-sitterを使用してコメント等を除去し、LLM向けのコンテキスト長削減を試みます。（詳細は設定例の項目を参照）
 - 柔軟なファイル除外機能：
   - カスタムパターンで除外設定
   - .gitignore/.vscodeignoreファイルのパターンを使用して自動的にファイルを除外（オプション）
@@ -157,7 +162,7 @@ MIT License
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.0.6.vsix
+   code --install-extension matomeru-0.0.8.vsix
    ```
 
 ### 使い方
@@ -189,16 +194,23 @@ MIT License
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
-  "matomeru.prefixText": "# Project Overview\nThis is a sample project.",
+  "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
-  "matomeru.useVscodeignore": false
+  "matomeru.useVscodeignore": false,
+  "matomeru.enableCompression": false
 }
 ```
 
-> **セキュリティに関する注記**: Matomeruはデフォルトで、シークレットキー、認証情報、証明書、環境設定ファイル
-> (`*.key`、`*.pem`、`*.env`など) のような機密ファイルを自動的に除外します。さらに、ロックファイル、キャッシュディレクトリ、
-> ビルド成果物、一時ファイルなど、多くの一般的な非ソースファイルもデフォルトで除外されます。
-> これらの除外パターンはデフォルト設定の一部であり、`excludePatterns`設定をカスタマイズした場合でも適用されます。
+**コード圧縮機能**: `matomeru.enableCompression`を`true`に設定すると、以下の主要言語について、Tree-sitterを使用してコードからコメント等の除去を**試みます**。これにより、LLMに送るコードをより簡潔にし、コンテキストを効率化できます。（Tree-sitterによるパースに失敗した場合は元のコードが出力されます。）
+
+```txt
+javascript, typescript, python, json, css, php, ruby, 
+csharp, c, cpp, go, rust, java, bash, html
+```
+
+**セキュリティに関する注記**: Matomeruはデフォルトで、シークレットキー、認証情報、証明書、環境設定ファイル
+(`*.key`、`*.pem`、`*.env`など) のような機密ファイルを自動的に除外します。さらに、ロックファイル、キャッシュディレクトリ、ビルド成果物、一時ファイルなど、多くの一般的な非ソースファイルもデフォルトで除外されます。
+これらの除外パターンはデフォルト設定の一部であり、`excludePatterns`設定をカスタマイズした場合でも適用されます。
 
 ### 出力例
 
@@ -229,7 +241,7 @@ This is a sample project.
 
 ### 必要要件
 
-- VSCode 1.85.0以降
+- VSCode 1.96.0以降
 - ChatGPT連携機能を使用する場合：
   - macOS
   - Google Chrome

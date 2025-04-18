@@ -50,11 +50,12 @@
   "config.prefixText.description": "Text to be added at the beginning of the generated Markdown",
   "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
   "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
+  "config.enableCompression": "Remove comments and other code elements (Tree-sitter)",
   "msg.vscodeignorePatternLoaded": "Loaded {0} patterns and {1} negation patterns from .vscodeignore",
   "msg.vscodeignoreFileNotFound": ".vscodeignore file not found",
   "msg.vscodeignoreLoadError": "Error loading .vscodeignore: {0}",
   "msg.negationPatternMatched": "Negation pattern matched ({0}): {1} -> {2}",
   "msg.normalPatternMatched": "Pattern matched ({0}): {1} -> {2}",
   "displayName": "Matomeru",
-  "description": "Combine and display contents of multiple directories and files in Markdown format"
+  "description": "Combine and copy your entire codes into one AI-ready Markdown."
 } 

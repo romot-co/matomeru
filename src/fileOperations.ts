@@ -257,16 +257,19 @@ export class FileOperations {
         const currentSelectedRelativePath = this.currentSelectedPath
             ? path.relative(this.workspaceRoot, this.currentSelectedPath)
             : '';
-        if (relativePath === currentSelectedRelativePath) {
+        // パスを POSIX 形式に正規化
+        const posixRelativePath = relativePath.replace(/\\/g, '/');
+
+        if (posixRelativePath === currentSelectedRelativePath.replace(/\\/g, '/')) {
             return false;
         }
 
         // 否定パターンのチェック - .gitignore
         if (options.useGitignore && this.gitignoreNegatedPatterns.length > 0) {
             for (const pattern of this.gitignoreNegatedPatterns) {
-                if (this.matchPattern(relativePath, pattern)) {
+                if (this.matchPattern(posixRelativePath, pattern)) {
                     // 否定パターンにマッチした場合は強制的に除外しない
-                    this.logger.info(`否定パターン一致(gitignore): ${relativePath} -> ${pattern}`);
+                    this.logger.info(`否定パターン一致(gitignore): ${posixRelativePath} -> !${pattern}`);
                     return false;
                 }
             }
@@ -275,9 +278,9 @@ export class FileOperations {
         // 否定パターンのチェック - .vscodeignore
         if (options.useVscodeignore && this.vscodeignoreNegatedPatterns.length > 0) {
             for (const pattern of this.vscodeignoreNegatedPatterns) {
-                if (this.matchPattern(relativePath, pattern)) {
+                if (this.matchPattern(posixRelativePath, pattern)) {
                     // 否定パターンにマッチした場合は強制的に除外しない
-                    this.logger.info(`否定パターン一致(vscodeignore): ${relativePath} -> ${pattern}`);
+                    this.logger.info(`否定パターン一致(vscodeignore): ${posixRelativePath} -> !${pattern}`);
                     return false;
                 }
             }
@@ -286,8 +289,8 @@ export class FileOperations {
         // 通常パターンのチェック - .gitignore
         if (options.useGitignore && this.gitignorePatterns.length > 0) {
             for (const pattern of this.gitignorePatterns) {
-                if (this.matchPattern(relativePath, pattern)) {
-                    this.logger.info(`通常パターン一致(gitignore): ${relativePath} -> ${pattern}`);
+                if (this.matchPattern(posixRelativePath, pattern)) {
+                    this.logger.info(`通常パターン一致(gitignore): ${posixRelativePath} -> ${pattern}`);
                     return true;
                 }
             }
@@ -296,8 +299,8 @@ export class FileOperations {
         // 通常パターンのチェック - .vscodeignore
         if (options.useVscodeignore && this.vscodeignorePatterns.length > 0) {
             for (const pattern of this.vscodeignorePatterns) {
-                if (this.matchPattern(relativePath, pattern)) {
-                    this.logger.info(`通常パターン一致(vscodeignore): ${relativePath} -> ${pattern}`);
+                if (this.matchPattern(posixRelativePath, pattern)) {
+                    this.logger.info(`通常パターン一致(vscodeignore): ${posixRelativePath} -> ${pattern}`);
                     return true;
                 }
             }
@@ -306,8 +309,9 @@ export class FileOperations {
         // 設定された除外パターンを考慮
         if (options.excludePatterns.length > 0) {
             for (const pattern of options.excludePatterns) {
-                if (this.matchPattern(relativePath, pattern)) {
-                    this.logger.info(`除外パターン一致: ${relativePath} -> ${pattern}`);
+                // excludePatterns も POSIX 形式を期待する
+                if (this.matchPattern(posixRelativePath, pattern.replace(/\\/g, '/'))) {
+                    this.logger.info(`除外パターン一致: ${posixRelativePath} -> ${pattern}`);
                     return true;
                 }
             }
@@ -317,24 +321,40 @@ export class FileOperations {
     }
 
     private matchPattern(filePath: string, pattern: string): boolean {
-        // パターンが "excluded-dir/**" のようなディレクトリ指定の場合
-        if (pattern.endsWith('/**')) {
-            const basePattern = pattern.slice(0, -3);
-            // もし対象のパスのベースネームがパターンと一致すれば除外
-            if (path.basename(filePath) === basePattern) {
-                return true;
+        // minimatch に渡す前にパターンも POSIX 形式に正規化 (特に Windows で dir\** のようなパターンが渡された場合)
+        const posixPattern = pattern.replace(/\\/g, '/');
+        // filePath は既に POSIX 形式になっている想定
+
+        // パターンが "excluded-dir/**" のようなディレクトリ指定の場合、末尾のスラッシュも考慮
+        // .gitignore の仕様に合わせ、ディレクトリ指定は末尾に / をつけることが多い
+        if (posixPattern.endsWith('/')) {
+            const dirPattern = posixPattern.slice(0, -1); // 末尾のスラッシュを除去
+            // ディレクトリ自体、またはその配下のパスにマッチするかどうか
+            if (filePath === dirPattern || filePath.startsWith(dirPattern + '/')) {
+                 return true;
             }
-        } else {
-            // その他は minimatch を利用（matchBase:true によりベースネームのみも評価）
-            const options = {
-                dot: true,
-                matchBase: true,
-                nocase: process.platform === 'win32'
-            };
-            if (minimatch(filePath, pattern, options)) {
-                return true;
+        } else if (posixPattern.endsWith('/**')) {
+            // "/**" パターンは minimatch がうまく扱えない場合があるため、別途処理するケースを考慮
+            // 例: "abc/**" は "abc/" または "abc/def" などにマッチ
+            const basePattern = posixPattern.slice(0, -3);
+            if (filePath === basePattern || filePath.startsWith(basePattern + '/')) {
+                 return true;
             }
+            // Note: minimatch での再現も試みる
         }
+        
+        // minimatch を利用（matchBaseは意図しないマッチを防ぐためfalseに）
+        const options = {
+            dot: true,       // ドットファイルにマッチさせる
+            nocase: true,    // 大文字小文字を区別しない (Windows との互換性のため)
+            matchBase: false // パス全体でマッチさせる (Git の挙動に近づける)
+        };
+        
+        // minimatch は POSIX スタイルのパスを期待する
+        if (minimatch(filePath, posixPattern, options)) {
+            return true;
+        }
+        
         return false;
     }
 
@@ -400,6 +420,16 @@ export class FileOperations {
     }
 
     private detectLanguage(fileName: string): string {
+        // まず特定のファイル名で判定
+        const baseName = path.basename(fileName);
+        if (baseName === 'Dockerfile') {
+            return 'dockerfile';
+        }
+        if (baseName === 'Makefile') {
+            return 'makefile';
+        }
+        
+        // 次に拡張子で判定
         const ext = path.extname(fileName).toLowerCase();
         const languageMap: { [key: string]: string } = {
             '.js': 'javascript',
@@ -434,7 +464,12 @@ export class FileOperations {
             '.xml': 'xml',
             '.sql': 'sql',
             '.graphql': 'graphql',
-            '.proto': 'protobuf'
+            '.proto': 'protobuf',
+            '.env': 'dotenv',
+            '.lua': 'lua',
+            '.pl': 'perl',
+            '.r': 'r',
+            '.dart': 'dart'
         };
 
         return languageMap[ext] || 'plaintext';
