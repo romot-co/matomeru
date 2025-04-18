@@ -36,7 +36,7 @@ Combine and copy your entire codes into one LLM-ready Markdown.
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.0.8.vsix
+   code --install-extension matomeru-0.0.9.vsix
    ```
 
 ### Usage
@@ -162,7 +162,7 @@ MIT License
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.0.8.vsix
+   code --install-extension matomeru-0.0.9.vsix
    ```
 
 ### 使い方

@@ -21,6 +21,9 @@ jest.config.js
 src/**/*.ts
 !src/**/*.d.ts
 
+# Make sure grammars are included
+!out/grammars/**
+
 # Node modules
 node_modules/**
 !node_modules/minimatch/**
@@ -28,6 +31,8 @@ node_modules/**
 !node_modules/brace-expansion/**
 !node_modules/balanced-match/**
 !node_modules/isbinaryfile/**
+!node_modules/web-tree-sitter/**
+!node_modules/tree-sitter-wasm-prebuilt/**
 
 # Other development files
 .eslintrc.json
