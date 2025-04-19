@@ -36,7 +36,7 @@ Combine and copy your entire codes into one LLM-ready Markdown.
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.0.9.vsix
+   code --install-extension matomeru-0.0.10.vsix
    ```
 
 ### Usage
@@ -83,8 +83,8 @@ Combine and copy your entire codes into one LLM-ready Markdown.
 **Code Compression**: When `matomeru.enableCompression` is set to `true`, Matomeru *attempts* to remove comments and unnecessary code using Tree-sitter for the following languages, making the code more compact for LLMs. (If parsing fails, the original code will be used.)
 
 ```txt
-javascript, typescript, python, json, css, php, ruby, 
-csharp, c, cpp, go, rust, java, bash, html
+javascript, typescript, tsx, python, css, ruby, 
+csharp, c, cpp, go, rust, java, ini, regex
 ```
 
 **Note on Security**: By default, Matomeru automatically excludes sensitive files like secret keys, 
@@ -162,7 +162,7 @@ MIT License
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.0.9.vsix
+   code --install-extension matomeru-0.0.10.vsix
    ```
 
 ### 使い方
@@ -204,8 +204,8 @@ MIT License
 **コード圧縮機能**: `matomeru.enableCompression`を`true`に設定すると、以下の主要言語について、Tree-sitterを使用してコードからコメント等の除去を**試みます**。これにより、LLMに送るコードをより簡潔にし、コンテキストを効率化できます。（Tree-sitterによるパースに失敗した場合は元のコードが出力されます。）
 
 ```txt
-javascript, typescript, python, json, css, php, ruby, 
-csharp, c, cpp, go, rust, java, bash, html
+javascript, typescript, tsx, python, css, ruby, 
+csharp, c, cpp, go, rust, java, ini, regex
 ```
 
 **セキュリティに関する注記**: Matomeruはデフォルトで、シークレットキー、認証情報、証明書、環境設定ファイル

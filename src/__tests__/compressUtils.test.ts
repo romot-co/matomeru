@@ -9,19 +9,21 @@ jest.mock('../services/parserManager', () => {
     getParser: jest.fn().mockImplementation((langId) => {
       if (langId === 'javascript' || langId === 'typescript') {
         return Promise.resolve({
-          parse: () => ({
-            rootNode: {
-              descendantsOfType: (type: string) => {
-                if (type === 'comment') {
-                  return [
-                    { startIndex: 0, endIndex: 6 },    // "// abc"
-                    { startIndex: 19, endIndex: 30 }   // "/* test */"
-                  ];
+          parse: (_code: string) => {
+            return {
+              rootNode: {
+                descendantsOfType: (type: string) => {
+                  if (type === 'comment') {
+                    return [
+                      { startIndex: 0, endIndex: 6 },    // "// abc"
+                      { startIndex: 19, endIndex: 30 }   // "/* test */"
+                    ];
+                  }
+                  return [];
                 }
-                return [];
               }
-            }
-          })
+            };
+          }
         });
       }
       return Promise.resolve(null);

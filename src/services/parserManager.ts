@@ -6,17 +6,18 @@ import { Logger } from '../utils/logger';
 
 /* ---------------------------------- 型 ---------------------------------- */
 type Lang =
-  | 'javascript' | 'typescript' | 'python'
-  | 'json' | 'css' | 'php' | 'ruby'
+  | 'javascript' | 'typescript' | 'tsx' | 'python'
+  | 'css' | 'ruby'
   | 'csharp' | 'c' | 'cpp' | 'go' | 'rust' | 'java'
-  | 'bash' | 'html';
+  | 'ini' | 'regex';
 
 /** VSCode の `languageId` → 本ライブラリで扱うキー */
 const ID_MAP: Record<string, Lang | undefined> = {
   javascript: 'javascript',
   typescript: 'typescript',
+  typescriptreact: 'tsx',
+  tsx: 'tsx',
   python: 'python',
-  php: 'php',
   ruby: 'ruby',
   csharp: 'csharp', 'c#': 'csharp', cs: 'csharp',
   c: 'c',
@@ -25,38 +26,31 @@ const ID_MAP: Record<string, Lang | undefined> = {
   rust: 'rust',
   java: 'java',
 
-  // スクリプト
-  bash: 'bash',
-  shellscript: 'bash',
-
-  // マークアップ
-  html: 'html',
-
   // データ & スタイル
-  json: 'json',  jsonc: 'json',
   css: 'css',    scss: 'css',  less: 'css',
+  ini: 'ini',    properties: 'ini',
+  regex: 'regex'
 };
 
 /** 事前ビルド済み `.wasm` ファイル名 */
 const LANG_TO_WASM: Record<Lang, string> = {
   javascript: 'tree-sitter-javascript.wasm',
   typescript: 'tree-sitter-typescript.wasm',
+  tsx: 'tree-sitter-tsx.wasm',
   python: 'tree-sitter-python.wasm',
 
-  json: 'tree-sitter-json.wasm',
   css: 'tree-sitter-css.wasm',
-  php: 'tree-sitter-php.wasm',
   ruby: 'tree-sitter-ruby.wasm',
 
   csharp: 'tree-sitter-c-sharp.wasm',
-  c: 'tree-sitter-c.wasm',
+  c: 'tree-sitter-cpp.wasm', // CはCppパーサーで代用
   cpp: 'tree-sitter-cpp.wasm',
   go: 'tree-sitter-go.wasm',
   rust: 'tree-sitter-rust.wasm',
   java: 'tree-sitter-java.wasm',
 
-  bash: 'tree-sitter-bash.wasm',
-  html: 'tree-sitter-html.wasm'
+  ini: 'tree-sitter-ini.wasm',
+  regex: 'tree-sitter-regex.wasm'
 };
 
 /* ============================= ParserManager ============================ */
@@ -87,12 +81,19 @@ export class ParserManager {
           fs.existsSync(path.join(this.ctx.extensionPath, d, 'grammars'))
         ) ?? 'out';
 
-      const wasmPath = path.join(
-        this.ctx.extensionPath,
-        baseDir,
-        'grammars',
-        LANG_TO_WASM[lang]
-      );
+      // WASMファイルを探すパスの候補
+      const wasmPaths = [
+        path.join(this.ctx.extensionPath, baseDir, 'grammars', LANG_TO_WASM[lang]),
+        path.join(this.ctx.extensionPath, baseDir, 'grammars', 'wasm', LANG_TO_WASM[lang])
+      ];
+
+      // 存在するパスを探す
+      const wasmPath = wasmPaths.find(p => fs.existsSync(p));
+      
+      if (!wasmPath) {
+        this.logger.error(`No WASM file found for language '${lang}'`);
+        return null;
+      }
 
       try {
         const langWasm = await Language.load(wasmPath);

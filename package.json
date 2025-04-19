@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -198,7 +198,7 @@
     "l10n": "vscode-l10n-dev nls-extract src && vscode-l10n-dev nls-bundle l10n",
     "convert-icon": "npx svgexport images/icon.svg images/icon.png 128:128",
     "postinstall": "npm run copy-wasm",
-    "copy-wasm": "copyfiles -u 3 \"node_modules/tree-sitter-wasm-prebuilt/lib/*.wasm\" out/grammars"
+    "copy-wasm": "mkdir -p out/grammars && copyfiles -u 3 \"node_modules/@vscode/tree-sitter-wasm/wasm/*.wasm\" out/grammars"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",
@@ -216,14 +216,14 @@
   "dependencies": {
     "@types/minimatch": "^5.1.2",
     "@vscode/l10n": "^0.0.16",
+    "@vscode/tree-sitter-wasm": "^0.1.4",
     "isbinaryfile": "^5.0.4",
     "minimatch": "^10.0.1",
-    "tree-sitter-wasm-prebuilt": "^0.0.2",
     "web-tree-sitter": "^0.25.3"
   },
   "bundledDependencies": [
     "web-tree-sitter",
-    "tree-sitter-wasm-prebuilt"
+    "@vscode/tree-sitter-wasm"
   ],
   "icon": "images/icon.png",
   "galleryBanner": {

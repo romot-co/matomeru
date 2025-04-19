@@ -4,6 +4,19 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.10] - 2025-04-19
+
+### Fixed
+
+- Tree-sitter依存関係（`web-tree-sitter`と`tree-sitter-wasm-prebuilt`）を正しくバンドルするように修正
+  - 依存関係を`devDependencies`から`dependencies`に移動
+  - `bundledDependencies`フィールドを追加して確実にパッケージングされるように対応
+  - これにより、コード圧縮機能が全てのユーザー環境で正常に動作するようになりました
+- `tree-sitter-wasm-prebuilt`から`@vscode/tree-sitter-wasm`に移行し、互換性の問題を解決
+  - バージョン不整合エラーを修正
+  - 必要なWASMファイルが見つからないエラーを修正
+  - サポート言語を整理し、実際に動作する言語のみに限定（JSON、PHP、HTML、Bashのサポートを削除）
+
 ## [0.0.9] - 2025-04-19
 
 ### Fixed
