@@ -224,7 +224,7 @@
         "matomeru.verboseCompression": {
           "type": "boolean",
           "default": false,
-          "description": "Log detailed information about code compression results"
+          "description": "%config.verboseCompression%"
         },
         "matomeru.gitDiff.range": {
           "type": "string",

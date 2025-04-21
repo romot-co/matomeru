@@ -19,6 +19,7 @@
     "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
     "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
     "config.enableCompression": "Remove comments and other code elements (Tree-sitter)",
+    "config.verboseCompression": "Log detailed information about code compression results",
     "msg.noGitRepo": "Not a Git repository",
     "msg.gitCliNotFound": "Git CLI not found",
     "msg.noChanges": "No changes detected",

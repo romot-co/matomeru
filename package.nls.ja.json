@@ -19,6 +19,7 @@
     "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト",
     "config.useVscodeignore.description": ".vscodeignoreファイルのパターンを使用してファイルを除外する",
     "config.enableCompression": "コードのコメントなどを削除し圧縮する(Tree-sitter)",
+    "config.verboseCompression": "コード圧縮処理に関する詳細なログを出力する",
     "msg.noGitRepo": "Gitリポジトリではありません",
     "msg.gitCliNotFound": "Git CLIが見つかりません",
     "msg.noChanges": "変更がありません",
