@@ -4,6 +4,30 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.11] - 2025-04-21
+
+### Added
+
+- **Git Diff機能**:
+  - ワークツリー vs HEADの差分ファイルをワンクリックでMarkdown化
+  - 3つの新コマンド:
+    - `Matomeru: Copy Git Diff` - クリップボードにコピー
+    - `Matomeru: Diff to Editor` - エディタに表示
+    - `Matomeru: Diff to ChatGPT` - ChatGPTに送信（macOS）
+  - エクスプローラーとSCMコンテキストメニューから利用可能
+  - 任意のリビジョン範囲の差分取得をサポート (`matomeru.gitDiff.range` 設定)
+
+### Improved
+
+- Tree-sitterコメント除去機能に統合テストを追加
+  - Jest統合テスト環境の構築
+  - モック環境でのTree-sitter WASMロードをテスト
+  - コメント除去が実際に機能することを確認するテスト
+- CIワークフローの追加 (GitHub Actions)
+  - 単体テスト・統合テストの自動実行
+  - リント・ビルド・パッケージングの自動化
+- `verboseCompression`設定を追加し、コメント除去の詳細ログ出力をオプション化
+
 ## [0.0.10] - 2025-04-19
 
 ### Fixed

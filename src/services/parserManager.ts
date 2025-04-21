@@ -67,6 +67,21 @@ export class ParserManager {
     return this.instance;
   }
 
+  /**
+   * リソースの解放
+   */
+  dispose(): void {
+    // パーサーのキャッシュをクリア
+    this.cache.forEach(_parser => {
+      // Tree-sitterのParser自体にはdisposeメソッドがないが、
+      // キャッシュをクリアしてGCの対象にする
+    });
+    this.cache.clear();
+    this.initialized = false;
+    this.logger.info('ParserManager disposed');
+    ParserManager.instance = undefined as any;
+  }
+
   /** languageId から Parser を返す（未キャッシュならロード） */
   async getParser(langId: string): Promise<Parser | null> {
     const lang = ID_MAP[langId.toLowerCase()];
@@ -75,22 +90,31 @@ export class ParserManager {
     if (!this.cache.has(lang)) {
       await this.ensureInit();
 
-      // grammars （out/ または dist/）を探索
-      const baseDir =
-        ['out', 'dist'].find(d =>
-          fs.existsSync(path.join(this.ctx.extensionPath, d, 'grammars'))
-        ) ?? 'out';
+      let wasmPath: string | undefined;
+      const customGrammarDir = process.env.MATOMERU_GRAMMAR_DIR;
 
-      // WASMファイルを探すパスの候補
-      const wasmPaths = [
-        path.join(this.ctx.extensionPath, baseDir, 'grammars', LANG_TO_WASM[lang]),
-        path.join(this.ctx.extensionPath, baseDir, 'grammars', 'wasm', LANG_TO_WASM[lang])
-      ];
+      if (customGrammarDir) {
+        // 環境変数で指定されたディレクトリからWASMを読み込む
+        wasmPath = path.join(customGrammarDir, LANG_TO_WASM[lang]);
+        this.logger.info(`Using custom grammar dir: ${customGrammarDir} for ${lang}`);
+      } else {
+        // 通常の実行時のパス
+        const baseDir =
+          ['out', 'dist'].find(d =>
+            fs.existsSync(path.join(this.ctx.extensionPath, d, 'grammars'))
+          ) ?? 'out';
+        
+        // WASMファイルを探すパスの候補
+        const wasmPaths = [
+          path.join(this.ctx.extensionPath, baseDir, 'grammars', LANG_TO_WASM[lang]),
+          path.join(this.ctx.extensionPath, baseDir, 'grammars', 'wasm', LANG_TO_WASM[lang])
+        ];
 
-      // 存在するパスを探す
-      const wasmPath = wasmPaths.find(p => fs.existsSync(p));
+        // 存在するパスを探す
+        wasmPath = wasmPaths.find(p => fs.existsSync(p));
+      }
       
-      if (!wasmPath) {
+      if (!wasmPath || !fs.existsSync(wasmPath)) {
         this.logger.error(`No WASM file found for language '${lang}'`);
         return null;
       }

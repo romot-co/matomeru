@@ -20,6 +20,10 @@ Combine and copy your entire codes into one LLM-ready Markdown.
   - Display in editor
   - Copy to clipboard
   - Send to ChatGPT (macOS only)
+- **Git Diff Integration**:
+  - Convert changed files (working tree vs HEAD) to Markdown with one click
+  - Optional revision range support (e.g., `origin/main..HEAD`)
+  - Direct access from Explorer and SCM context menus
 - Customizable directory structure display:
   - Emoji icons for directories and files
   - Configurable indentation
@@ -50,6 +54,12 @@ Combine and copy your entire codes into one LLM-ready Markdown.
 4. To check the size before processing:
    - Right-click and select "Matomeru: Estimate Size"
    - This shows file count, total size, and estimated token count without generating the full output
+5. Git Diff integration:
+   - Right-click in Explorer or SCM view
+   - Select one of the Diff commands:
+     - "Matomeru: Copy Git Diff" - Copy to clipboard
+     - "Matomeru: Diff to Editor" - View in editor
+     - "Matomeru: Diff to ChatGPT" - Send to ChatGPT (macOS only)
 
 ### Configuration
 
@@ -76,9 +86,15 @@ Combine and copy your entire codes into one LLM-ready Markdown.
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
-  "matomeru.enableCompression": false
+  "matomeru.enableCompression": false,
+  "matomeru.gitDiff.range": ""
 }
 ```
+
+**Git Diff Range**: When `matomeru.gitDiff.range` is set, Matomeru will use that revision range when collecting changed files. Example values:
+- Empty string (default): Shows working tree changes compared to HEAD
+- `"HEAD~3..HEAD"`: Shows changes in last 3 commits
+- `"origin/main..HEAD"`: Shows changes between main branch and current HEAD
 
 **Code Compression**: When `matomeru.enableCompression` is set to `true`, Matomeru *attempts* to remove comments and unnecessary code using Tree-sitter for the following languages, making the code more compact for LLMs. (If parsing fails, the original code will be used.)
 
@@ -146,6 +162,10 @@ MIT License
   - エディタでの表示
   - クリップボードへのコピー
   - ChatGPTへの送信（macOSのみ）
+- **Git Diff機能**：
+  - 変更ファイル（ワークツリー vs HEAD）をワンクリックでMarkdownに変換
+  - 任意のリビジョン範囲指定が可能（例：`origin/main..HEAD`）
+  - エクスプローラーとSCMコンテキストメニューから直接アクセス可能
 - カスタマイズ可能なディレクトリ構造表示：
   - ディレクトリとファイルの絵文字アイコン
   - インデントの設定
@@ -171,6 +191,12 @@ MIT License
 2. 「Matomeru: クリップボードにコピー」などを出力先に合わせて選択
 3. 処理前にサイズを確認するには：
    - 右クリックして「Matomeru: サイズを見積る」を選択
+4. Git Diff機能の使用：
+   - エクスプローラーまたはSCMビューで右クリック
+   - 以下のいずれかを選択：
+     - 「Matomeru: Git差分をコピー」 - クリップボードにコピー
+     - 「Matomeru: 差分をエディタに表示」 - エディタで表示
+     - 「Matomeru: 差分をChatGPTに送信」 - ChatGPTに送信（macOSのみ）
 
 ### 設定例
 
@@ -197,9 +223,15 @@ MIT License
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
-  "matomeru.enableCompression": false
+  "matomeru.enableCompression": false,
+  "matomeru.gitDiff.range": ""
 }
 ```
+
+**Git Diffのリビジョン範囲**: `matomeru.gitDiff.range`を設定すると、変更ファイル収集時に指定したリビジョン範囲が使用されます。設定例：
+- 空文字列（デフォルト）: ワークツリーとHEADの差分を表示
+- `"HEAD~3..HEAD"`: 最新3コミットの変更を表示
+- `"origin/main..HEAD"`: mainブランチと現在のHEADの差分を表示
 
 **コード圧縮機能**: `matomeru.enableCompression`を`true`に設定すると、以下の主要言語について、Tree-sitterを使用してコードからコメント等の除去を**試みます**。これにより、LLMに送るコードをより簡潔にし、コンテキストを効率化できます。（Tree-sitterによるパースに失敗した場合は元のコードが出力されます。）
 

@@ -4,11 +4,13 @@ import { MarkdownGenerator } from './markdownGenerator';
 import { showInEditor, copyToClipboard, openInChatGPT } from './ui';
 import { Logger } from './utils/logger';
 import { formatFileSize, formatTokenCount } from './utils/fileUtils';
+import { collectChangedFiles, GitNotRepositoryError, GitCliNotFoundError } from './utils/gitUtils';
 
 export class CommandRegistrar {
     private readonly fileOps: FileOperations;
     private readonly markdownGen: MarkdownGenerator;
     private readonly logger: Logger;
+    private readonly workspaceRoot: string;
 
     constructor() {
         // ワークスペースのルートパスを取得
@@ -16,6 +18,7 @@ export class CommandRegistrar {
         if (!workspaceRoot) {
             throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
         }
+        this.workspaceRoot = workspaceRoot;
         this.fileOps = new FileOperations(workspaceRoot);
         this.markdownGen = new MarkdownGenerator();
         this.logger = Logger.getInstance('CommandRegistrar');
@@ -199,5 +202,112 @@ export class CommandRegistrar {
 
         // URIのfsPathをキーにして一意化
         return Array.from(new Map(uris.map(uri => [uri.fsPath, uri])).values());
+    }
+
+    /**
+     * GitのDiff情報をクリップボードにコピーする
+     * @param _uri 未使用（コマンドハンドラーシグネチャと一致させるため）
+     * @param _uris 未使用（コマンドハンドラーシグネチャと一致させるため）
+     */
+    async diffToClipboard(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
+        try {
+            // 設定から範囲を取得
+            const config = vscode.workspace.getConfiguration('matomeru');
+            const range = config.get<string>('gitDiff.range');
+            
+            const markdown = await this.processGitDiff(range);
+            if (markdown) {
+                await copyToClipboard(markdown);
+                this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
+            }
+        } catch (error) {
+            this.handleGitError(error);
+        }
+    }
+
+    /**
+     * GitのDiff情報をエディタに表示する
+     * @param _uri 未使用（コマンドハンドラーシグネチャと一致させるため）
+     * @param _uris 未使用（コマンドハンドラーシグネチャと一致させるため）
+     */
+    async diffToEditor(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
+        try {
+            // 設定から範囲を取得
+            const config = vscode.workspace.getConfiguration('matomeru');
+            const range = config.get<string>('gitDiff.range');
+            
+            const markdown = await this.processGitDiff(range);
+            if (markdown) {
+                await showInEditor(markdown);
+                this.logger.info(vscode.l10n.t('msg.outputToEditor'));
+            }
+        } catch (error) {
+            this.handleGitError(error);
+        }
+    }
+
+    /**
+     * GitのDiff情報をChatGPTに送信する
+     * @param _uri 未使用（コマンドハンドラーシグネチャと一致させるため）
+     * @param _uris 未使用（コマンドハンドラーシグネチャと一致させるため）
+     */
+    async diffToChatGPT(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
+        try {
+            // 設定から範囲を取得
+            const config = vscode.workspace.getConfiguration('matomeru');
+            const range = config.get<string>('gitDiff.range');
+            
+            const markdown = await this.processGitDiff(range);
+            if (markdown) {
+                await openInChatGPT(markdown);
+                this.logger.info(vscode.l10n.t('msg.sentToChatGPT'));
+            }
+        } catch (error) {
+            this.handleGitError(error);
+        }
+    }
+
+    /**
+     * Git変更ファイルからMarkdownを生成する共通処理
+     * @param range オプションのリビジョン範囲
+     * @returns 生成されたMarkdown、または変更がない場合はundefined
+     */
+    private async processGitDiff(range?: string): Promise<string | undefined> {
+        // 変更ファイルリストを取得
+        const fileUris = await collectChangedFiles(this.workspaceRoot, range);
+        
+        if (fileUris.length === 0) {
+            vscode.window.showInformationMessage(vscode.l10n.t('msg.noChanges'));
+            return undefined;
+        }
+        
+        // スキャンオプションを取得
+        const config = vscode.workspace.getConfiguration('matomeru');
+        const scanOptions = {
+            maxFileSize: config.get('maxFileSize', 1048576),
+            excludePatterns: config.get('excludePatterns', []),
+            useGitignore: config.get('useGitignore', false),
+            useVscodeignore: config.get('useVscodeignore', false)
+        };
+        
+        // ファイルを処理
+        const dirInfos = await this.fileOps.processFileList(fileUris, scanOptions);
+        
+        // Markdownを生成
+        return await this.markdownGen.generate(dirInfos);
+    }
+
+    /**
+     * Git関連エラーのハンドリング
+     */
+    private handleGitError(error: unknown): void {
+        if (error instanceof GitNotRepositoryError) {
+            vscode.window.showErrorMessage(vscode.l10n.t('msg.noGitRepo'));
+        } else if (error instanceof GitCliNotFoundError) {
+            vscode.window.showErrorMessage(vscode.l10n.t('msg.gitCliNotFound'));
+        } else {
+            this.logger.error(`エラー: ${error instanceof Error ? error.message : String(error)}`);
+            vscode.window.showErrorMessage(`${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 } 

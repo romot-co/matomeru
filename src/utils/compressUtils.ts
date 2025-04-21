@@ -1,6 +1,7 @@
 import { ParserManager } from '../services/parserManager';
 import { ExtensionContext } from 'vscode';
 import { Logger } from './logger';
+import * as vscode from 'vscode';
 
 const logger = Logger.getInstance('CompressUtils');
 
@@ -53,8 +54,19 @@ export async function stripComments(
     // 最後のコメント以降のコード片を追加
     pieces.push(code.slice(lastIndex));
 
-    logger.info(`Removed ${commentNodes.length} comments from ${langId} code`);
-    return pieces.join('');
+    const result = pieces.join('');
+    
+    // 詳細なログ出力 (verboseCompression設定がある場合)
+    const config = vscode.workspace.getConfiguration('matomeru');
+    if (config.get('verboseCompression')) {
+      logger.info(`Original code (${langId}, ${code.length} chars):\n${code}`);
+      logger.info(`Compressed code (${result.length} chars):\n${result}`);
+      logger.info(`Removed ${commentNodes.length} comments, saved ${code.length - result.length} chars`);
+    } else {
+      logger.info(`Removed ${commentNodes.length} comments from ${langId} code (${code.length} → ${result.length} chars, ${Math.round((code.length - result.length) / code.length * 100)}% reduction)`);
+    }
+    
+    return result;
 
   } catch (error) {
     // エラー内容をより詳細にログ出力

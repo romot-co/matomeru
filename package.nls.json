@@ -5,6 +5,9 @@
     "cmd.quickProcessToClipboard": "Matomeru: Copy to Clipboard",
     "cmd.quickProcessToChatGPT": "Matomeru: Send to ChatGPT",
     "cmd.estimateSize": "Matomeru: Estimate Size",
+    "cmd.copyGitDiff": "Matomeru: Copy Git Diff",
+    "cmd.diffToEditor": "Matomeru: Diff to Editor",
+    "cmd.diffToChatGPT": "Matomeru: Diff to ChatGPT",
     "config.maxFileSize.description": "The maximum file size (in bytes) to process",
     "config.excludePatterns.description": "File patterns to exclude",
     "config.chatGptIntegration.description": "Enable ChatGPT integration (macOS only)",
@@ -15,5 +18,9 @@
     "config.prefixText.description": "Text to be added at the beginning of the generated Markdown.",
     "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
     "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
-    "config.enableCompression": "Remove comments and other code elements (Tree-sitter)"
+    "config.enableCompression": "Remove comments and other code elements (Tree-sitter)",
+    "msg.noGitRepo": "Not a Git repository",
+    "msg.gitCliNotFound": "Git CLI not found",
+    "msg.noChanges": "No changes detected",
+    "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes."
 } 

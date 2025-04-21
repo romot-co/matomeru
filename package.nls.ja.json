@@ -5,6 +5,9 @@
     "cmd.quickProcessToClipboard": "Matomeru: クリップボードにコピー",
     "cmd.quickProcessToChatGPT": "Matomeru: ChatGPTに送信",
     "cmd.estimateSize": "Matomeru: サイズを見積る",
+    "cmd.copyGitDiff": "Matomeru: Git差分をコピー",
+    "cmd.diffToEditor": "Matomeru: 差分をエディタに表示",
+    "cmd.diffToChatGPT": "Matomeru: 差分をChatGPTに送信",
     "config.maxFileSize.description": "処理対象とする最大ファイルサイズ（バイト）",
     "config.excludePatterns.description": "除外するファイルパターン",
     "config.chatGptIntegration.description": "ChatGPT連携機能を有効化する（macOSのみ対応）",
@@ -15,5 +18,9 @@
     "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する",
     "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト",
     "config.useVscodeignore.description": ".vscodeignoreファイルのパターンを使用してファイルを除外する",
-    "config.enableCompression": "コードのコメントなどを削除し圧縮する(Tree-sitter)"
+    "config.enableCompression": "コードのコメントなどを削除し圧縮する(Tree-sitter)",
+    "msg.noGitRepo": "Gitリポジトリではありません",
+    "msg.gitCliNotFound": "Git CLIが見つかりません",
+    "msg.noChanges": "変更がありません",
+    "config.gitDiff.range.description": "Gitリビジョン範囲（例: 'origin/main..HEAD'）。空の場合はワークツリーの変更"
 } 

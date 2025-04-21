@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import { CommandRegistrar } from './commands';
 import { Logger } from './utils/logger';
+import { ParserManager } from './services/parserManager';
 
 const logger = Logger.getInstance('Extension');
 let commandRegistrar: CommandRegistrar | undefined;
@@ -92,7 +93,11 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('matomeru.quickProcessToEditor', commandRegistrar.processToEditor.bind(commandRegistrar)),
         registerCommand('matomeru.quickProcessToClipboard', commandRegistrar.processToClipboard.bind(commandRegistrar)),
         registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar.processToChatGPT.bind(commandRegistrar)),
-        registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar))
+        registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar)),
+        // Git Diff関連コマンドの追加
+        registerCommand('matomeru.copyGitDiff', commandRegistrar.diffToClipboard.bind(commandRegistrar)),
+        registerCommand('matomeru.diffToEditor', commandRegistrar.diffToEditor.bind(commandRegistrar)),
+        registerCommand('matomeru.diffToChatGPT', commandRegistrar.diffToChatGPT.bind(commandRegistrar))
     );
 }
 
@@ -103,6 +108,15 @@ export function deactivate() {
     if (commandRegistrar) {
         commandRegistrar.dispose();
         commandRegistrar = undefined;
+    }
+    
+    // ParserManagerのリソースを解放
+    try {
+      const ctx = getExtensionContext();
+      const parserManager = ParserManager.getInstance(ctx);
+      parserManager.dispose();
+    } catch (error) {
+      logger.error(`ParserManager disposal error: ${error}`);
     }
     
     logger.dispose();

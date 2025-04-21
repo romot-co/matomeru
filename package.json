@@ -23,7 +23,10 @@
     "onCommand:matomeru.quickProcessToEditor",
     "onCommand:matomeru.quickProcessToClipboard",
     "onCommand:matomeru.quickProcessToChatGPT",
-    "onCommand:matomeru.estimateSize"
+    "onCommand:matomeru.estimateSize",
+    "onCommand:matomeru.copyGitDiff",
+    "onCommand:matomeru.diffToEditor",
+    "onCommand:matomeru.diffToChatGPT"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -44,6 +47,19 @@
       {
         "command": "matomeru.estimateSize",
         "title": "%cmd.estimateSize%"
+      },
+      {
+        "command": "matomeru.copyGitDiff",
+        "title": "%cmd.copyGitDiff%"
+      },
+      {
+        "command": "matomeru.diffToEditor",
+        "title": "%cmd.diffToEditor%"
+      },
+      {
+        "command": "matomeru.diffToChatGPT",
+        "title": "%cmd.diffToChatGPT%",
+        "when": "matomeru.chatGptIntegration && isOSX"
       }
     ],
     "menus": {
@@ -64,6 +80,34 @@
         {
           "command": "matomeru.estimateSize",
           "group": "matomeru@4"
+        },
+        {
+          "command": "matomeru.copyGitDiff",
+          "group": "matomeru@diff"
+        },
+        {
+          "command": "matomeru.diffToEditor",
+          "group": "matomeru@diff"
+        },
+        {
+          "command": "matomeru.diffToChatGPT",
+          "group": "matomeru@diff",
+          "when": "matomeru.chatGptIntegration && isOSX"
+        }
+      ],
+      "scm/context": [
+        {
+          "command": "matomeru.copyGitDiff",
+          "group": "matomeru@diff"
+        },
+        {
+          "command": "matomeru.diffToEditor",
+          "group": "matomeru@diff"
+        },
+        {
+          "command": "matomeru.diffToChatGPT",
+          "group": "matomeru@diff",
+          "when": "matomeru.chatGptIntegration && isOSX"
         }
       ]
     },
@@ -176,6 +220,16 @@
           "type": "boolean",
           "default": false,
           "description": "%config.enableCompression%"
+        },
+        "matomeru.verboseCompression": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log detailed information about code compression results"
+        },
+        "matomeru.gitDiff.range": {
+          "type": "string",
+          "default": "",
+          "description": "%config.gitDiff.range.description%"
         }
       }
     }
@@ -189,6 +243,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:int": "jest -c jest.integration.config.js",
     "package": "vsce package",
     "prepackage": "npm run clean && npm run l10n && npm run compile && npm run copy-wasm && npm run convert-icon",
     "postpackage": "echo 'Package generated: ' && ls *.vsix",

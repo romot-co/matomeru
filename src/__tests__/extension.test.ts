@@ -14,7 +14,11 @@ jest.mock('../commands', () => ({
         processToEditor: jest.fn(),
         processToClipboard: jest.fn(),
         processToChatGPT: jest.fn(),
-        estimateSize: jest.fn()
+        estimateSize: jest.fn(),
+        diffToClipboard: jest.fn(),
+        diffToEditor: jest.fn(),
+        diffToChatGPT: jest.fn(),
+        dispose: jest.fn()
     }))
 }));
 
@@ -184,6 +188,10 @@ describe('Extension Activation', () => {
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.quickProcessToClipboard', expect.any(Function));
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.quickProcessToChatGPT', expect.any(Function));
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.estimateSize', expect.any(Function));
+            // Git Diff関連のコマンドが登録されることを確認
+            expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.copyGitDiff', expect.any(Function));
+            expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToEditor', expect.any(Function));
+            expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToChatGPT', expect.any(Function));
         });
     });
 });
