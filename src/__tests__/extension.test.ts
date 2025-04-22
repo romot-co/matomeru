@@ -190,8 +190,9 @@ describe('Extension Activation', () => {
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.estimateSize', expect.any(Function));
             // Git Diff関連のコマンドが登録されることを確認
             expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.copyGitDiff', expect.any(Function));
-            expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToEditor', expect.any(Function));
-            expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToChatGPT', expect.any(Function));
+            // 以下のコマンドはv0.0.12ではコメントアウトされているため、テストでも除外
+            // expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToEditor', expect.any(Function));
+            // expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToChatGPT', expect.any(Function));
         });
     });
 });

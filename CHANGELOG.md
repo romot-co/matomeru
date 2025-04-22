@@ -4,6 +4,24 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.12] - 2025-04-25
+
+### Changed
+
+- 右クリックメニューを簡略化し、以下の4項目のみに絞りました:
+  - クリップボードにコピー
+  - Diffをクリップボードにコピー
+  - エディタで開く
+  - ChatGPTに送る
+- Git Diffはコピー操作のみを提供するようにシンプル化
+
+### Added
+
+- キーボードショートカット機能を追加:
+  - `Ctrl+Alt+C` / `Cmd+Alt+C` (Mac): クリップボードにコピー
+  - `Ctrl+Alt+D` / `Cmd+Alt+D` (Mac): Git差分をコピー
+  - `Ctrl+Alt+E` / `Cmd+Alt+E` (Mac): エディタに出力
+
 ## [0.0.11] - 2025-04-21
 
 ### Added

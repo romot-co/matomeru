@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -24,9 +24,7 @@
     "onCommand:matomeru.quickProcessToClipboard",
     "onCommand:matomeru.quickProcessToChatGPT",
     "onCommand:matomeru.estimateSize",
-    "onCommand:matomeru.copyGitDiff",
-    "onCommand:matomeru.diffToEditor",
-    "onCommand:matomeru.diffToChatGPT"
+    "onCommand:matomeru.copyGitDiff"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -62,6 +60,26 @@
         "when": "matomeru.chatGptIntegration && isOSX"
       }
     ],
+    "keybindings": [
+      {
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c",
+        "command": "matomeru.quickProcessToClipboard",
+        "when": "explorerViewletVisible && !inputFocus"
+      },
+      {
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d",
+        "command": "matomeru.copyGitDiff",
+        "when": "gitOpenRepositoryCount != 0"
+      },
+      {
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "command": "matomeru.quickProcessToEditor",
+        "when": "explorerViewletVisible && !inputFocus"
+      }
+    ],
     "menus": {
       "explorer/context": [
         {
@@ -78,36 +96,14 @@
           "when": "matomeru.chatGptIntegration && isOSX"
         },
         {
-          "command": "matomeru.estimateSize",
-          "group": "matomeru@4"
-        },
-        {
           "command": "matomeru.copyGitDiff",
           "group": "matomeru@diff"
-        },
-        {
-          "command": "matomeru.diffToEditor",
-          "group": "matomeru@diff"
-        },
-        {
-          "command": "matomeru.diffToChatGPT",
-          "group": "matomeru@diff",
-          "when": "matomeru.chatGptIntegration && isOSX"
         }
       ],
       "scm/context": [
         {
           "command": "matomeru.copyGitDiff",
           "group": "matomeru@diff"
-        },
-        {
-          "command": "matomeru.diffToEditor",
-          "group": "matomeru@diff"
-        },
-        {
-          "command": "matomeru.diffToChatGPT",
-          "group": "matomeru@diff",
-          "when": "matomeru.chatGptIntegration && isOSX"
         }
       ]
     },

@@ -95,9 +95,10 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar.processToChatGPT.bind(commandRegistrar)),
         registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar)),
         // Git Diff関連コマンドの追加
-        registerCommand('matomeru.copyGitDiff', commandRegistrar.diffToClipboard.bind(commandRegistrar)),
-        registerCommand('matomeru.diffToEditor', commandRegistrar.diffToEditor.bind(commandRegistrar)),
-        registerCommand('matomeru.diffToChatGPT', commandRegistrar.diffToChatGPT.bind(commandRegistrar))
+        registerCommand('matomeru.copyGitDiff', commandRegistrar.diffToClipboard.bind(commandRegistrar))
+        // 以下のコマンドはv0.0.12では使用しません
+        // registerCommand('matomeru.diffToEditor', commandRegistrar.diffToEditor.bind(commandRegistrar)),
+        // registerCommand('matomeru.diffToChatGPT', commandRegistrar.diffToChatGPT.bind(commandRegistrar))
     );
 }
 
