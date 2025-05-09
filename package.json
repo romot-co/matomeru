@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -226,6 +226,12 @@
           "type": "string",
           "default": "",
           "description": "%config.gitDiff.range.description%"
+        },
+        "matomeru.outputFormat": {
+          "type": "string",
+          "enum": ["markdown", "yaml"],
+          "default": "markdown",
+          "description": "%matomeru.outputFormat.description%"
         }
       }
     }
@@ -269,6 +275,7 @@
     "@vscode/l10n": "^0.0.16",
     "@vscode/tree-sitter-wasm": "^0.1.4",
     "isbinaryfile": "^5.0.4",
+    "js-yaml": "^4.1.0",
     "minimatch": "^10.0.1",
     "web-tree-sitter": "^0.25.3"
   },
@@ -295,5 +302,9 @@
     "tree",
     "llm"
   ],
-  "l10n": "./l10n"
+  "l10n": "./l10n",
+  "bundleDependencies": [
+    "web-tree-sitter",
+    "@vscode/tree-sitter-wasm"
+  ]
 }

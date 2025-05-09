@@ -13,6 +13,7 @@ Combine and copy your entire codes into one LLM-ready Markdown.
 ## Features
 
 - **Generate Markdown documentation** for your directory structures and file contents
+- **NEW: YAML Output**: Choose between Markdown and YAML for your output format via the `matomeru.outputFormat` setting.
 - **Automatically format and organize**:
   - Directory tree structure
   - Markdown-compatible output
@@ -63,11 +64,20 @@ These shortcuts can be customized in VS Code's Keyboard Shortcuts editor (`Ctrl+
 
 ## Configuration
 
+**`matomeru.outputFormat`**: Specifies the output format for the generated document.
+  - `"markdown"` (default): Outputs in Markdown format.
+  - `"yaml"`: Outputs in YAML format.
+  To change the output format, update this setting in your VS Code settings (JSON). For example, to switch to YAML:
+  ```json
+  "matomeru.outputFormat": "yaml"
+  ```
+
 <details>
 <summary>Example settings.json (Click to expand)</summary>
 
 ```json
 {
+  "matomeru.outputFormat": "markdown",
   "matomeru.maxFileSize": 1048576,
   "matomeru.excludePatterns": [
     "node_modules/**",

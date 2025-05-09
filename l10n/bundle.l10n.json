@@ -50,11 +50,12 @@
   "config.directoryStructure.fileIcon.description": "Icon to represent files",
   "config.directoryStructure.indentSize.description": "Indentation size for directory structure",
   "config.directoryStructure.showFileExtensions.description": "Show file extensions in file names",
-  "config.prefixText.description": "Text to be added at the beginning of the generated Markdown",
+  "config.prefixText.description": "Text to be added at the beginning of the generated document",
   "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
   "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
   "config.enableCompression": "Remove comments and other code elements (Tree-sitter)",
   "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes.",
+  "matomeru.outputFormat.description": "Output format for the generated document (markdown / yaml)",
   "msg.vscodeignorePatternLoaded": "Loaded {0} patterns and {1} negation patterns from .vscodeignore",
   "msg.vscodeignoreFileNotFound": ".vscodeignore file not found",
   "msg.vscodeignoreLoadError": "Error loading .vscodeignore: {0}",
@@ -64,5 +65,5 @@
   "msg.gitCliNotFound": "Git CLI not found",
   "msg.noChanges": "No changes detected",
   "displayName": "Matomeru",
-  "description": "Combine and copy your entire codes into one AI-ready Markdown."
+  "description": "Combine and copy your entire codes into one AI-ready document (Markdown or YAML)."
 } 

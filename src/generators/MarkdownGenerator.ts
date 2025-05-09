@@ -1,13 +1,14 @@
-import { DirectoryInfo, FileInfo } from './types/fileTypes';
-import { DirectoryStructure } from './directoryStructure';
+import { DirectoryInfo, FileInfo } from '../types/fileTypes';
+import { DirectoryStructure } from '../directoryStructure';
 import * as vscode from 'vscode';
-import { stripComments } from './utils/compressUtils';
-import { getExtensionContext } from './extension';
-import { Logger } from './utils/logger';
+import { stripComments } from '../utils/compressUtils';
+import { getExtensionContext } from '../extension';
+import { Logger } from '../utils/logger';
+import { IGenerator } from './IGenerator';
 
 const logger = Logger.getInstance('MarkdownGenerator');
 
-export class MarkdownGenerator {
+export class MarkdownGenerator implements IGenerator {
     constructor(
         private readonly directoryStructure: DirectoryStructure = new DirectoryStructure()
     ) {}

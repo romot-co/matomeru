@@ -23,5 +23,6 @@
     "msg.noGitRepo": "Gitリポジトリではありません",
     "msg.gitCliNotFound": "Git CLIが見つかりません",
     "msg.noChanges": "変更がありません",
-    "config.gitDiff.range.description": "Gitリビジョン範囲（例: 'origin/main..HEAD'）。空の場合はワークツリーの変更"
+    "config.gitDiff.range.description": "Gitリビジョン範囲（例: 'origin/main..HEAD'）。空の場合はワークツリーの変更",
+    "matomeru.outputFormat.description": "生成ドキュメントの出力形式 (markdown / yaml)"
 } 

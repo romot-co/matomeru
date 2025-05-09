@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import * as vscode from 'vscode';
 import { CommandRegistrar } from '../commands';
 import { FileOperations } from '../fileOperations';
-import { MarkdownGenerator } from '../markdownGenerator';
+import { MarkdownGenerator } from '../generators/MarkdownGenerator';
 import { Logger } from '../utils/logger';
 import * as ui from '../ui';
 import { DirectoryInfo } from '../types/fileTypes';
@@ -26,9 +26,16 @@ jest.mock('../fileOperations', () => {
   };
 });
 
-jest.mock('../markdownGenerator');
+jest.mock('../generators/MarkdownGenerator');
 jest.mock('../utils/logger');
-jest.mock('../ui');
+
+// ui モジュールのモックをシンプル化
+jest.mock('../ui', () => ({
+  showInEditor: jest.fn(),
+  copyToClipboard: jest.fn(),
+  openInChatGPT: jest.fn(),
+}));
+
 jest.mock('../utils/fileUtils', () => ({
   formatFileSize: jest.fn().mockReturnValue('1.0 KB'),
   formatTokenCount: jest.fn().mockReturnValue('256')
@@ -83,6 +90,8 @@ describe('CommandRegistrar', () => {
             return 1048576;
           case 'excludePatterns':
             return [];
+          case 'outputFormat':
+            return 'markdown';
           default:
             return defaultValue;
         }
@@ -144,32 +153,30 @@ describe('CommandRegistrar', () => {
     beforeEach(() => {
       mockFileOps.scanDirectory.mockResolvedValue(mockDirectoryInfo);
       mockMarkdownGen.generate.mockResolvedValue(mockMarkdown);
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
-      (ui.showInEditor as jest.Mock).mockImplementation(() => Promise.resolve());
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue([mockUri]); 
+      (ui.showInEditor as jest.MockedFunction<typeof ui.showInEditor>).mockResolvedValue(undefined);
     });
 
     test('URIが指定された場合、正しく処理されること', async () => {
       await commandRegistrar.processToEditor(mockUri);
-
       expect(mockFileOps.scanDirectory).toHaveBeenCalled();
       expect(mockMarkdownGen.generate).toHaveBeenCalled();
-      expect(ui.showInEditor).toHaveBeenCalledWith(mockMarkdown);
+      expect(ui.showInEditor).toHaveBeenCalledWith(mockMarkdown, 'markdown');
     });
-
+    
     test('URIが指定されない場合、ダイアログから選択できること', async () => {
       await commandRegistrar.processToEditor();
-
       expect(vscode.window.showOpenDialog).toHaveBeenCalled();
       expect(mockFileOps.scanDirectory).toHaveBeenCalled();
       expect(mockMarkdownGen.generate).toHaveBeenCalled();
-      expect(ui.showInEditor).toHaveBeenCalledWith(mockMarkdown);
+      expect(ui.showInEditor).toHaveBeenCalledWith(mockMarkdown, 'markdown');
     });
 
     test('ダイアログでキャンセルされた場合、処理が中断されること', async () => {
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve(undefined));
-
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue(undefined);
       await commandRegistrar.processToEditor();
-
       expect(mockFileOps.scanDirectory).not.toHaveBeenCalled();
       expect(mockMarkdownGen.generate).not.toHaveBeenCalled();
       expect(ui.showInEditor).not.toHaveBeenCalled();
@@ -181,7 +188,7 @@ describe('CommandRegistrar', () => {
 
       await commandRegistrar.processToEditor(mockUri);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(error.message);
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining(error.message));
     });
 
     test('ファイルサイズ制限を超えた場合、エラーが記録されること', async () => {
@@ -190,16 +197,16 @@ describe('CommandRegistrar', () => {
 
       await commandRegistrar.processToEditor(mockUri);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(error.message);
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining(error.message));
     });
 
     test('エディタでの表示に失敗した場合、エラーが記録されること', async () => {
-      const error = new Error('Editor error');
-      (ui.showInEditor as jest.Mock).mockImplementation(() => Promise.reject(error));
+      const editorError = new Error('Editor error');
+      (ui.showInEditor as jest.MockedFunction<typeof ui.showInEditor>).mockRejectedValue(editorError);
 
       await commandRegistrar.processToEditor(mockUri);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(error.message);
+      expect(mockLogger.error).toHaveBeenCalledWith(editorError.message);
     });
   });
 
@@ -216,8 +223,9 @@ describe('CommandRegistrar', () => {
     beforeEach(() => {
       mockFileOps.scanDirectory.mockResolvedValue(mockDirectoryInfo);
       mockMarkdownGen.generate.mockResolvedValue(mockMarkdown);
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
-      (ui.copyToClipboard as jest.Mock).mockImplementation(() => Promise.resolve());
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue([mockUri]);
+      (ui.copyToClipboard as jest.MockedFunction<typeof ui.copyToClipboard>).mockResolvedValue(undefined);
     });
 
     test('URIが指定された場合、クリップボードにコピーされること', async () => {
@@ -229,16 +237,17 @@ describe('CommandRegistrar', () => {
     });
 
     test('クリップボードへのコピーに失敗した場合、エラーが記録されること', async () => {
-      const error = new Error('Clipboard error');
-      (ui.copyToClipboard as jest.Mock).mockImplementation(() => Promise.reject(error));
+      const clipboardError = new Error('Clipboard error');
+      (ui.copyToClipboard as jest.MockedFunction<typeof ui.copyToClipboard>).mockRejectedValue(clipboardError);
 
       await commandRegistrar.processToClipboard(mockUri);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(error.message);
+      expect(mockLogger.error).toHaveBeenCalledWith(clipboardError.message);
     });
 
     test('ダイアログでキャンセルされた場合、処理が中断されること', async () => {
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve(undefined));
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue(undefined);
 
       await commandRegistrar.processToClipboard();
 
@@ -261,8 +270,9 @@ describe('CommandRegistrar', () => {
     beforeEach(() => {
       mockFileOps.scanDirectory.mockResolvedValue(mockDirectoryInfo);
       mockMarkdownGen.generate.mockResolvedValue(mockMarkdown);
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
-      (ui.openInChatGPT as jest.Mock).mockImplementation(() => Promise.resolve());
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue([mockUri]);
+      (ui.openInChatGPT as jest.MockedFunction<typeof ui.openInChatGPT>).mockResolvedValue(undefined);
     });
 
     test('URIが指定された場合、ChatGPTに送信されること', async () => {
@@ -275,7 +285,7 @@ describe('CommandRegistrar', () => {
 
     test('ChatGPTへの送信に失敗した場合、エラーが記録されること', async () => {
       const error = new Error('ChatGPT error');
-      (ui.openInChatGPT as jest.Mock).mockImplementation(() => Promise.reject(error));
+      (ui.openInChatGPT as jest.MockedFunction<typeof ui.openInChatGPT>).mockRejectedValue(error);
 
       await commandRegistrar.processToChatGPT(mockUri);
 
@@ -283,7 +293,8 @@ describe('CommandRegistrar', () => {
     });
 
     test('ダイアログでキャンセルされた場合、処理が中断されること', async () => {
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve(undefined));
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue(undefined);
 
       await commandRegistrar.processToChatGPT();
 
@@ -299,9 +310,8 @@ describe('CommandRegistrar', () => {
     const mockUri3 = { fsPath: '/test/path2', scheme: 'file' } as vscode.Uri;
 
     beforeEach(() => {
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => 
-        Promise.resolve([mockUri1, mockUri2, mockUri3])
-      );
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue([mockUri1, mockUri2, mockUri3]);
     });
 
     test('重複するURIが除去されること', async () => {
@@ -316,9 +326,8 @@ describe('CommandRegistrar', () => {
     });
 
     test('URIが選択されなかった場合、空配列が返されること', async () => {
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => 
-        Promise.resolve(undefined)
-      );
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue(undefined);
 
       const uris = await (commandRegistrar as any).getSelectedUris();
       expect(uris).toHaveLength(0);
@@ -327,9 +336,10 @@ describe('CommandRegistrar', () => {
     test('エラーが発生した場合に適切に処理されること', async () => {
       const error = new Error('Estimation error');
       // メインのエラーはgetSelectedUrisからスローされるようにセットアップ
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => {
-        throw error;
-      });
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockImplementation(() => {
+          throw error;
+        });
 
       await commandRegistrar.estimateSize();
 
@@ -369,7 +379,8 @@ describe('CommandRegistrar', () => {
 
     beforeEach(() => {
       mockFileOps.estimateDirectorySize.mockResolvedValue({ totalFiles: 5, totalSize: 1024 });
-      (vscode.window.showOpenDialog as jest.Mock).mockImplementation(() => Promise.resolve([mockUri]));
+      (vscode.window.showOpenDialog as jest.MockedFunction<typeof vscode.window.showOpenDialog>)
+        .mockResolvedValue([mockUri]);
       (vscode.window.showInformationMessage as jest.Mock).mockImplementation(() => Promise.resolve());
       (vscode.window.showErrorMessage as jest.Mock).mockImplementation(() => Promise.resolve());
       (formatFileSize as jest.Mock).mockReturnValue('1.0 KB');
@@ -423,6 +434,57 @@ describe('CommandRegistrar', () => {
 
       expect(mockLogger.error).toHaveBeenCalledWith(`見積り処理中にエラーが発生しました: ${error.message}`);
       expect(vscode.window.showErrorMessage).toHaveBeenCalled();
+    });
+  });
+
+  describe('diffToEditor', () => {
+    const mockDiffContent = 'diff content';
+    const mockProcessGitDiff = jest.fn<() => Promise<{content: string, format: 'markdown' | 'yaml'} | undefined>>();
+    let originalProcessGitDiff: any;
+
+    beforeEach(() => {
+      originalProcessGitDiff = (commandRegistrar as any).processGitDiff;
+      (commandRegistrar as any).processGitDiff = mockProcessGitDiff;
+      (ui.showInEditor as jest.MockedFunction<typeof ui.showInEditor>).mockClear();
+      (ui.showInEditor as jest.MockedFunction<typeof ui.showInEditor>).mockResolvedValue(undefined);
+      (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+        get: jest.fn((key: string) => {
+          if (key === 'gitDiff.range') return '';
+          if (key === 'outputFormat') return 'markdown';
+          return undefined;
+        })
+      });
+    });
+
+    afterEach(() => {
+      (commandRegistrar as any).processGitDiff = originalProcessGitDiff;
+    });
+
+    test('Git差分をエディタに表示すること', async () => {
+      mockProcessGitDiff.mockResolvedValue({ content: mockDiffContent, format: 'markdown' });
+      await commandRegistrar.diffToEditor();
+      expect(mockProcessGitDiff).toHaveBeenCalled();
+      expect(ui.showInEditor).toHaveBeenCalledWith(mockDiffContent, 'markdown');
+    });
+
+    test('processGitDiff が undefined を返した場合、showInEditor が呼ばれないこと', async () => {
+      mockProcessGitDiff.mockResolvedValue(undefined);
+      await commandRegistrar.diffToEditor();
+      expect(ui.showInEditor).not.toHaveBeenCalled();
+    });
+
+    test('outputFormat が yaml の場合、showInEditor に yaml が渡されること', async () => {
+      (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
+        get: jest.fn((key: string) => {
+          if (key === 'gitDiff.range') return '';
+          if (key === 'outputFormat') return 'yaml';
+          return undefined;
+        })
+      });
+      mockProcessGitDiff.mockResolvedValue({ content: mockDiffContent, format: 'yaml' });
+
+      await commandRegistrar.diffToEditor();
+      expect(ui.showInEditor).toHaveBeenCalledWith(mockDiffContent, 'yaml');
     });
   });
 }); 

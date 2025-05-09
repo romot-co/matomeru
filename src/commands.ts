@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import { FileOperations } from './fileOperations';
-import { MarkdownGenerator } from './markdownGenerator';
+import { DirectoryInfo, ScanOptions } from './types/fileTypes';
+import { MarkdownGenerator } from './generators/MarkdownGenerator';
+import { YamlGenerator } from './generators/YamlGenerator';
+import { IGenerator } from './generators/IGenerator';
 import { showInEditor, copyToClipboard, openInChatGPT } from './ui';
 import { Logger } from './utils/logger';
 import { formatFileSize, formatTokenCount } from './utils/fileUtils';
@@ -8,19 +11,16 @@ import { collectChangedFiles, GitNotRepositoryError, GitCliNotFoundError } from 
 
 export class CommandRegistrar {
     private readonly fileOps: FileOperations;
-    private readonly markdownGen: MarkdownGenerator;
     private readonly logger: Logger;
     private readonly workspaceRoot: string;
 
     constructor() {
-        // ワークスペースのルートパスを取得
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (!workspaceRoot) {
             throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
         }
         this.workspaceRoot = workspaceRoot;
         this.fileOps = new FileOperations(workspaceRoot);
-        this.markdownGen = new MarkdownGenerator();
         this.logger = Logger.getInstance('CommandRegistrar');
     }
 
@@ -33,7 +33,16 @@ export class CommandRegistrar {
         this.logger.info('CommandRegistrarのリソースを解放しました');
     }
 
-    private async processDirectories(uris: vscode.Uri[]): Promise<string> {
+    private async getGenerator(): Promise<IGenerator> {
+        const config = vscode.workspace.getConfiguration('matomeru');
+        const format = config.get<'markdown' | 'yaml'>('outputFormat', 'markdown');
+        if (format === 'yaml') {
+            return new YamlGenerator();
+        }
+        return new MarkdownGenerator();
+    }
+
+    private async processDirectories(uris: vscode.Uri[]): Promise<{content: string, format: 'markdown' | 'yaml'}> {
         try {
             this.logger.info(vscode.l10n.t('msg.processingUris', uris.length));
             uris.forEach((uri, index) => {
@@ -51,7 +60,7 @@ export class CommandRegistrar {
                             excludePatterns: config.get('excludePatterns', []),
                             useGitignore: config.get('useGitignore', false),
                             useVscodeignore: config.get('useVscodeignore', false)
-                        });
+                        } as ScanOptions);
                         this.fileOps.setCurrentSelectedPath(undefined);
                         return result;
                     } catch (error) {
@@ -60,7 +69,10 @@ export class CommandRegistrar {
                     }
                 })
             );
-            return await this.markdownGen.generate(dirInfos);
+            const generator = await this.getGenerator();
+            const outputFormat = vscode.workspace.getConfiguration('matomeru').get<'markdown' | 'yaml'>('outputFormat', 'markdown');
+            const content = await generator.generate(dirInfos.filter(Boolean) as DirectoryInfo[]);
+            return { content, format: outputFormat };
         } catch (error) {
             this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
             throw error;
@@ -85,8 +97,8 @@ export class CommandRegistrar {
                 }
             }
 
-            const markdown = await this.processDirectories(selectedUris);
-            await showInEditor(markdown);
+            const { content, format } = await this.processDirectories(selectedUris);
+            await showInEditor(content, format);
             this.logger.info(vscode.l10n.t('msg.outputToEditor'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
@@ -100,8 +112,8 @@ export class CommandRegistrar {
                 throw new Error(vscode.l10n.t('msg.noSelection'));
             }
 
-            const markdown = await this.processDirectories(selectedUris);
-            await copyToClipboard(markdown);
+            const { content } = await this.processDirectories(selectedUris);
+            await copyToClipboard(content);
             this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
@@ -115,8 +127,8 @@ export class CommandRegistrar {
                 throw new Error(vscode.l10n.t('msg.noSelection'));
             }
 
-            const markdown = await this.processDirectories(selectedUris);
-            await openInChatGPT(markdown);
+            const { content } = await this.processDirectories(selectedUris);
+            await openInChatGPT(content);
             this.logger.info(vscode.l10n.t('msg.sentToChatGPT'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
@@ -211,13 +223,12 @@ export class CommandRegistrar {
      */
     async diffToClipboard(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
         try {
-            // 設定から範囲を取得
             const config = vscode.workspace.getConfiguration('matomeru');
             const range = config.get<string>('gitDiff.range');
             
-            const markdown = await this.processGitDiff(range);
-            if (markdown) {
-                await copyToClipboard(markdown);
+            const result = await this.processGitDiff(range);
+            if (result) {
+                await copyToClipboard(result.content);
                 this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
             }
         } catch (error) {
@@ -232,13 +243,12 @@ export class CommandRegistrar {
      */
     async diffToEditor(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
         try {
-            // 設定から範囲を取得
             const config = vscode.workspace.getConfiguration('matomeru');
             const range = config.get<string>('gitDiff.range');
             
-            const markdown = await this.processGitDiff(range);
-            if (markdown) {
-                await showInEditor(markdown);
+            const result = await this.processGitDiff(range);
+            if (result) {
+                await showInEditor(result.content, result.format);
                 this.logger.info(vscode.l10n.t('msg.outputToEditor'));
             }
         } catch (error) {
@@ -253,13 +263,12 @@ export class CommandRegistrar {
      */
     async diffToChatGPT(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
         try {
-            // 設定から範囲を取得
             const config = vscode.workspace.getConfiguration('matomeru');
             const range = config.get<string>('gitDiff.range');
             
-            const markdown = await this.processGitDiff(range);
-            if (markdown) {
-                await openInChatGPT(markdown);
+            const result = await this.processGitDiff(range);
+            if (result) {
+                await openInChatGPT(result.content);
                 this.logger.info(vscode.l10n.t('msg.sentToChatGPT'));
             }
         } catch (error) {
@@ -272,8 +281,7 @@ export class CommandRegistrar {
      * @param range オプションのリビジョン範囲
      * @returns 生成されたMarkdown、または変更がない場合はundefined
      */
-    private async processGitDiff(range?: string): Promise<string | undefined> {
-        // 変更ファイルリストを取得
+    private async processGitDiff(range?: string): Promise<{content: string, format: 'markdown' | 'yaml'} | undefined> {
         const fileUris = await collectChangedFiles(this.workspaceRoot, range);
         
         if (fileUris.length === 0) {
@@ -281,20 +289,20 @@ export class CommandRegistrar {
             return undefined;
         }
         
-        // スキャンオプションを取得
         const config = vscode.workspace.getConfiguration('matomeru');
-        const scanOptions = {
+        const scanOptions: ScanOptions = {
             maxFileSize: config.get('maxFileSize', 1048576),
             excludePatterns: config.get('excludePatterns', []),
             useGitignore: config.get('useGitignore', false),
             useVscodeignore: config.get('useVscodeignore', false)
         };
         
-        // ファイルを処理
         const dirInfos = await this.fileOps.processFileList(fileUris, scanOptions);
         
-        // Markdownを生成
-        return await this.markdownGen.generate(dirInfos);
+        const generator = await this.getGenerator();
+        const outputFormat = config.get<'markdown' | 'yaml'>('outputFormat', 'markdown');
+        const content = await generator.generate(dirInfos.filter(Boolean) as DirectoryInfo[]);
+        return { content, format: outputFormat };
     }
 
     /**

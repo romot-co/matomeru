@@ -9,6 +9,7 @@
 ## 機能
 
 - 選択したディレクトリ構造とファイル内容を**Markdown形式で自動生成**
+- **新機能: YAML出力**: `matomeru.outputFormat` 設定により、Markdown と YAML の間で出力形式を選択できるようになりました。
 - **自動的にフォーマットして整理**：
   - ディレクトリツリー構造
   - Markdown互換の出力
@@ -59,11 +60,20 @@
 
 ## 設定例
 
+**`matomeru.outputFormat`**: 生成されるドキュメントの出力形式を指定します。
+  - `"markdown"` (デフォルト): Markdown形式で出力します。
+  - `"yaml"`: YAML形式で出力します。
+  出力形式を変更するには、VS Codeの設定（JSON）でこの設定を更新します。例えば、YAMLに切り替えるには次のようにします:
+  ```json
+  "matomeru.outputFormat": "yaml"
+  ```
+
 <details>
 <summary>settings.jsonの例（クリックして展開）</summary>
 
 ```json
 {
+  "matomeru.outputFormat": "markdown",
   "matomeru.maxFileSize": 1048576,
   "matomeru.excludePatterns": [
     "node_modules/**",

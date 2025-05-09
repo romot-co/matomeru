@@ -4,6 +4,10 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.13] - 2024-05-9
+### Added
+- **(Experimental)** YAML 形式での出力をサポート (`matomeru.outputFormat` 設定)。Markdownに加え、YAML形式でディレクトリ構造やファイル内容を出力できるようになりました。
+
 ## [0.0.12] - 2025-04-25
 
 ### Changed

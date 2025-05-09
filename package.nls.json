@@ -23,5 +23,6 @@
     "msg.noGitRepo": "Not a Git repository",
     "msg.gitCliNotFound": "Git CLI not found",
     "msg.noChanges": "No changes detected",
-    "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes."
+    "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes.",
+    "matomeru.outputFormat.description": "Output format for the generated document (markdown / yaml)"
 } 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import * as vscode from 'vscode';
-import { MarkdownGenerator } from '../markdownGenerator';
+import { MarkdownGenerator } from '../generators/MarkdownGenerator';
 import { DirectoryStructure } from '../directoryStructure';
 import { DirectoryInfo } from '../types/fileTypes';
 

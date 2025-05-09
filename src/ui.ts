@@ -9,11 +9,11 @@ import { calculateContentMetrics, formatTokenCount } from './utils/fileUtils';
 const execAsync = promisify(exec);
 const logger = Logger.getInstance('UI');
 
-export async function showInEditor(content: string): Promise<void> {
+export async function showInEditor(content: string, language: 'markdown' | 'yaml' = 'markdown'): Promise<void> {
     try {
         const document = await vscode.workspace.openTextDocument({
             content: content,
-            language: 'markdown'
+            language: language
         });
         
         await vscode.window.showTextDocument(document);
