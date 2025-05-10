@@ -221,6 +221,25 @@
           "type": "string",
           "default": "",
           "description": "%config.gitDiff.range.description%"
+        },
+        "matomeru.outputFormat": {
+          "type": "string",
+          "default": "markdown",
+          "enum": [
+            "markdown",
+            "yaml"
+          ],
+          "description": "%matomeru.outputFormat.description%"
+        },
+        "matomeru.includeDependencies": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.includeDependencies.description%"
+        },
+        "matomeru.mermaid.maxNodes": {
+          "type": "number",
+          "default": 300,
+          "description": "%config.mermaid.maxNodes.description%"
         }
       }
     }
