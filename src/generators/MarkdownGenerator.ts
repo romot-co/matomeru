@@ -36,7 +36,7 @@ export class MarkdownGenerator implements IGenerator {
 
         let finalMarkdown = '';
 
-        const prefixText = config.get<string>('markdown.prefixText', '');
+        const prefixText = config.get<string>('prefixText', '');
         if (prefixText) {
             // eslint-disable-next-line no-console
             console.log('Applying prefixText:', prefixText.substring(0, 50) + (prefixText.length > 50 ? '...' : ''));

@@ -6,7 +6,7 @@ export class MatomeruError extends Error {
         message: string,
         public readonly params?: any[]
     ) {
-        super(message);
+        super(String(message || ''));
         this.name = 'MatomeruError';
     }
 

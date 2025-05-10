@@ -60,7 +60,7 @@ describe('MarkdownGenerator', () => {
         mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
             if (key === 'includeDependencies') return false;
             if (key === 'mermaid.maxNodes') return 300;
-            if (key === 'markdown.prefixText') return '';
+            if (key === 'prefixText') return '';
             if (key === 'enableCompression') return false;
             return defaultValue;
         });
@@ -99,7 +99,7 @@ describe('MarkdownGenerator', () => {
                 mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
                     if (key === 'includeDependencies') return false;
                     if (key === 'mermaid.maxNodes') return 300;
-                    if (key === 'markdown.prefixText') return '';
+                    if (key === 'prefixText') return '';
                     if (key === 'enableCompression') return false;
                     return defaultValue;
                 });
@@ -118,7 +118,7 @@ describe('MarkdownGenerator', () => {
             test('固定文言あり: 先頭に追加', async () => {
                 const prefixText = '# Project Overview\nThis is a test project.';
                 mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
-                    if (key === 'markdown.prefixText') return prefixText;
+                    if (key === 'prefixText') return prefixText;
                     if (key === 'includeDependencies') return false;
                     if (key === 'mermaid.maxNodes') return 300;
                     if (key === 'enableCompression') return false;
@@ -155,7 +155,7 @@ describe('MarkdownGenerator', () => {
                 mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
                     if (key === 'includeDependencies') return true;
                     if (key === 'mermaid.maxNodes') return 300;
-                    if (key === 'markdown.prefixText') return '';
+                    if (key === 'prefixText') return '';
                     if (key === 'enableCompression') return false;
                     return defaultValue;
                 });
@@ -195,7 +195,7 @@ describe('MarkdownGenerator', () => {
             test('固定文言あり: 固定文言 + Mermaidグラフ + 通常の出力', async () => {
                 const prefixText = '# Project Overview\nThis is a test project.';
                  mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
-                    if (key === 'markdown.prefixText') return prefixText;
+                    if (key === 'prefixText') return prefixText;
                     if (key === 'includeDependencies') return true;
                     if (key === 'mermaid.maxNodes') return 300;
                     if (key === 'enableCompression') return false;
@@ -218,7 +218,7 @@ describe('MarkdownGenerator', () => {
                 mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
                     if (key === 'includeDependencies') return true;
                     if (key === 'mermaid.maxNodes') return 1; 
-                    if (key === 'markdown.prefixText') return '';
+                    if (key === 'prefixText') return '';
                     if (key === 'enableCompression') return false;
                     return defaultValue;
                 });
@@ -245,13 +245,247 @@ describe('MarkdownGenerator', () => {
                 expect(result).toMatch(/exceeds the configured limit \(1\)/i);
                 expect(result).toContain('<!-- matomeru:auto-graph:end -->');
             });
+
+            test('依存データが空の場合、Mermaidグラフは生成されないこと', async () => {
+                mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                    if (key === 'includeDependencies') return true;
+                    if (key === 'mermaid.maxNodes') return 300;
+                    if (key === 'prefixText') return '';
+                    if (key === 'enableCompression') return false;
+                    return defaultValue;
+                });
+
+                // YamlGeneratorが空のdependenciesを返すようにモックを設定
+                mockGenerateYaml.mockImplementation((_directoriesInfo: DirectoryInfo[], _options: ScanOptions): string => {
+                    const data = {
+                        files: [ // filesはダミーデータでも良いが、構造は維持
+                            { relativePath: 'test/path/app.ts', imports: [] },
+                            { relativePath: 'test/path/utils.ts', imports: [] }
+                        ],
+                        dependencies: {} // ここを空にする
+                    };
+                    return yaml.dump(data);
+                });
+
+                const result = await markdownGenerator.generate([dirWithImports]); // dirWithImports は既存のテストデータを利用
+
+                // Mermaidグラフの開始・終了コメントが含まれないことを確認
+                expect(result).not.toContain('<!-- matomeru:auto-graph:start -->');
+                expect(result).not.toContain('flowchart TD');
+                expect(result).not.toContain('<!-- matomeru:auto-graph:end -->');
+
+                // 通常のファイルコンテンツは含まれることを確認
+                expect(result).toContain('# Directory Structure');
+                expect(result).toContain('# File Contents');
+                expect(result).toContain('## test/path/app.ts'); // dirWithImportsのファイル
+            });
+
+            test('一部のファイルのみ依存関係を持つ場合、正しくグラフが生成されること', async () => {
+                mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                    if (key === 'includeDependencies') return true;
+                    if (key === 'mermaid.maxNodes') return 300;
+                    if (key === 'prefixText') return '';
+                    if (key === 'enableCompression') return false;
+                    return defaultValue;
+                });
+
+                mockGenerateYaml.mockImplementation((_directoriesInfo: DirectoryInfo[], _options: ScanOptions): string => {
+                    const data = {
+                        files: [
+                            { relativePath: 'test/app.js', imports: ['external:moment', './utils.js'] },
+                            { relativePath: 'test/utils.js', imports: [] }, // utils.js は依存なし
+                            { relativePath: 'test/another.js', imports: [] } // another.js も依存なし
+                        ],
+                        dependencies: {
+                            'test/app.js': ['external:moment', 'test/utils.js'],
+                            // 'test/utils.js': [] // dependencies には空の配列は含めないことが多い
+                            // 'test/another.js': []
+                        }
+                    };
+                    return yaml.dump(data);
+                });
+
+                const dirWithPartialDeps: DirectoryInfo = {
+                    ...mockDirectoryInfo, // 基本構造は既存のものを流用
+                    files: [
+                        { ...mockFile, relativePath: 'test/app.js', imports: ['external:moment', './utils.js'] },
+                        { ...mockFile, relativePath: 'test/utils.js', content: '// Utility functions', imports: [] },
+                        { ...mockFile, relativePath: 'test/another.js', content: '// Another file', imports: [] }
+                    ]
+                };
+
+                const result = await markdownGenerator.generate([dirWithPartialDeps]);
+
+                expect(result).toContain('<!-- matomeru:auto-graph:start -->');
+                expect(result).toContain('flowchart TD');
+                expect(result).toContain('    "test/app.js" --> "external:moment"');
+                expect(result).toContain('    "test/app.js" --> "test/utils.js"');
+                // utils.js や another.js からの依存がないため、それらを起点とするエッジは存在しない
+                expect(result).not.toContain('"test/utils.js" -->');
+                expect(result).not.toContain('"test/another.js" -->');
+                expect(result).toContain('<!-- matomeru:auto-graph:end -->');
+
+                expect(result).toContain('## test/app.js');
+                expect(result).toContain('## test/utils.js');
+                expect(result).toContain('## test/another.js');
+            });
+
+            describe('maxNodes制限のテスト', () => {
+                const baseDirWithImports: DirectoryInfo = { // このテストスイート内で共通で使えるデータ
+                    ...mockDirectoryInfo,
+                    files: [
+                        { ...mockFile, relativePath: 'test/a.js', imports: ['./b.js', './c.js'] }, // a -> b, a -> c (3 nodes, 2 edges initially)
+                        { ...mockFile, relativePath: 'test/b.js', imports: ['./d.js'] },             // b -> d (d is new, 4 nodes, 3 edges)
+                        { ...mockFile, relativePath: 'test/c.js', imports: ['./d.js', './e.js'] },   // c -> d, c -> e (e is new, 5 nodes, 5 edges)
+                        { ...mockFile, relativePath: 'test/d.js', imports: [] },
+                        { ...mockFile, relativePath: 'test/e.js', imports: ['./a.js'] }              // e -> a (cycle, 5 nodes, 6 edges)
+                    ]
+                };
+                const correspondingDependencies = {
+                    'test/a.js': ['test/b.js', 'test/c.js'],
+                    'test/b.js': ['test/d.js'],
+                    'test/c.js': ['test/d.js', 'test/e.js'],
+                    'test/e.js': ['test/a.js'] 
+                    // d.js は依存先がないので省略
+                }; // 5 nodes (a,b,c,d,e), 6 edges
+
+                beforeEach(() => { // このdescribeブロックの各テストの前に共通のモック設定
+                    mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                        if (key === 'includeDependencies') return true;
+                        // maxNodes は各テストケースで上書きする
+                        if (key === 'prefixText') return '';
+                        if (key === 'enableCompression') return false;
+                        return defaultValue;
+                    });
+                    mockGenerateYaml.mockImplementation((_directoriesInfo: DirectoryInfo[], _options: ScanOptions): string => {
+                        const data = {
+                            files: baseDirWithImports.files.map(f => ({ relativePath: f.relativePath, imports: f.imports })),
+                            dependencies: correspondingDependencies
+                        };
+                        return yaml.dump(data);
+                    });
+                });
+
+                test('ノード数がmaxNodesと一致する場合、グラフは完全に表示される', async () => {
+                    mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                        if (key === 'includeDependencies') return true;
+                        if (key === 'mermaid.maxNodes') return 5; // ノード数と一致
+                        if (key === 'prefixText') return '';
+                        if (key === 'enableCompression') return false;
+                        return defaultValue;
+                    });
+                    const result = await markdownGenerator.generate([baseDirWithImports]);
+                    expect(result).toContain('flowchart TD');
+                    expect(result).toContain('"test/a.js"'); // ノードの存在確認
+                    expect(result).toContain('"test/e.js"');
+                    expect(result).toContain('    "test/e.js" --> "test/a.js"'); // エッジの存在確認
+                    expect(result).not.toMatch(/Warning: Mermaid graph truncated/i);
+                });
+
+                test('ノード数がmaxNodesを1つ超える場合 (既存のmaxNodes:1テストケースと同様の趣旨)', async () => {
+                    mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                        if (key === 'includeDependencies') return true;
+                        if (key === 'mermaid.maxNodes') return 4; // ノード数5に対して4
+                        if (key === 'prefixText') return '';
+                        if (key === 'enableCompression') return false;
+                        return defaultValue;
+                    });
+                    const result = await markdownGenerator.generate([baseDirWithImports]);
+                    expect(result).toMatch(/Warning: Mermaid graph truncated/i);
+                    expect(result).toMatch(/exceeds the configured limit \(4\)/i);
+                     // グラフの内容自体もある程度は描画されることを確認（省略の仕方による）
+                    expect(result).toContain('flowchart TD');
+                });
+                
+                test('ノード数がmaxNodesを大幅に超える場合、グラフは省略され警告が表示される', async () => {
+                    mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                        if (key === 'includeDependencies') return true;
+                        if (key === 'mermaid.maxNodes') return 2; // ノード数5に対して2
+                        if (key === 'prefixText') return '';
+                        if (key === 'enableCompression') return false;
+                        return defaultValue;
+                    });
+                    const result = await markdownGenerator.generate([baseDirWithImports]);
+                    expect(result).toMatch(/Warning: Mermaid graph truncated/i);
+                    expect(result).toMatch(/exceeds the configured limit \(2\)/i);
+                    expect(result).toContain('flowchart TD'); // subgraph Warning も flowchart TD の一部
+                });
+
+                // 元のmaxNodesテストケースも残すか、この新しいスイートに統合するか検討できます。
+                // ここでは新しいテストスイートとして分離しました。
+            });
+
+            test('実際のJSファイル間の依存関係を模したケースでグラフが正しく生成される', async () => {
+                mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                    if (key === 'includeDependencies') return true;
+                    if (key === 'mermaid.maxNodes') return 300;
+                    if (key === 'prefixText') return '';
+                    if (key === 'enableCompression') return false;
+                    return defaultValue;
+                });
+
+                // scanDependenciesが返すであろうデータ構造をYamlGeneratorのモックで再現
+                mockGenerateYaml.mockImplementation((_directoriesInfo: DirectoryInfo[], _options: ScanOptions): string => {
+                    const data = {
+                        files: [ // FileInfo.imports を模倣
+                            { relativePath: 'src/app.js', imports: ['external:moment', './utils.js'], content: 'import moment from "moment";\nimport { helper } from "./utils.js";' },
+                            { relativePath: 'src/utils.js', imports: [], content: 'export const helper = () => {};' }
+                        ],
+                        dependencies: { // 上記 imports に基づく依存関係
+                            'src/app.js': ['external:moment', 'src/utils.js']
+                            // 'src/utils.js': [] // 依存がない場合はキー自体がないことが多い
+                        }
+                    };
+                    return yaml.dump(data);
+                });
+                
+                // MarkdownGeneratorに渡すDirectoryInfoデータ。ここでのFileInfo.importsは実際には使われないが、構造として渡す。
+                const jsDir: DirectoryInfo = {
+                    uri: { fsPath: '/project/src' } as vscode.Uri,
+                    relativePath: 'src',
+                    files: [
+                        { 
+                            uri: { fsPath: '/project/src/app.js' } as vscode.Uri,
+                            relativePath: 'src/app.js', 
+                            content: 'import moment from "moment";\nimport { helper } from "./utils.js";', 
+                            language: 'javascript', 
+                            size: 100,
+                            imports: ['external:moment', './utils.js'] // scanDependenciesが設定するであろう値
+                        },
+                        { 
+                            uri: { fsPath: '/project/src/utils.js' } as vscode.Uri,
+                            relativePath: 'src/utils.js', 
+                            content: 'export const helper = () => {};', 
+                            language: 'javascript', 
+                            size: 50,
+                            imports: [] // scanDependenciesが設定するであろう値
+                        }
+                    ],
+                    directories: new Map()
+                };
+
+                const result = await markdownGenerator.generate([jsDir]);
+
+                expect(result).toContain('<!-- matomeru:auto-graph:start -->');
+                expect(result).toContain('flowchart TD');
+                expect(result).toContain('    "src/app.js" --> "external:moment"');
+                expect(result).toContain('    "src/app.js" --> "src/utils.js"');
+                expect(result).not.toContain('"src/utils.js" -->'); // utils.jsからの依存はない
+                expect(result).toContain('<!-- matomeru:auto-graph:end -->');
+
+                // ファイル内容の表示も確認
+                expect(result).toContain('## src/app.js');
+                expect(result).toContain('import moment from "moment";');
+                expect(result).toContain('## src/utils.js');
+                expect(result).toContain('export const helper = () => {};');
+            });
         });
 
         test('ファイルサイズが適切にフォーマットされること', async () => {
             mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
                 if (key === 'includeDependencies') return false;
                 if (key === 'mermaid.maxNodes') return 300;
-                if (key === 'markdown.prefixText') return '';
+                if (key === 'prefixText') return '';
                 if (key === 'enableCompression') return false;
                 return defaultValue;
             });
@@ -283,7 +517,7 @@ describe('MarkdownGenerator', () => {
         mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
             if (key === 'includeDependencies') return false;
             if (key === 'mermaid.maxNodes') return 300;
-            if (key === 'markdown.prefixText') return '';
+            if (key === 'prefixText') return '';
             if (key === 'enableCompression') return false;
             return defaultValue; 
         });
@@ -326,7 +560,7 @@ describe('MarkdownGenerator', () => {
         mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
             if (key === 'includeDependencies') return false;
             if (key === 'mermaid.maxNodes') return 300;
-            if (key === 'markdown.prefixText') return '';
+            if (key === 'prefixText') return '';
             if (key === 'enableCompression') return false;
             return defaultValue;
         });
@@ -385,7 +619,7 @@ describe('MarkdownGenerator', () => {
         mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
             if (key === 'includeDependencies') return false;
             if (key === 'mermaid.maxNodes') return 300;
-            if (key === 'markdown.prefixText') return '';
+            if (key === 'prefixText') return '';
             if (key === 'enableCompression') return false;
             return defaultValue;
         });
@@ -435,7 +669,7 @@ describe('MarkdownGenerator', () => {
         mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
             if (key === 'includeDependencies') return false;
             if (key === 'mermaid.maxNodes') return 300;
-            if (key === 'markdown.prefixText') return '';
+            if (key === 'prefixText') return '';
             if (key === 'enableCompression') return false;
             return defaultValue;
         });
