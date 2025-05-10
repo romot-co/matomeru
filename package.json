@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -19,12 +19,7 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "workspaceContains:**",
-    "onCommand:matomeru.quickProcessToEditor",
-    "onCommand:matomeru.quickProcessToClipboard",
-    "onCommand:matomeru.quickProcessToChatGPT",
-    "onCommand:matomeru.estimateSize",
-    "onCommand:matomeru.copyGitDiff"
+    "workspaceContains:**"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -226,12 +221,6 @@
           "type": "string",
           "default": "",
           "description": "%config.gitDiff.range.description%"
-        },
-        "matomeru.outputFormat": {
-          "type": "string",
-          "enum": ["markdown", "yaml"],
-          "default": "markdown",
-          "description": "%matomeru.outputFormat.description%"
         }
       }
     }
@@ -247,7 +236,7 @@
     "test:coverage": "jest --coverage",
     "test:int": "jest -c jest.integration.config.js",
     "package": "vsce package",
-    "prepackage": "npm run clean && npm run l10n && npm run compile && npm run copy-wasm && npm run convert-icon",
+    "prepackage": "npm run clean && npm run l10n && npm run compile && npm run copy-wasm",
     "postpackage": "echo 'Package generated: ' && ls *.vsix",
     "install-extension": "npm run package && code --install-extension *.vsix --force && echo 'インストールが完了しました。VSCodeを再起動してください。'",
     "uninstall-extension": "code --uninstall-extension romot-co.matomeru",
@@ -268,20 +257,22 @@
     "copyfiles": "^2.4.1",
     "eslint": "^8.56.0",
     "jest": "^29.7.0",
-    "ts-jest": "^29.3.2"
+    "ts-jest": "^29.3.2",
+    "@types/js-yaml": "^4.0.9"
   },
   "dependencies": {
     "@types/minimatch": "^5.1.2",
     "@vscode/l10n": "^0.0.16",
     "@vscode/tree-sitter-wasm": "^0.1.4",
     "isbinaryfile": "^5.0.4",
-    "js-yaml": "^4.1.0",
     "minimatch": "^10.0.1",
-    "web-tree-sitter": "^0.25.3"
+    "web-tree-sitter": "^0.25.3",
+    "js-yaml": "^4.1.0"
   },
   "bundledDependencies": [
     "web-tree-sitter",
-    "@vscode/tree-sitter-wasm"
+    "@vscode/tree-sitter-wasm",
+    "js-yaml"
   ],
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -297,14 +288,11 @@
     "file structure",
     "documentation",
     "markdown",
+    "yaml",
     "summarize",
     "combine",
     "tree",
     "llm"
   ],
-  "l10n": "./l10n",
-  "bundleDependencies": [
-    "web-tree-sitter",
-    "@vscode/tree-sitter-wasm"
-  ]
+  "l10n": "./l10n"
 }

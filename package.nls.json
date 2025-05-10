@@ -24,5 +24,7 @@
     "msg.gitCliNotFound": "Git CLI not found",
     "msg.noChanges": "No changes detected",
     "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes.",
-    "matomeru.outputFormat.description": "Output format for the generated document (markdown / yaml)"
+    "matomeru.outputFormat.description": "Output format for the generated document (markdown / yaml)",
+    "config.includeDependencies.description": "Scan and include import/dependency statements for each file and generate a Mermaid graph in Markdown output.",
+    "config.mermaid.maxNodes.description": "Maximum number of nodes to render in the Mermaid dependency graph. If exceeded, a warning will be shown."
 } 

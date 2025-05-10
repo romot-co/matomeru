@@ -7,6 +7,7 @@ import { DirectoryNotFoundError, FileSizeLimitError, ScanError } from './errors/
 import { Logger } from './utils/logger';
 import { extractErrorMessage, logError } from './utils/errorUtils';
 import { isBinaryFile } from './utils/fileUtils';
+import { scanDependencies } from './parsers/dependencyScanner';
 
 export class FileOperations {
     private readonly logger: Logger;
@@ -167,12 +168,24 @@ export class FileOperations {
                 }
 
                 const content = buffer.toString('utf-8');
+                const language = this.detectLanguage(path.basename(absolutePath));
+                let imports: string[] | undefined;
+                if (options.includeDependencies) {
+                    try {
+                        imports = await scanDependencies(absolutePath, content, language);
+                    } catch (scanError) {
+                        this.logger.warn(`Failed to scan dependencies for ${relativePath}: ${extractErrorMessage(scanError)}`);
+                        imports = []; // エラー時は空配列として処理を継続
+                    }
+                }
+
                 const fileInfo: FileInfo = {
                     uri: vscode.Uri.file(absolutePath),
                     relativePath,
                     content,
-                    language: this.detectLanguage(path.basename(absolutePath)),
-                    size: stats.size
+                    language,
+                    size: stats.size,
+                    imports
                 };
 
                 return {
@@ -189,7 +202,8 @@ export class FileOperations {
             const directories = new Map<string, DirectoryInfo>();
 
             for (const entry of entries) {
-                const entryPath = path.join(absolutePath, entry.name);
+                const entryNameString = entry.name.toString();
+                const entryPath = path.join(absolutePath, entryNameString);
                 const entryRelativePath = path.relative(this.workspaceRoot, entryPath);
 
                 // 選択されたディレクトリ自体は除外しないが、それ以外は除外判定を行う
@@ -203,7 +217,7 @@ export class FileOperations {
                 if (entry.isDirectory()) {
                     try {
                         const subDirInfo = await this.scanDirectory(entryPath, options);
-                        directories.set(entry.name, subDirInfo);
+                        directories.set(entryNameString, subDirInfo);
                     } catch (error) {
                         logError(this.logger, error, true);
                     }
@@ -224,12 +238,23 @@ export class FileOperations {
                         }
 
                         const content = buffer.toString('utf-8');
+                        const language = this.detectLanguage(entryNameString);
+                        let imports: string[] | undefined;
+                        if (options.includeDependencies) {
+                            try {
+                                imports = await scanDependencies(entryPath, content, language);
+                            } catch (scanError) {
+                                this.logger.warn(`Failed to scan dependencies for ${entryRelativePath}: ${extractErrorMessage(scanError)}`);
+                                imports = []; // エラー時は空配列として処理を継続
+                            }
+                        }
                         files.push({
                             uri: vscode.Uri.file(entryPath),
                             relativePath: entryRelativePath,
                             content,
-                            language: this.detectLanguage(entry.name),
-                            size: stats.size
+                            language,
+                            size: stats.size,
+                            imports
                         });
                     } catch (error) {
                         logError(this.logger, error, true);
@@ -611,89 +636,83 @@ export class FileOperations {
      * @returns {Promise<DirectoryInfo[]>} ディレクトリ情報の配列
      */
     async processFileList(fileUris: vscode.Uri[], options: ScanOptions): Promise<DirectoryInfo[]> {
-        try {
-            // .gitignoreパターンを読み込む（初回のみ）
-            if (options.useGitignore && !this.gitignoreLoaded) {
-                await this.loadGitignorePatterns();
+        const results: DirectoryInfo[] = [];
+        const rootScanPath = this.currentSelectedPath || this.workspaceRoot;
+
+        // .gitignoreパターンを読み込む（初回のみ）
+        if (options.useGitignore && !this.gitignoreLoaded) {
+            await this.loadGitignorePatterns();
+        }
+        // .vscodeignoreパターンを読み込む（初回のみ）
+        if (options.useVscodeignore && !this.vscodeignoreLoaded) {
+            await this.loadVscodeignorePatterns();
+        }
+
+        for (const uri of fileUris) {
+            const absolutePath = uri.fsPath;
+            const relativePath = path.relative(this.workspaceRoot, absolutePath);
+
+            if (await this.shouldExclude(relativePath, options)) {
+                this.logger.info(`ファイルリストから除外: ${relativePath}`);
+                continue;
             }
 
-            // .vscodeignoreパターンを読み込む（初回のみ）
-            if (options.useVscodeignore && !this.vscodeignoreLoaded) {
-                await this.loadVscodeignorePatterns();
-            }
-
-            // ファイルをディレクトリごとにグループ化
-            const filesByDir = new Map<string, vscode.Uri[]>();
-            for (const uri of fileUris) {
-                const dirPath = path.dirname(uri.fsPath);
-                if (!filesByDir.has(dirPath)) {
-                    filesByDir.set(dirPath, []);
+            try {
+                const stats = await fs.stat(absolutePath);
+                if (stats.size > options.maxFileSize) {
+                    const error = new FileSizeLimitError(relativePath, stats.size, options.maxFileSize);
+                    logError(this.logger, error, true);
+                    continue;
                 }
-                filesByDir.get(dirPath)?.push(uri);
-            }
 
-            // 各ディレクトリごとにDirectoryInfoを作成
-            const result: DirectoryInfo[] = [];
-            for (const [dirPath, uris] of filesByDir.entries()) {
-                const dirUri = vscode.Uri.file(dirPath);
-                const relativeDirPath = path.relative(this.workspaceRoot, dirPath);
-                
-                const files: FileInfo[] = [];
-                
-                for (const uri of uris) {
-                    const relativePath = path.relative(this.workspaceRoot, uri.fsPath);
-                    
-                    // 対象のパスが除外されるかチェック
-                    if (await this.shouldExclude(relativePath, options)) {
-                        this.logger.info(`除外: ${relativePath}`);
-                        continue;
-                    }
+                // バイナリファイルのチェック
+                const buffer = await fs.readFile(absolutePath);
+                if (isBinaryFile(buffer)) {
+                    this.logger.info(`バイナリファイルをスキップ: ${relativePath}`);
+                    continue;
+                }
 
+                const content = buffer.toString('utf-8');
+                const language = this.detectLanguage(path.basename(absolutePath));
+                let imports: string[] | undefined;
+
+                if (options.includeDependencies) {
                     try {
-                        const stats = await fs.stat(uri.fsPath);
-                        
-                        // サイズ制限のチェック
-                        if (stats.size > options.maxFileSize) {
-                            this.logger.info(`サイズ制限超過のためスキップ: ${relativePath} (${stats.size} > ${options.maxFileSize})`);
-                            continue;
-                        }
-
-                        // バイナリファイルのチェック
-                        const buffer = await fs.readFile(uri.fsPath);
-                        if (isBinaryFile(buffer)) {
-                            this.logger.info(`バイナリファイルをスキップ: ${relativePath}`);
-                            continue;
-                        }
-
-                        const content = buffer.toString('utf-8');
-                        files.push({
-                            uri,
-                            relativePath,
-                            content,
-                            language: this.detectLanguage(path.basename(uri.fsPath)),
-                            size: stats.size
-                        });
-                    } catch (error) {
-                        logError(this.logger, error, true);
+                        imports = await scanDependencies(absolutePath, content, language);
+                    } catch (scanError) {
+                        this.logger.warn(`Failed to scan dependencies for ${relativePath}: ${extractErrorMessage(scanError)}`);
+                        imports = []; // エラー時は空配列として処理を継続
                     }
                 }
 
-                if (files.length > 0) {
-                    result.push({
-                        uri: dirUri,
-                        relativePath: relativeDirPath,
-                        files,
+                const fileInfo: FileInfo = {
+                    uri,
+                    relativePath,
+                    content,
+                    language,
+                    size: stats.size,
+                    imports
+                };
+
+                const dirPath = path.dirname(relativePath);
+                if (!results.some(dir => dir.relativePath === dirPath)) {
+                    results.push({
+                        uri: vscode.Uri.file(path.join(rootScanPath, dirPath)),
+                        relativePath: dirPath,
+                        files: [],
                         directories: new Map()
                     });
                 }
-            }
 
-            return result;
-        } catch (error) {
-            if (error instanceof DirectoryNotFoundError || error instanceof FileSizeLimitError) {
-                throw error;
+                const dirInfo = results.find(dir => dir.relativePath === dirPath);
+                if (dirInfo) {
+                    dirInfo.files.push(fileInfo);
+                }
+            } catch (error) {
+                logError(this.logger, error, true);
             }
-            throw new ScanError(extractErrorMessage(error));
         }
+
+        return results;
     }
 } 

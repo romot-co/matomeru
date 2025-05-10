@@ -24,5 +24,7 @@
     "msg.gitCliNotFound": "Git CLIが見つかりません",
     "msg.noChanges": "変更がありません",
     "config.gitDiff.range.description": "Gitリビジョン範囲（例: 'origin/main..HEAD'）。空の場合はワークツリーの変更",
-    "matomeru.outputFormat.description": "生成ドキュメントの出力形式 (markdown / yaml)"
+    "matomeru.outputFormat.description": "生成ドキュメントの出力形式 (markdown / yaml)",
+    "config.includeDependencies.description": "各ファイルのimport/dependency文をスキャンして含め、Markdown出力にMermaidグラフを生成します。",
+    "config.mermaid.maxNodes.description": "Mermaid依存関係グラフにレンダリングするノードの最大数。超えた場合は警告が表示されます。"
 } 

@@ -1,12 +1,11 @@
 # Matomeru
 
-Combine and copy your entire codes into one LLM-ready Markdown.
+Combine and copy your entire codes into one LLM-ready Markdown / YAML.
 
-複数のコードをAI向けの一つのMarkdownにまとめる
 
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/romot-co.matomeru)](https://marketplace.visualstudio.com/items?itemName=romot-co.matomeru)
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/romot-co.matomeru)](https://marketplace.visualstudio.com/items?itemName=romot.matomeru)
 
 [English](#features) | [日本語](README.ja.md)
 
@@ -14,6 +13,7 @@ Combine and copy your entire codes into one LLM-ready Markdown.
 
 - **Generate Markdown documentation** for your directory structures and file contents
 - **NEW: YAML Output**: Choose between Markdown and YAML for your output format via the `matomeru.outputFormat` setting.
+- **Dependency Analysis & Visualization**: Scans import/dependency statements (for TypeScript/JavaScript, Python, Go) and generates a Mermaid flowchart in the Markdown output to visualize relationships when `matomeru.includeDependencies` is enabled.
 - **Automatically format and organize**:
   - Directory tree structure
   - Markdown-compatible output
@@ -72,6 +72,12 @@ These shortcuts can be customized in VS Code's Keyboard Shortcuts editor (`Ctrl+
   "matomeru.outputFormat": "yaml"
   ```
 
+**`matomeru.includeDependencies`**: (boolean, default: `false`) When set to `true`, Matomeru will scan for import/dependency statements in your files (supports TypeScript/JavaScript, Python, and Go). This information will be used to:
+  - Include an `imports` list for each file in the YAML output.
+  - Generate a Mermaid dependency graph at the beginning of the Markdown output.
+
+**`matomeru.mermaid.maxNodes`**: (number, default: `300`) Specifies the maximum number of nodes to render in the Mermaid dependency graph. If the number of unique files and dependencies exceeds this limit, the graph will be truncated, and a warning message will be displayed.
+
 <details>
 <summary>Example settings.json (Click to expand)</summary>
 
@@ -100,6 +106,8 @@ These shortcuts can be customized in VS Code's Keyboard Shortcuts editor (`Ctrl+
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
   "matomeru.enableCompression": false,
+  "matomeru.includeDependencies": false,
+  "matomeru.mermaid.maxNodes": 300,
   "matomeru.gitDiff.range": ""
 }
 ```
@@ -128,6 +136,16 @@ These exclusions are part of the default configuration and will apply even if yo
 ```markdown
 # Project Overview
 This is a sample project.
+
+<!-- matomeru:auto-graph:start -->
+```mermaid
+flowchart TD
+    "src/index.ts" --> "src/utils.ts"
+    "src/index.ts" --> "external:lodash"
+    "tests/index.test.ts" --> "src/index.ts"
+```
+<!-- matomeru:auto-graph:end -->
+---
 
 # Directory Structure
 📁 src

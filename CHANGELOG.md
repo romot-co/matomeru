@@ -4,7 +4,16 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.0.13] - 2024-05-9
+## [0.0.14] - 2024-05-11
+### 追加
+- **依存関係の分析と可視化**:
+  - 有効にすると、TypeScript/JavaScript, Python, Go ファイルの import/dependency 文をスキャンします。
+  - 依存関係を視覚化するために、Markdown 出力に Mermaid フローチャートを生成します。
+  - YAML 出力の各ファイルエントリに `imports` リストを追加します。
+- **Mermaid グラフ設定**:
+  - 生成される依存関係グラフの最大ノード数を制御するための `matomeru.mermaid.maxNodes` (number, デフォルト: `300`) 設定を追加。制限を超えた場合は警告が表示されます。
+
+## [0.0.13] - 2024-05-09
 ### Added
 - **(Experimental)** YAML 形式での出力をサポート (`matomeru.outputFormat` 設定)。Markdownに加え、YAML形式でディレクトリ構造やファイル内容を出力できるようになりました。
 

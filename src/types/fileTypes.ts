@@ -6,6 +6,7 @@ export interface FileInfo {
     content: string;
     language: string;
     size: number;
+    imports?: string[];
 }
 
 export interface DirectoryInfo {
@@ -13,6 +14,7 @@ export interface DirectoryInfo {
     relativePath: string;
     files: FileInfo[];
     directories: Map<string, DirectoryInfo>;
+    imports?: string[];
 }
 
 export interface ScanOptions {
@@ -20,4 +22,5 @@ export interface ScanOptions {
     excludePatterns: string[];
     useGitignore?: boolean;
     useVscodeignore?: boolean;
+    includeDependencies?: boolean;
 } 

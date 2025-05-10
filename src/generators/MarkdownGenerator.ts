@@ -5,12 +5,18 @@ import { stripComments } from '../utils/compressUtils';
 import { getExtensionContext } from '../extension';
 import { Logger } from '../utils/logger';
 import { IGenerator } from './IGenerator';
+import { YamlGenerator } from './YamlGenerator';
+import yaml from 'js-yaml';
 
 const logger = Logger.getInstance('MarkdownGenerator');
 
+const MERMAID_GRAPH_START_COMMENT = '<!-- matomeru:auto-graph:start -->';
+const MERMAID_GRAPH_END_COMMENT = '<!-- matomeru:auto-graph:end -->';
+
 export class MarkdownGenerator implements IGenerator {
     constructor(
-        private readonly directoryStructure: DirectoryStructure = new DirectoryStructure()
+        private readonly directoryStructure: DirectoryStructure = new DirectoryStructure(),
+        private readonly yamlGenerator: YamlGenerator = new YamlGenerator()
     ) {}
 
     async generate(directories: DirectoryInfo[]): Promise<string> {
@@ -18,29 +24,75 @@ export class MarkdownGenerator implements IGenerator {
             return '';
         }
 
-        const sections: string[] = [];
-
-        // 設定から固定文言を取得
         const config = vscode.workspace.getConfiguration('matomeru');
-        const prefixText = config.get<string>('prefixText', '');
+        // eslint-disable-next-line no-console
+        console.log('--- MarkdownGenerator Config Check ---');
+        // eslint-disable-next-line no-console
+        console.log('matomeru.markdown.prefixText:', config.get<string>('markdown.prefixText'));
+        // eslint-disable-next-line no-console
+        console.log('matomeru.includeDependencies:', config.get<boolean>('includeDependencies'));
+        // eslint-disable-next-line no-console
+        console.log('matomeru.mermaid.maxNodes:', config.get<number>('mermaid.maxNodes'));
 
-        // 固定文言があれば追加
+        let finalMarkdown = '';
+
+        const prefixText = config.get<string>('markdown.prefixText', '');
         if (prefixText) {
-            sections.push(prefixText + '\n');
+            // eslint-disable-next-line no-console
+            console.log('Applying prefixText:', prefixText.substring(0, 50) + (prefixText.length > 50 ? '...' : ''));
+            finalMarkdown += prefixText + '\n';
         }
 
-        // ディレクトリ構造を追加
-        sections.push(this.directoryStructure.generate(directories));
-
-        // ファイルの内容を追加
-        sections.push('\n# File Contents\n');
+        if (config.get<boolean>('includeDependencies')) {
+            // eslint-disable-next-line no-console
+            console.log('Attempting to generate Mermaid graph...');
+            try {
+                const mermaidGraphString = await this.generateMermaidGraph(directories, config);
+                // eslint-disable-next-line no-console
+                console.log('Generated mermaidGraphString:', mermaidGraphString ? mermaidGraphString.substring(0, 100) + '...' : 'EMPTY_GRAPH');
+                if (mermaidGraphString) {
+                    finalMarkdown += MERMAID_GRAPH_START_COMMENT + '\n';
+                    finalMarkdown += '```mermaid\n';
+                    finalMarkdown += mermaidGraphString + '\n';
+                    finalMarkdown += '```\n';
+                    finalMarkdown += MERMAID_GRAPH_END_COMMENT + '\n';
+                    finalMarkdown += '---\n'; 
+                }
+            } catch (error) {
+                logger.error(`Failed to generate Mermaid graph: ${error instanceof Error ? error.message : String(error)}`);
+                 // eslint-disable-next-line no-console
+                console.error('Error during generateMermaidGraph:', error);
+            }
+        } else {
+            // eslint-disable-next-line no-console
+            console.log('Skipping Mermaid graph generation (includeDependencies is false).');
+        }
+        
+        const coreContentSections: string[] = [];
+        coreContentSections.push(this.directoryStructure.generate(directories));
+        coreContentSections.push('\n# File Contents\n');
         
         const allFiles = this.getAllFiles(directories);
         for (const file of allFiles) {
-            sections.push(await this.generateFileSection(file));
+            coreContentSections.push(await this.generateFileSection(file));
         }
+        let coreMarkdown = coreContentSections.join('\n');
 
-        return sections.join('\n');
+        const oldGraphRegex = new RegExp(
+            MERMAID_GRAPH_START_COMMENT +
+            '[\\s\\S]*?' + 
+            MERMAID_GRAPH_END_COMMENT +
+            '(?:\\n---\\n)?', 
+            'g'
+        );
+        coreMarkdown = coreMarkdown.replace(oldGraphRegex, '').trim();
+        
+        finalMarkdown += coreMarkdown;
+        
+        // eslint-disable-next-line no-console
+        // console.log('Final markdown output (first 200 chars):\n', finalMarkdown.substring(0,200));
+
+        return finalMarkdown;
     }
 
     private getAllFiles(directories: DirectoryInfo[]): FileInfo[] {
@@ -61,14 +113,11 @@ export class MarkdownGenerator implements IGenerator {
     private async generateFileSection(file: FileInfo): Promise<string> {
         const sections: string[] = [];
 
-        // ファイル名をヘッダーとして追加
         sections.push(`## ${file.relativePath}\n`);
 
-        // ファイルの情報を追加
         sections.push(`- Size: ${this.formatFileSize(file.size)}`);
         sections.push(`- Language: ${file.language}\n`);
 
-        // コード圧縮機能が有効な場合、Tree-sitterを使ってコメントを削除
         const config = vscode.workspace.getConfiguration('matomeru');
         let content = file.content;
         
@@ -77,7 +126,6 @@ export class MarkdownGenerator implements IGenerator {
                 const ctx = getExtensionContext();
                 content = await stripComments(file.content, file.language, ctx);
                 
-                // コンテンツが変更された場合にはログを残す
                 if (content !== file.content) {
                     logger.info(`Compressed content for ${file.relativePath}`);
                 }
@@ -86,7 +134,6 @@ export class MarkdownGenerator implements IGenerator {
             }
         }
 
-        // ファイルの内容をコードブロックとして追加
         sections.push('```' + file.language);
         sections.push(content);
         sections.push('```\n');
@@ -104,8 +151,66 @@ export class MarkdownGenerator implements IGenerator {
             unitIndex++;
         }
 
-        // 小数点以下が0の場合は整数表示、それ以外は小数点以下1桁
         const formattedSize = size % 1 === 0 ? size.toFixed(0) : size.toFixed(1);
         return `${formattedSize} ${units[unitIndex]}`;
+    }
+
+    private async generateMermaidGraph(directories: DirectoryInfo[], config: vscode.WorkspaceConfiguration): Promise<string> {
+        // eslint-disable-next-line no-console
+        // console.log('generateMermaidGraph called with config for includeDependencies:', config.get('includeDependencies'));
+        const yamlString = await this.yamlGenerator.generate(directories);
+        // eslint-disable-next-line no-console
+        // console.log('yamlGenerator.generate returned (first 100 chars):', typeof yamlString === 'string' ? yamlString.substring(0,100) + '...' : yamlString);
+        const parsedYaml: any = yaml.load(yamlString);
+        // eslint-disable-next-line no-console
+        // console.log('Parsed YAML dependencies (type):', typeof parsedYaml?.dependencies, 'Value:', parsedYaml?.dependencies ? JSON.stringify(parsedYaml.dependencies).substring(0,100) + '...' : 'N/A');
+
+
+        if (!parsedYaml || typeof parsedYaml.dependencies !== 'object' || parsedYaml.dependencies === null) {
+            // eslint-disable-next-line no-console
+            // console.log('No valid dependencies found in parsed YAML, returning empty graph.');
+            return '';
+        }
+
+        const dependencies: { [key: string]: string[] } = parsedYaml.dependencies;
+        const maxNodes = config.get<number>('mermaid.maxNodes', 300);
+        
+        const graphLines: string[] = ['flowchart TD'];
+        const nodes = new Set<string>();
+        const edges: { from: string, to: string }[] = [];
+
+        for (const sourceFile in dependencies) {
+            nodes.add(`    "${sourceFile}"`);
+            for (const targetFile of dependencies[sourceFile]) {
+                nodes.add(`    "${targetFile}"`);
+                edges.push({ from: sourceFile, to: targetFile });
+            }
+        }
+        // eslint-disable-next-line no-console
+        // console.log(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
+
+        let truncated = false;
+        if (nodes.size > maxNodes) {
+            truncated = true;
+        }
+
+        if (truncated) {
+            graphLines.push(`    subgraph Warning [Warning: Mermaid graph truncated.]\n    direction LR\n    truncated_message["The number of nodes (${nodes.size}) exceeds the configured limit (${maxNodes})."]
+    end`);
+        }
+        
+        for (const edge of edges) {
+            if (graphLines.length -1 >= maxNodes && truncated && !graphLines.some(line => line.includes('more dependencies linked here...'))) {
+                 graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
+                 break;
+            }
+            graphLines.push(`    "${edge.from}" --> "${edge.to}"`);
+        }
+        
+        if (graphLines.length === 1 && Object.keys(dependencies).length === 0 && nodes.size === 0) {
+            return '';
+        }
+        
+        return graphLines.join('\n');
     }
 } 

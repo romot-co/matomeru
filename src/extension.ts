@@ -32,6 +32,22 @@ export function activate(context: vscode.ExtensionContext) {
             if (e.affectsConfiguration('matomeru.chatGptIntegration')) {
                 const newConfig = vscode.workspace.getConfiguration('matomeru');
                 vscode.commands.executeCommand('setContext', 'matomeru.chatGptIntegration', newConfig.get('chatGptIntegration'));
+                logger.info(`Configuration changed: matomeru.chatGptIntegration = ${newConfig.get('chatGptIntegration')}`);
+            }
+            if (e.affectsConfiguration('matomeru.includeDependencies')) {
+                const newConfig = vscode.workspace.getConfiguration('matomeru');
+                logger.info(`Configuration changed: matomeru.includeDependencies = ${newConfig.get('includeDependencies')}`);
+                // ジェネレータは都度生成されるため、キャッシュ無効化は不要
+            }
+            if (e.affectsConfiguration('matomeru.mermaid.maxNodes')) {
+                const newConfig = vscode.workspace.getConfiguration('matomeru');
+                logger.info(`Configuration changed: matomeru.mermaid.maxNodes = ${newConfig.get('mermaid.maxNodes')}`);
+                // ジェネレータは都度生成されるため、キャッシュ無効化は不要
+            }
+            // outputFormat の変更もロギングしておくと良いでしょう
+            if (e.affectsConfiguration('matomeru.outputFormat')) {
+                const newConfig = vscode.workspace.getConfiguration('matomeru');
+                logger.info(`Configuration changed: matomeru.outputFormat = ${newConfig.get('outputFormat')}`);
             }
         })
     );

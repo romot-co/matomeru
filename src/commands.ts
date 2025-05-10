@@ -59,7 +59,8 @@ export class CommandRegistrar {
                             maxFileSize: config.get('maxFileSize', 1048576),
                             excludePatterns: config.get('excludePatterns', []),
                             useGitignore: config.get('useGitignore', false),
-                            useVscodeignore: config.get('useVscodeignore', false)
+                            useVscodeignore: config.get('useVscodeignore', false),
+                            includeDependencies: config.get('includeDependencies', false)
                         } as ScanOptions);
                         this.fileOps.setCurrentSelectedPath(undefined);
                         return result;

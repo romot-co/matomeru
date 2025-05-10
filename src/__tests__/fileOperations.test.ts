@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as vscode from 'vscode';
-import { Dirent, PathLike } from 'fs';
+import { PathLike } from 'fs';
 import * as path from 'path';
 import { FileOperations } from '../fileOperations';
 import { FileSizeLimitError, ScanError } from '../errors/errors';
@@ -30,8 +30,16 @@ const BASE_OPTS: ScanOptions = {
   useGitignore: false,
   useVscodeignore: false
 };
-const d = (name: string, dir = false): Dirent =>
-  ({ name, isDirectory: () => dir, isFile: () => !dir } as unknown as Dirent);
+const d = (name: string, dir = false): any => ({
+  name: Buffer.from(name),
+  isDirectory: () => dir,
+  isFile: () => !dir,
+  isBlockDevice: () => false,
+  isCharacterDevice: () => false,
+  isSymbolicLink: () => false,
+  isFIFO: () => false,
+  isSocket: () => false,
+});
 
 let fo: FileOperations;
 beforeEach(() => {
@@ -54,7 +62,7 @@ describe('FileOperations: basics', () => {
       return { isDirectory: () => false, isFile: () => true, size: 10 } as any;
     });
     // ② readdir
-    mockedFs.readdir.mockImplementation(async (p: PathLike) => {
+    mockedFs.readdir.mockImplementation(async (p: PathLike): Promise<any[]> => {
       const s = String(p);
       if (s === path.join(ROOT, 'src'))       return [d('a.ts'), d('b', true)];
       if (s === path.join(ROOT, 'src', 'b'))  return [d('c.js')];
@@ -84,7 +92,7 @@ describe('FileOperations: filters', () => {
 
   it('excludePatterns に一致するファイルを除外する', async () => {
     mockedFs.stat.mockImplementation((p) => smartStat(p));
-    mockedFs.readdir.mockResolvedValue([d('skip.txt'), d('keep.txt')]);
+    mockedFs.readdir.mockResolvedValue([d('skip.txt'), d('keep.txt')] as any[]);
     mockedFs.readFile.mockResolvedValue('C');
 
     const res = await fo.scanDirectory('.', {
@@ -101,7 +109,7 @@ describe('FileOperations: filters', () => {
       const tooLarge = name.startsWith('large');
       return smartStat(p, tooLarge ? 2_000_000 : 100);
     });
-    mockedFs.readdir.mockResolvedValue([d('small.txt'), d('large.txt')]);
+    mockedFs.readdir.mockResolvedValue([d('small.txt'), d('large.txt')] as any[]);
     mockedFs.readFile.mockResolvedValue('C');
 
     const res = await fo.scanDirectory('.', BASE_OPTS);
@@ -110,7 +118,7 @@ describe('FileOperations: filters', () => {
 
   it('バイナリファイルは除外される', async () => {
     mockedFs.stat.mockImplementation((p) => smartStat(p));
-    mockedFs.readdir.mockResolvedValue([d('text.txt'), d('binary.dat')]);
+    mockedFs.readdir.mockResolvedValue([d('text.txt'), d('binary.dat')] as any[]);
     mockedFs.readFile.mockImplementation((async (p: PathLike) =>
       path.basename(String(p)).startsWith('binary') ? Buffer.from('BIN') : Buffer.from('TXT')
     ) as any);

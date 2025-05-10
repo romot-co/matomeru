@@ -1,15 +1,16 @@
 # Matomeru
 
-複数のコードをAI向けの一つのMarkdownにまとめる
+複数のコードをAI向けの一つのMarkdown/YAMLにまとめる
 
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/romot-co.matomeru)](https://marketplace.visualstudio.com/items?itemName=romot-co.matomeru)
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/romot-co.matomeru)](https://marketplace.visualstudio.com/items?itemName=romot.matomeru)
 
 ## 機能
 
 - 選択したディレクトリ構造とファイル内容を**Markdown形式で自動生成**
 - **新機能: YAML出力**: `matomeru.outputFormat` 設定により、Markdown と YAML の間で出力形式を選択できるようになりました。
+- **依存関係の分析と可視化**: `matomeru.includeDependencies` が有効な場合、ファイル内のimport/dependency文（TypeScript/JavaScript, Python, Go対応）をスキャンし、Markdown出力の先頭に関係性を視覚化するMermaidフローチャートを生成します。
 - **自動的にフォーマットして整理**：
   - ディレクトリツリー構造
   - Markdown互換の出力
@@ -68,6 +69,12 @@
   "matomeru.outputFormat": "yaml"
   ```
 
+**`matomeru.includeDependencies`**: (boolean, デフォルト: `false`) `true` に設定すると、ファイル内のimport/dependency文をスキャンします（TypeScript/JavaScript, Python, Go対応）。この情報は以下の目的で使用されます:
+  - YAML出力の各ファイルに `imports` リストを含める。
+  - Markdown出力の先頭にMermaid依存関係グラフを生成する。
+
+**`matomeru.mermaid.maxNodes`**: (number, デフォルト: `300`) Mermaid依存関係グラフにレンダリングするノードの最大数を指定します。ユニークなファイルと依存関係の数がこの制限を超えた場合、グラフは切り捨てられ、警告メッセージが表示されます。
+
 <details>
 <summary>settings.jsonの例（クリックして展開）</summary>
 
@@ -96,6 +103,8 @@
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
   "matomeru.enableCompression": false,
+  "matomeru.includeDependencies": false,
+  "matomeru.mermaid.maxNodes": 300,
   "matomeru.gitDiff.range": ""
 }
 ```
@@ -122,6 +131,16 @@ csharp, c, cpp, go, rust, java, ini, regex
 ```markdown
 # Project Overview
 This is a sample project.
+
+<!-- matomeru:auto-graph:start -->
+```mermaid
+flowchart TD
+    "src/index.ts" --> "src/utils.ts"
+    "src/index.ts" --> "external:lodash"
+    "tests/index.test.ts" --> "src/index.ts"
+```
+<!-- matomeru:auto-graph:end -->
+---
 
 # Directory Structure
 📁 src
