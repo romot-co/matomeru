@@ -213,8 +213,14 @@ export class CommandRegistrar {
             defaultUri: vscode.workspace.workspaceFolders[0].uri
         }) || [];
 
-        // URIのfsPathをキーにして一意化
-        return Array.from(new Map(uris.map(uri => [uri.fsPath, uri])).values());
+        // URIのfsPathをキーにして一意化 (最初に現れた順を保持)
+        const uniqueMap = new Map<string, vscode.Uri>();
+        for (const uri of uris) {
+            if (!uniqueMap.has(uri.fsPath)) {
+                uniqueMap.set(uri.fsPath, uri);
+            }
+        }
+        return Array.from(uniqueMap.values());
     }
 
     /**
