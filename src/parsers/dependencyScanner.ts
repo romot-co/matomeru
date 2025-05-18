@@ -155,10 +155,7 @@ export async function scanDependencies(
                         const resolvedPath = path.resolve(baseDir, importPath); // let を const に変更
                         let relativeImport = path.relative(workspaceRoot, resolvedPath);
                         relativeImport = relativeImport.replace(/\\/g, '/');
-                        // Ensure it starts with ./ if it's in the same directory or sub PWD
-                        if (!relativeImport.startsWith('.') && !relativeImport.startsWith('/')) {
-                            relativeImport = './' + relativeImport;
-                        }
+                        // Consistently use workspace-root relative paths without ./ prefix
                         dependencies.add(relativeImport);
                     } else {
                         dependencies.add(`external:${importPath}`);
