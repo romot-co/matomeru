@@ -174,7 +174,7 @@ export class FileOperations {
                     try {
                         imports = await scanDependencies(absolutePath, content, language);
                     } catch (scanError) {
-                        this.logger.warn(`Failed to scan dependencies for ${relativePath}: ${extractErrorMessage(scanError)}`);
+                        this.logger.error(`Failed to scan dependencies for ${relativePath}: ${extractErrorMessage(scanError)}`);
                         imports = []; // エラー時は空配列として処理を継続
                     }
                 }
@@ -244,7 +244,7 @@ export class FileOperations {
                             try {
                                 imports = await scanDependencies(entryPath, content, language);
                             } catch (scanError) {
-                                this.logger.warn(`Failed to scan dependencies for ${entryRelativePath}: ${extractErrorMessage(scanError)}`);
+                                this.logger.error(`Failed to scan dependencies for ${entryRelativePath}: ${extractErrorMessage(scanError)}`);
                                 imports = []; // エラー時は空配列として処理を継続
                             }
                         }
