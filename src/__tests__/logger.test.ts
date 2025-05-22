@@ -72,6 +72,27 @@ describe('Logger', () => {
         });
     });
 
+    describe('debug', () => {
+        it('DEBUGレベルでメッセージをログ出力する', () => {
+            logger.debug('Test debug message');
+            expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
+                expect.stringMatching(/^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[DEBUG\] \[TestContext\] Test debug message$/)
+            );
+        });
+
+        it('開発環境ではconsole.logも使用する', () => {
+            const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();
+            process.env.NODE_ENV = 'development';
+
+            logger.debug('Test debug message');
+
+            expect(mockConsoleLog).toHaveBeenCalledWith(
+                expect.stringMatching(/^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[DEBUG\] \[TestContext\] Test debug message$/)
+            );
+            mockConsoleLog.mockRestore();
+        });
+    });
+
     describe('warn', () => {
         it('WARNレベルでメッセージをログ出力し、警告を表示する', () => {
             const message = 'Test warning message';

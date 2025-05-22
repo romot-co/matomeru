@@ -29,31 +29,24 @@ export class MarkdownGenerator implements IGenerator {
         }
 
         const config = vscode.workspace.getConfiguration('matomeru');
-        // eslint-disable-next-line no-console
-        console.log('--- MarkdownGenerator Config Check ---');
-        // eslint-disable-next-line no-console
-        console.log('matomeru.markdown.prefixText:', config.get<string>('markdown.prefixText'));
-        // eslint-disable-next-line no-console
-        console.log('matomeru.includeDependencies:', config.get<boolean>('includeDependencies'));
-        // eslint-disable-next-line no-console
-        console.log('matomeru.mermaid.maxNodes:', config.get<number>('mermaid.maxNodes'));
+        logger.debug('--- MarkdownGenerator Config Check ---');
+        logger.debug(`matomeru.markdown.prefixText: ${config.get<string>('markdown.prefixText')}`);
+        logger.debug(`matomeru.includeDependencies: ${config.get<boolean>('includeDependencies')}`);
+        logger.debug(`matomeru.mermaid.maxNodes: ${config.get<number>('mermaid.maxNodes')}`);
 
         let finalMarkdown = '';
 
         const prefixText = config.get<string>('prefixText', '');
         if (prefixText) {
-            // eslint-disable-next-line no-console
-            console.log('Applying prefixText:', prefixText.substring(0, 50) + (prefixText.length > 50 ? '...' : ''));
+            logger.debug('Applying prefixText: ' + prefixText.substring(0, 50) + (prefixText.length > 50 ? '...' : ''));
             finalMarkdown += prefixText + '\n';
         }
 
         if (config.get<boolean>('includeDependencies')) {
-            // eslint-disable-next-line no-console
-            console.log('Attempting to generate Mermaid graph...');
+            logger.debug('Attempting to generate Mermaid graph...');
             try {
                 const mermaidGraphString = await this.generateMermaidGraph(directories, config);
-                // eslint-disable-next-line no-console
-                console.log('Generated mermaidGraphString:', mermaidGraphString ? mermaidGraphString.substring(0, 100) + '...' : 'EMPTY_GRAPH');
+                logger.debug('Generated mermaidGraphString: ' + (mermaidGraphString ? mermaidGraphString.substring(0, 100) + '...' : 'EMPTY_GRAPH'));
                 if (mermaidGraphString) {
                     finalMarkdown += MERMAID_GRAPH_START_COMMENT + '\n';
                     finalMarkdown += '```mermaid\n';
@@ -64,12 +57,10 @@ export class MarkdownGenerator implements IGenerator {
                 }
             } catch (error) {
                 logger.error(`Failed to generate Mermaid graph: ${error instanceof Error ? error.message : String(error)}`);
-                 // eslint-disable-next-line no-console
-                console.error('Error during generateMermaidGraph:', error);
+                logger.error(`Error during generateMermaidGraph: ${error instanceof Error ? error.message : String(error)}`);
             }
         } else {
-            // eslint-disable-next-line no-console
-            console.log('Skipping Mermaid graph generation (includeDependencies is false).');
+            logger.debug('Skipping Mermaid graph generation (includeDependencies is false).');
         }
         
         const coreContentSections: string[] = [];
@@ -94,7 +85,7 @@ export class MarkdownGenerator implements IGenerator {
         finalMarkdown += coreMarkdown;
         
         // eslint-disable-next-line no-console
-        // console.log('Final markdown output (first 200 chars):\n', finalMarkdown.substring(0,200));
+        // logger.debug('Final markdown output (first 200 chars):\n' + finalMarkdown.substring(0,200));
 
         return finalMarkdown;
     }
@@ -161,18 +152,18 @@ export class MarkdownGenerator implements IGenerator {
 
     private async generateMermaidGraph(directories: DirectoryInfo[], config: vscode.WorkspaceConfiguration): Promise<string> {
         // eslint-disable-next-line no-console
-        // console.log('generateMermaidGraph called with config for includeDependencies:', config.get('includeDependencies'));
+        // logger.debug('generateMermaidGraph called with config for includeDependencies: ' + config.get('includeDependencies'));
         const yamlString = await this.yamlGenerator.generate(directories);
         // eslint-disable-next-line no-console
-        // console.log('yamlGenerator.generate returned (first 100 chars):', typeof yamlString === 'string' ? yamlString.substring(0,100) + '...' : yamlString);
+        // logger.debug('yamlGenerator.generate returned (first 100 chars): ' + (typeof yamlString === 'string' ? yamlString.substring(0,100) + '...' : yamlString));
         const parsedYaml: any = yaml.load(yamlString);
         // eslint-disable-next-line no-console
-        // console.log('Parsed YAML dependencies (type):', typeof parsedYaml?.dependencies, 'Value:', parsedYaml?.dependencies ? JSON.stringify(parsedYaml.dependencies).substring(0,100) + '...' : 'N/A');
+        // logger.debug('Parsed YAML dependencies (type): ' + typeof parsedYaml?.dependencies + ' Value: ' + (parsedYaml?.dependencies ? JSON.stringify(parsedYaml.dependencies).substring(0,100) + '...' : 'N/A'));
 
 
         if (!parsedYaml || typeof parsedYaml.dependencies !== 'object' || parsedYaml.dependencies === null) {
             // eslint-disable-next-line no-console
-            // console.log('No valid dependencies found in parsed YAML, returning empty graph.');
+            // logger.debug('No valid dependencies found in parsed YAML, returning empty graph.');
             return '';
         }
 
@@ -193,7 +184,7 @@ export class MarkdownGenerator implements IGenerator {
             }
         }
         // eslint-disable-next-line no-console
-        // console.log(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
+        // logger.debug(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
 
         let truncated = false;
         if (nodes.size > maxNodes) {

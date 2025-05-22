@@ -17,6 +17,10 @@ export class Logger {
         return Logger.instance;
     }
 
+    debug(message: string): void {
+        this.log('DEBUG', message);
+    }
+
     info(message: string): void {
         this.log('INFO', message);
     }
