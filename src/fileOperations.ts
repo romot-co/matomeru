@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import { FileInfo, DirectoryInfo, ScanOptions } from './types/fileTypes';
 import { minimatch } from 'minimatch';
 import { DirectoryNotFoundError, FileSizeLimitError, ScanError } from './errors/errors';
@@ -129,6 +130,16 @@ export class FileOperations {
         this.currentSelectedPath = path;
     }
 
+    private async readFileContentStream(filePath: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            let data = '';
+            const stream = createReadStream(filePath, { encoding: 'utf-8' });
+            stream.on('data', chunk => { data += chunk; });
+            stream.on('end', () => resolve(data));
+            stream.on('error', err => reject(err));
+        });
+    }
+
     async scanDirectory(targetPath: string, options: ScanOptions): Promise<DirectoryInfo> {
         try {
             // .gitignoreパターンを読み込む（初回のみ）
@@ -156,8 +167,8 @@ export class FileOperations {
                 }
 
                 // バイナリファイルのチェック
-                const buffer = await fs.readFile(absolutePath);
-                if (isBinaryFile(buffer)) {
+                const content = await this.readFileContentStream(absolutePath);
+                if (isBinaryFile(content)) {
                     this.logger.info(`バイナリファイルをスキップ: ${relativePath}`);
                     return {
                         uri: vscode.Uri.file(path.dirname(absolutePath)),
@@ -167,7 +178,6 @@ export class FileOperations {
                     };
                 }
 
-                const content = buffer.toString('utf-8');
                 const language = this.detectLanguage(path.basename(absolutePath));
                 let imports: string[] | undefined;
                 if (options.includeDependencies) {
@@ -231,13 +241,12 @@ export class FileOperations {
                         }
 
                         // バイナリファイルのチェック
-                        const buffer = await fs.readFile(entryPath);
-                        if (isBinaryFile(buffer)) {
+                        const content = await this.readFileContentStream(entryPath);
+                        if (isBinaryFile(content)) {
                             this.logger.info(`バイナリファイルをスキップ: ${entryRelativePath}`);
                             continue;
                         }
 
-                        const content = buffer.toString('utf-8');
                         const language = this.detectLanguage(entryNameString);
                         let imports: string[] | undefined;
                         if (options.includeDependencies) {
