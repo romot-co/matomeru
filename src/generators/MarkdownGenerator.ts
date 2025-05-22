@@ -176,38 +176,47 @@ export class MarkdownGenerator implements IGenerator {
         const maxNodes = config.get<number>('mermaid.maxNodes', 300);
         
         const graphLines: string[] = ['flowchart TD'];
-        const nodes = new Set<string>();
-        const edges: { from: string, to: string }[] = [];
+        const allNodes = new Set<string>();
+        const edges: { from: string; to: string }[] = [];
 
         for (const sourceFile in dependencies) {
-            nodes.add(`    "${sourceFile}"`);
+            allNodes.add(`    "${sourceFile}"`);
             for (const targetFile of dependencies[sourceFile]) {
-                nodes.add(`    "${targetFile}"`);
+                allNodes.add(`    "${targetFile}"`);
                 edges.push({ from: sourceFile, to: targetFile });
             }
         }
         // eslint-disable-next-line no-console
-        // console.log(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
+        // console.log(`Mermaid: Calculated ${allNodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
 
         let truncated = false;
-        if (nodes.size > maxNodes) {
+        if (allNodes.size > maxNodes) {
             truncated = true;
         }
 
         if (truncated) {
-            graphLines.push(`    subgraph Warning [Warning: Mermaid graph truncated.]\n    direction LR\n    truncated_message["The number of nodes (${nodes.size}) exceeds the configured limit (${maxNodes})."]
-    end`);
+            graphLines.push(
+                `    subgraph Warning [Warning: Mermaid graph truncated.]\n    direction LR\n    truncated_message["The number of nodes (${allNodes.size}) exceeds the configured limit (${maxNodes})."]\n    end`
+            );
         }
-        
+
+        const writtenNodes = new Set<string>();
+        let truncationEmitted = false;
         for (const edge of edges) {
-            if (graphLines.length -1 >= maxNodes && truncated && !graphLines.some(line => line.includes('more dependencies linked here...'))) {
-                 graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
-                 break;
+            const potentialNew = 0 + (writtenNodes.has(edge.from) ? 0 : 1) + (writtenNodes.has(edge.to) ? 0 : 1);
+            if (writtenNodes.size + potentialNew > maxNodes) {
+                if (truncated && !truncationEmitted) {
+                    graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
+                    truncationEmitted = true;
+                }
+                break;
             }
+            writtenNodes.add(edge.from);
+            writtenNodes.add(edge.to);
             graphLines.push(`    "${edge.from}" --> "${edge.to}"`);
         }
         
-        if (graphLines.length === 1 && Object.keys(dependencies).length === 0 && nodes.size === 0) {
+        if (graphLines.length === 1 && Object.keys(dependencies).length === 0 && allNodes.size === 0) {
             return '';
         }
         

@@ -393,8 +393,12 @@ describe('MarkdownGenerator', () => {
                     const result = await markdownGenerator.generate([baseDirWithImports]);
                     expect(result).toMatch(/Warning: Mermaid graph truncated/i);
                     expect(result).toMatch(/exceeds the configured limit \(4\)/i);
-                     // グラフの内容自体もある程度は描画されることを確認（省略の仕方による）
                     expect(result).toContain('flowchart TD');
+                    expect(result).toContain('    "test/a.js" --> "test/b.js"');
+                    expect(result).toContain('    "test/a.js" --> "test/c.js"');
+                    expect(result).toContain('    "test/b.js" --> "test/d.js"');
+                    expect(result).toContain('    "test/c.js" --> "test/d.js"');
+                    expect(result).not.toContain('"test/e.js"');
                 });
                 
                 test('ノード数がmaxNodesを大幅に超える場合、グラフは省略され警告が表示される', async () => {
@@ -409,6 +413,8 @@ describe('MarkdownGenerator', () => {
                     expect(result).toMatch(/Warning: Mermaid graph truncated/i);
                     expect(result).toMatch(/exceeds the configured limit \(2\)/i);
                     expect(result).toContain('flowchart TD'); // subgraph Warning も flowchart TD の一部
+                    expect(result).toContain('    "test/a.js" --> "test/b.js"');
+                    expect(result).not.toContain('"test/c.js"');
                 });
 
                 // 元のmaxNodesテストケースも残すか、この新しいスイートに統合するか検討できます。
