@@ -19,6 +19,10 @@ export class MarkdownGenerator implements IGenerator {
         private readonly yamlGenerator: YamlGenerator = new YamlGenerator()
     ) {}
 
+    private escapeMermaidLabel(label: string): string {
+        return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+
     async generate(directories: DirectoryInfo[]): Promise<string> {
         if (!directories.length) {
             return '';
@@ -180,10 +184,12 @@ export class MarkdownGenerator implements IGenerator {
         const edges: { from: string, to: string }[] = [];
 
         for (const sourceFile in dependencies) {
-            nodes.add(`    "${sourceFile}"`);
+            const escapedSource = this.escapeMermaidLabel(sourceFile);
+            nodes.add(escapedSource);
             for (const targetFile of dependencies[sourceFile]) {
-                nodes.add(`    "${targetFile}"`);
-                edges.push({ from: sourceFile, to: targetFile });
+                const escapedTarget = this.escapeMermaidLabel(targetFile);
+                nodes.add(escapedTarget);
+                edges.push({ from: escapedSource, to: escapedTarget });
             }
         }
         // eslint-disable-next-line no-console
