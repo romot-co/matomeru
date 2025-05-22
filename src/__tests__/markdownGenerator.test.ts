@@ -518,6 +518,46 @@ describe('MarkdownGenerator', () => {
                 expect(result).toContain('## src/utils.js');
                 expect(result).toContain('export const helper = () => {};');
             });
+
+            test('循環依存がある場合、警告コメントが追加される', async () => {
+                mockConfig.get.mockImplementation((key: string, defaultValue?: any): any => {
+                    if (key === 'includeDependencies') return true;
+                    if (key === 'mermaid.maxNodes') return 300;
+                    if (key === 'prefixText') return '';
+                    if (key === 'enableCompression') return false;
+                    return defaultValue;
+                });
+
+                mockGenerateYaml.mockImplementation((_directoriesInfo: DirectoryInfo[], _options: ScanOptions): string => {
+                    const data = {
+                        files: [
+                            { relativePath: 'test/a.ts', imports: ['./b.ts'] },
+                            { relativePath: 'test/b.ts', imports: ['./c.ts'] },
+                            { relativePath: 'test/c.ts', imports: ['./a.ts'] }
+                        ],
+                        dependencies: {
+                            'test/a.ts': ['test/b.ts'],
+                            'test/b.ts': ['test/c.ts'],
+                            'test/c.ts': ['test/a.ts']
+                        }
+                    };
+                    return yaml.dump(data);
+                });
+
+                const dirWithCycle: DirectoryInfo = {
+                    ...mockDirectoryInfo,
+                    files: [
+                        { ...mockFile, relativePath: 'test/a.ts', imports: ['./b.ts'] },
+                        { ...mockFile, relativePath: 'test/b.ts', imports: ['./c.ts'] },
+                        { ...mockFile, relativePath: 'test/c.ts', imports: ['./a.ts'] }
+                    ]
+                };
+
+                const result = await markdownGenerator.generate([dirWithCycle]);
+
+                expect(result).toContain('flowchart TD');
+                expect(result).toMatch(/%% Warning: Circular dependencies detected/);
+            });
         });
 
         test('ファイルサイズが適切にフォーマットされること', async () => {
