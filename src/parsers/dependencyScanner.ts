@@ -112,42 +112,32 @@ export async function scanDependencies(
                 }
 
                 if (language === 'python') {
-                    const nodeType = node.type;
                     const captureName = pathNodeCapture.name;
-
-                    if (captureName === 'dots' || (importPath.startsWith('.') && nodeType === 'identifier')) {
-                        // from . import X -> `.` is captured as @dots. pathNodeCapture.node.parent.parent is import_from_statement
-                        // from .module import X -> `module` captured as @path, pathNodeCapture.node.parent is relative_import
-                        let reconstructedRelativePath = '';
-                        if (captureName === 'dots') {
-                            reconstructedRelativePath = importPath; // importPath is like '.' or '..'
-                            // find item_name from the same match if present
-                            const itemNameCapture = match.captures.find(c => c.name === 'item_name');
-                            if (itemNameCapture) {
-                                reconstructedRelativePath = path.join(reconstructedRelativePath, itemNameCapture.node.text);
-                            }
-                        } else { // identifier captured by @path within a relative_import
-                            let current_node: WebTreeSitterSyntaxNode = node; // 型は変更済み
-                            const temp_path_parts = [importPath]; 
-                            while(current_node.parent && current_node.parent.type === 'relative_import') {
-                                const prefixNode = current_node.parent.firstChild;
-                                if(prefixNode && prefixNode.type === 'import_prefix') {
-                                    temp_path_parts.unshift(prefixNode.text);
-                                }
-                                current_node = current_node.parent;
-                            }
-                            reconstructedRelativePath = temp_path_parts.join(''); // path.join might not work well with just dots
-                            if (!reconstructedRelativePath.startsWith('.')) { // Ensure it is relative
-                                reconstructedRelativePath = '.' + path.sep + reconstructedRelativePath;
-                            }                            
+                    if (captureName === 'dots') {
+                        const dotCount = importPath.length;
+                        const itemNameCapture = match.captures.find(c => c.name === 'item_name');
+                        const rest = itemNameCapture ? itemNameCapture.node.text : '';
+                        const resolvedPath = path.resolve(baseDir, '../'.repeat(Math.max(dotCount - 1, 0)), rest);
+                        const relativeImport = path.relative(workspaceRoot, resolvedPath);
+                        dependencies.add(relativeImport.replace(/\\/g, '/'));
+                        continue;
+                    } else if (node.parent && node.parent.type === 'relative_import') {
+                        const parent = node.parent;
+                        let dotCount = 0;
+                        for (const child of parent.children) {
+                            if (child && (child as any).type === 'import_prefix') dotCount++;
                         }
-                        importPath = reconstructedRelativePath.replace(/\\/g, '/');
-                        // logger.debug(`Python relative path: ${importPath}`);
-
+                        const resolvedPath = path.resolve(baseDir, '../'.repeat(Math.max(dotCount - 1, 0)), importPath);
+                        const relativeImport = path.relative(workspaceRoot, resolvedPath);
+                        dependencies.add(relativeImport.replace(/\\/g, '/'));
+                        continue;
                     } else if (importPath.includes('.') && !importPath.startsWith('.')) {
-                        importPath = importPath.split('.')[0]; // external:pkg
+                        dependencies.add(`external:${importPath.split('.')[0]}`);
+                        continue;
+                    } else {
+                        dependencies.add(`external:${importPath}`);
+                        continue;
                     }
-                    // If it's a simple import like `import os` or `from package import item`, importPath is already good.
                 }
 
                 if (importPath && importPath.trim() !== '') {
