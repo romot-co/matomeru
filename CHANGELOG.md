@@ -4,8 +4,15 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.0.14] - 2024-05-11
-### 追加
+## [0.0.17] - 2024-05-12
+### Changed
+- エラーハンドリングの堅牢性を向上させるため、内部のエラーメッセージ抽出処理とカスタムエラークラスのコンストラクタを修正しました。
+
+### Fixed
+- 統合テスト実行時における `vscode` API のモックに関するいくつかの問題を修正しました。(e.g., `l10n`, `path` の解決)
+
+## [0.0.16] - 2024-05-11
+### Added
 - **依存関係の分析と可視化**:
   - 有効にすると、TypeScript/JavaScript, Python, Go ファイルの import/dependency 文をスキャンします。
   - 依存関係を視覚化するために、Markdown 出力に Mermaid フローチャートを生成します。
