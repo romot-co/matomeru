@@ -1,4 +1,5 @@
 import path from 'path';
+import * as fs from 'fs';
 // web-tree-sitter の型を使用。SyntaxNode は Parser.SyntaxNode または直接エクスポートされているか確認が必要。
 // web-tree-sitterのAPIドキュメントに基づき、Parser.SyntaxNode が一般的。
 // Tree は Parser.Tree または単に Tree。
@@ -151,8 +152,8 @@ export async function scanDependencies(
                 }
 
                 if (importPath && importPath.trim() !== '') {
-                    if (importPath.startsWith('.')) { 
-                        const resolvedPath = path.resolve(baseDir, importPath); // let を const に変更
+                    if (importPath.startsWith('.')) {
+                        const resolvedPath = resolveImportPath(importPath, baseDir);
                         let relativeImport = path.relative(workspaceRoot, resolvedPath);
                         relativeImport = relativeImport.replace(/\\/g, '/');
                         // Consistently use workspace-root relative paths without ./ prefix
@@ -169,8 +170,18 @@ export async function scanDependencies(
     return Array.from(dependencies);
 }
 
-// Helper function example (to be implemented)
-// function normalizeRelativePath(importPath: string, basePath: string, targetLanguage: string): string {
-//     // ... logic to resolve relative paths and append extensions ...
-//     return importPath;
-// } 
+function resolveImportPath(importPath: string, baseDir: string): string {
+    if (path.extname(importPath)) {
+        return path.resolve(baseDir, importPath);
+    }
+
+    const extensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go'];
+    for (const ext of extensions) {
+        const candidate = path.resolve(baseDir, importPath + ext);
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    return path.resolve(baseDir, importPath);
+}
