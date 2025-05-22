@@ -159,6 +159,36 @@ export class MarkdownGenerator implements IGenerator {
         return `${formattedSize} ${units[unitIndex]}`;
     }
 
+    private detectCycles(dependencies: { [key: string]: string[] }): string[][] {
+        const cycles: string[][] = [];
+        const visiting = new Set<string>();
+        const visited = new Set<string>();
+
+        const dfs = (node: string, path: string[]) => {
+            visiting.add(node);
+            for (const neighbor of dependencies[node] || []) {
+                if (visiting.has(neighbor)) {
+                    const startIndex = path.indexOf(neighbor);
+                    if (startIndex !== -1) {
+                        cycles.push([...path.slice(startIndex), neighbor]);
+                    }
+                } else if (!visited.has(neighbor)) {
+                    dfs(neighbor, [...path, neighbor]);
+                }
+            }
+            visiting.delete(node);
+            visited.add(node);
+        };
+
+        for (const node of Object.keys(dependencies)) {
+            if (!visited.has(node)) {
+                dfs(node, [node]);
+            }
+        }
+
+        return cycles;
+    }
+
     private async generateMermaidGraph(directories: DirectoryInfo[], config: vscode.WorkspaceConfiguration): Promise<string> {
         // eslint-disable-next-line no-console
         // console.log('generateMermaidGraph called with config for includeDependencies:', config.get('includeDependencies'));
@@ -192,6 +222,8 @@ export class MarkdownGenerator implements IGenerator {
                 edges.push({ from: escapedSource, to: escapedTarget });
             }
         }
+
+        const cycles = this.detectCycles(dependencies);
         // eslint-disable-next-line no-console
         // console.log(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
 
@@ -203,6 +235,18 @@ export class MarkdownGenerator implements IGenerator {
         if (truncated) {
             graphLines.push(`    subgraph Warning [Warning: Mermaid graph truncated.]\n    direction LR\n    truncated_message["The number of nodes (${nodes.size}) exceeds the configured limit (${maxNodes})."]
     end`);
+        }
+
+        if (cycles.length > 0) {
+            graphLines.push('    %% Warning: Circular dependencies detected');
+            const displayCycles = cycles.slice(0, 5);
+            for (const cycle of displayCycles) {
+                const cycleText = cycle.join(' -> ');
+                graphLines.push(`    %% ${this.escapeMermaidLabel(cycleText)}`);
+            }
+            if (cycles.length > displayCycles.length) {
+                graphLines.push(`    %% ...and ${cycles.length - displayCycles.length} more`);
+            }
         }
         
         for (const edge of edges) {
