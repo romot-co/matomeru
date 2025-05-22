@@ -4,7 +4,10 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.0.17] - 2024-05-12
+## [0.0.17] - 2024-05-23
+### Improved
+- コピー操作を最大3回再試行することで、クリップボードへのコピー信頼性を向上
+
 ### Changed
 - エラーハンドリングの堅牢性を向上させるため、内部のエラーメッセージ抽出処理とカスタムエラークラスのコンストラクタを修正しました。
 

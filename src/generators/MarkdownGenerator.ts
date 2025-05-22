@@ -19,37 +19,34 @@ export class MarkdownGenerator implements IGenerator {
         private readonly yamlGenerator: YamlGenerator = new YamlGenerator()
     ) {}
 
+    private escapeMermaidLabel(label: string): string {
+        return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+
     async generate(directories: DirectoryInfo[]): Promise<string> {
         if (!directories.length) {
             return '';
         }
 
         const config = vscode.workspace.getConfiguration('matomeru');
-        // eslint-disable-next-line no-console
-        console.log('--- MarkdownGenerator Config Check ---');
-        // eslint-disable-next-line no-console
-        console.log('matomeru.markdown.prefixText:', config.get<string>('markdown.prefixText'));
-        // eslint-disable-next-line no-console
-        console.log('matomeru.includeDependencies:', config.get<boolean>('includeDependencies'));
-        // eslint-disable-next-line no-console
-        console.log('matomeru.mermaid.maxNodes:', config.get<number>('mermaid.maxNodes'));
+        logger.debug('--- MarkdownGenerator Config Check ---');
+        logger.debug(`matomeru.markdown.prefixText: ${config.get<string>('markdown.prefixText')}`);
+        logger.debug(`matomeru.includeDependencies: ${config.get<boolean>('includeDependencies')}`);
+        logger.debug(`matomeru.mermaid.maxNodes: ${config.get<number>('mermaid.maxNodes')}`);
 
         let finalMarkdown = '';
 
         const prefixText = config.get<string>('prefixText', '');
         if (prefixText) {
-            // eslint-disable-next-line no-console
-            console.log('Applying prefixText:', prefixText.substring(0, 50) + (prefixText.length > 50 ? '...' : ''));
+            logger.debug('Applying prefixText: ' + prefixText.substring(0, 50) + (prefixText.length > 50 ? '...' : ''));
             finalMarkdown += prefixText + '\n';
         }
 
         if (config.get<boolean>('includeDependencies')) {
-            // eslint-disable-next-line no-console
-            console.log('Attempting to generate Mermaid graph...');
+            logger.debug('Attempting to generate Mermaid graph...');
             try {
                 const mermaidGraphString = await this.generateMermaidGraph(directories, config);
-                // eslint-disable-next-line no-console
-                console.log('Generated mermaidGraphString:', mermaidGraphString ? mermaidGraphString.substring(0, 100) + '...' : 'EMPTY_GRAPH');
+                logger.debug('Generated mermaidGraphString: ' + (mermaidGraphString ? mermaidGraphString.substring(0, 100) + '...' : 'EMPTY_GRAPH'));
                 if (mermaidGraphString) {
                     finalMarkdown += MERMAID_GRAPH_START_COMMENT + '\n';
                     finalMarkdown += '```mermaid\n';
@@ -60,12 +57,10 @@ export class MarkdownGenerator implements IGenerator {
                 }
             } catch (error) {
                 logger.error(`Failed to generate Mermaid graph: ${error instanceof Error ? error.message : String(error)}`);
-                 // eslint-disable-next-line no-console
-                console.error('Error during generateMermaidGraph:', error);
+                logger.error(`Error during generateMermaidGraph: ${error instanceof Error ? error.message : String(error)}`);
             }
         } else {
-            // eslint-disable-next-line no-console
-            console.log('Skipping Mermaid graph generation (includeDependencies is false).');
+            logger.debug('Skipping Mermaid graph generation (includeDependencies is false).');
         }
         
         const coreContentSections: string[] = [];
@@ -90,7 +85,7 @@ export class MarkdownGenerator implements IGenerator {
         finalMarkdown += coreMarkdown;
         
         // eslint-disable-next-line no-console
-        // console.log('Final markdown output (first 200 chars):\n', finalMarkdown.substring(0,200));
+        // logger.debug('Final markdown output (first 200 chars):\n' + finalMarkdown.substring(0,200));
 
         return finalMarkdown;
     }
@@ -155,20 +150,50 @@ export class MarkdownGenerator implements IGenerator {
         return `${formattedSize} ${units[unitIndex]}`;
     }
 
+    private detectCycles(dependencies: { [key: string]: string[] }): string[][] {
+        const cycles: string[][] = [];
+        const visiting = new Set<string>();
+        const visited = new Set<string>();
+
+        const dfs = (node: string, path: string[]) => {
+            visiting.add(node);
+            for (const neighbor of dependencies[node] || []) {
+                if (visiting.has(neighbor)) {
+                    const startIndex = path.indexOf(neighbor);
+                    if (startIndex !== -1) {
+                        cycles.push([...path.slice(startIndex), neighbor]);
+                    }
+                } else if (!visited.has(neighbor)) {
+                    dfs(neighbor, [...path, neighbor]);
+                }
+            }
+            visiting.delete(node);
+            visited.add(node);
+        };
+
+        for (const node of Object.keys(dependencies)) {
+            if (!visited.has(node)) {
+                dfs(node, [node]);
+            }
+        }
+
+        return cycles;
+    }
+
     private async generateMermaidGraph(directories: DirectoryInfo[], config: vscode.WorkspaceConfiguration): Promise<string> {
         // eslint-disable-next-line no-console
-        // console.log('generateMermaidGraph called with config for includeDependencies:', config.get('includeDependencies'));
+        // logger.debug('generateMermaidGraph called with config for includeDependencies: ' + config.get('includeDependencies'));
         const yamlString = await this.yamlGenerator.generate(directories);
         // eslint-disable-next-line no-console
-        // console.log('yamlGenerator.generate returned (first 100 chars):', typeof yamlString === 'string' ? yamlString.substring(0,100) + '...' : yamlString);
+        // logger.debug('yamlGenerator.generate returned (first 100 chars): ' + (typeof yamlString === 'string' ? yamlString.substring(0,100) + '...' : yamlString));
         const parsedYaml: any = yaml.load(yamlString);
         // eslint-disable-next-line no-console
-        // console.log('Parsed YAML dependencies (type):', typeof parsedYaml?.dependencies, 'Value:', parsedYaml?.dependencies ? JSON.stringify(parsedYaml.dependencies).substring(0,100) + '...' : 'N/A');
+        // logger.debug('Parsed YAML dependencies (type): ' + typeof parsedYaml?.dependencies + ' Value: ' + (parsedYaml?.dependencies ? JSON.stringify(parsedYaml.dependencies).substring(0,100) + '...' : 'N/A'));
 
 
         if (!parsedYaml || typeof parsedYaml.dependencies !== 'object' || parsedYaml.dependencies === null) {
             // eslint-disable-next-line no-console
-            // console.log('No valid dependencies found in parsed YAML, returning empty graph.');
+            // logger.debug('No valid dependencies found in parsed YAML, returning empty graph.');
             return '';
         }
 
@@ -180,14 +205,18 @@ export class MarkdownGenerator implements IGenerator {
         const edges: { from: string, to: string }[] = [];
 
         for (const sourceFile in dependencies) {
-            nodes.add(`    "${sourceFile}"`);
+            const escapedSource = this.escapeMermaidLabel(sourceFile);
+            nodes.add(escapedSource);
             for (const targetFile of dependencies[sourceFile]) {
-                nodes.add(`    "${targetFile}"`);
-                edges.push({ from: sourceFile, to: targetFile });
+                const escapedTarget = this.escapeMermaidLabel(targetFile);
+                nodes.add(escapedTarget);
+                edges.push({ from: escapedSource, to: escapedTarget });
             }
         }
+
+        const cycles = this.detectCycles(dependencies);
         // eslint-disable-next-line no-console
-        // console.log(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
+        // logger.debug(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
 
         let truncated = false;
         if (nodes.size > maxNodes) {
@@ -197,6 +226,18 @@ export class MarkdownGenerator implements IGenerator {
         if (truncated) {
             graphLines.push(`    subgraph Warning [Warning: Mermaid graph truncated.]\n    direction LR\n    truncated_message["The number of nodes (${nodes.size}) exceeds the configured limit (${maxNodes})."]
     end`);
+        }
+
+        if (cycles.length > 0) {
+            graphLines.push('    %% Warning: Circular dependencies detected');
+            const displayCycles = cycles.slice(0, 5);
+            for (const cycle of displayCycles) {
+                const cycleText = cycle.join(' -> ');
+                graphLines.push(`    %% ${this.escapeMermaidLabel(cycleText)}`);
+            }
+            if (cycles.length > displayCycles.length) {
+                graphLines.push(`    %% ...and ${cycles.length - displayCycles.length} more`);
+            }
         }
         
         for (const edge of edges) {

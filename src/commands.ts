@@ -8,11 +8,14 @@ import { showInEditor, copyToClipboard, openInChatGPT } from './ui';
 import { Logger } from './utils/logger';
 import { formatFileSize, formatTokenCount } from './utils/fileUtils';
 import { collectChangedFiles, GitNotRepositoryError, GitCliNotFoundError } from './utils/gitUtils';
+import { getExtensionContext } from './extension';
+import { ParserManager } from './services/parserManager';
 
 export class CommandRegistrar {
     private readonly fileOps: FileOperations;
     private readonly logger: Logger;
     private readonly workspaceRoot: string;
+    private firstRunCompleted: boolean = false;
 
     constructor() {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -111,6 +114,12 @@ export class CommandRegistrar {
             const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
             if (!selectedUris.length) {
                 throw new Error(vscode.l10n.t('msg.noSelection'));
+            }
+
+            // 初回実行時のみ簡単な初期化待機
+            if (!this.firstRunCompleted) {
+                await this.waitForInitialization(1000); // 1秒まで待機
+                this.firstRunCompleted = true;
             }
 
             const { content } = await this.processDirectories(selectedUris);
@@ -213,8 +222,14 @@ export class CommandRegistrar {
             defaultUri: vscode.workspace.workspaceFolders[0].uri
         }) || [];
 
-        // URIのfsPathをキーにして一意化
-        return Array.from(new Map(uris.map(uri => [uri.fsPath, uri])).values());
+        // URIのfsPathをキーにして一意化 (最初に現れた順を保持)
+        const uniqueMap = new Map<string, vscode.Uri>();
+        for (const uri of uris) {
+            if (!uniqueMap.has(uri.fsPath)) {
+                uniqueMap.set(uri.fsPath, uri);
+            }
+        }
+        return Array.from(uniqueMap.values());
     }
 
     /**
@@ -318,5 +333,36 @@ export class CommandRegistrar {
             this.logger.error(`エラー: ${error instanceof Error ? error.message : String(error)}`);
             vscode.window.showErrorMessage(`${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    /**
+     * 初期化待機メソッド
+     */
+    private async waitForInitialization(timeoutMs: number): Promise<void> {
+        const startTime = Date.now();
+        
+        while (Date.now() - startTime < timeoutMs) {
+            try {
+                if (!this.fileOps.isPreloadCompleted()) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    continue;
+                }
+
+                const ctx = getExtensionContext();
+                const parserManager = ParserManager.getInstance(ctx);
+                if (!parserManager.isInitialized()) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    continue;
+                }
+
+                this.logger.debug('Initialization wait completed');
+                return;
+            } catch (error) {
+                this.logger.debug(`Initialization wait error: ${error}`);
+                break;
+            }
+        }
+        
+        this.logger.debug('Initialization wait timed out, proceeding anyway');
     }
 } 

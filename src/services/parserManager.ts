@@ -133,9 +133,17 @@ export class ParserManager {
   }
 
   /** Parser.init() を一度だけ呼び出す */
-  private async ensureInit(): Promise<void> {
+  async ensureInit(): Promise<void> {
     if (this.initialized) return;
     await Parser.init();        // ← ここで WASM ランタイムを準備
     this.initialized = true;
+  }
+
+  public isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  public getCachedParserCount(): number {
+    return this.cache.size;
   }
 }

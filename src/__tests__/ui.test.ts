@@ -93,6 +93,23 @@ describe('UI Module', () => {
 
             await expect(copyToClipboard(content)).rejects.toThrow(errorMessage);
         });
+
+        it('1回目のコピーが失敗しても2回目で成功する', async () => {
+            (vscode.env.clipboard.writeText as jest.Mock)
+                .mockRejectedValueOnce(new Error('fail'))
+                .mockResolvedValueOnce(undefined);
+
+            await expect(copyToClipboard(content)).resolves.toBeUndefined();
+            expect((vscode.env.clipboard.writeText as jest.Mock).mock.calls.length).toBe(2);
+        });
+
+        it('すべてのコピー試行が失敗した場合はエラーを投げる', async () => {
+            (vscode.env.clipboard.writeText as jest.Mock)
+                .mockRejectedValue(new Error('fail'));
+
+            await expect(copyToClipboard(content)).rejects.toThrow();
+            expect((vscode.env.clipboard.writeText as jest.Mock).mock.calls.length).toBe(3);
+        });
     });
 
     describe('openInChatGPT', () => {

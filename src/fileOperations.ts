@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import { FileInfo, DirectoryInfo, ScanOptions } from './types/fileTypes';
 import { minimatch } from 'minimatch';
 import { DirectoryNotFoundError, FileSizeLimitError, ScanError } from './errors/errors';
@@ -21,6 +22,7 @@ export class FileOperations {
     private vscodeignoreNegatedPatterns: string[] = [];
     private vscodeignoreLoaded: boolean = false;
     private vscodeignoreWatcher: vscode.FileSystemWatcher | undefined;
+    private preloadCompleted: boolean = false;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -29,6 +31,13 @@ export class FileOperations {
         this.setupGitignoreWatcher();
         // .vscodeignoreファイルの変更を監視するwatcherを作成
         this.setupVscodeignoreWatcher();
+        
+        // ★ バックグラウンドで事前読み込みをスケジュール
+        setTimeout(() => {
+            this.preloadConfigFiles().catch(error => {
+                this.logger.debug(`Preload failed: ${error}`);
+            });
+        }, 1000);
     }
 
     /**
@@ -129,6 +138,16 @@ export class FileOperations {
         this.currentSelectedPath = path;
     }
 
+    private async readFileContentStream(filePath: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            let data = '';
+            const stream = createReadStream(filePath, { encoding: 'utf-8' });
+            stream.on('data', chunk => { data += chunk; });
+            stream.on('end', () => resolve(data));
+            stream.on('error', err => reject(err));
+        });
+    }
+
     async scanDirectory(targetPath: string, options: ScanOptions): Promise<DirectoryInfo> {
         try {
             // .gitignoreパターンを読み込む（初回のみ）
@@ -156,8 +175,8 @@ export class FileOperations {
                 }
 
                 // バイナリファイルのチェック
-                const buffer = await fs.readFile(absolutePath);
-                if (isBinaryFile(buffer)) {
+                const content = await this.readFileContentStream(absolutePath);
+                if (isBinaryFile(content)) {
                     this.logger.info(`バイナリファイルをスキップ: ${relativePath}`);
                     return {
                         uri: vscode.Uri.file(path.dirname(absolutePath)),
@@ -167,14 +186,13 @@ export class FileOperations {
                     };
                 }
 
-                const content = buffer.toString('utf-8');
                 const language = this.detectLanguage(path.basename(absolutePath));
                 let imports: string[] | undefined;
                 if (options.includeDependencies) {
                     try {
                         imports = await scanDependencies(absolutePath, content, language);
                     } catch (scanError) {
-                        this.logger.warn(`Failed to scan dependencies for ${relativePath}: ${extractErrorMessage(scanError)}`);
+                        this.logger.error(`Failed to scan dependencies for ${relativePath}: ${extractErrorMessage(scanError)}`);
                         imports = []; // エラー時は空配列として処理を継続
                     }
                 }
@@ -231,20 +249,19 @@ export class FileOperations {
                         }
 
                         // バイナリファイルのチェック
-                        const buffer = await fs.readFile(entryPath);
-                        if (isBinaryFile(buffer)) {
+                        const content = await this.readFileContentStream(entryPath);
+                        if (isBinaryFile(content)) {
                             this.logger.info(`バイナリファイルをスキップ: ${entryRelativePath}`);
                             continue;
                         }
 
-                        const content = buffer.toString('utf-8');
                         const language = this.detectLanguage(entryNameString);
                         let imports: string[] | undefined;
                         if (options.includeDependencies) {
                             try {
                                 imports = await scanDependencies(entryPath, content, language);
                             } catch (scanError) {
-                                this.logger.warn(`Failed to scan dependencies for ${entryRelativePath}: ${extractErrorMessage(scanError)}`);
+                                this.logger.error(`Failed to scan dependencies for ${entryRelativePath}: ${extractErrorMessage(scanError)}`);
                                 imports = []; // エラー時は空配列として処理を継続
                             }
                         }
@@ -383,7 +400,32 @@ export class FileOperations {
         return false;
     }
 
-    private async loadGitignorePatterns(): Promise<void> {
+    /**
+     * 事前読み込み処理
+     */
+    public async preloadConfigFiles(): Promise<void> {
+        if (this.preloadCompleted) return;
+        
+        try {
+            this.logger.debug('Starting config files preload...');
+            
+            await Promise.all([
+                this.loadGitignorePatterns(),
+                this.loadVscodeignorePatterns()
+            ]);
+            
+            this.preloadCompleted = true;
+            this.logger.debug('Config files preload completed');
+        } catch (error) {
+            this.logger.debug(`Config files preload failed: ${error}`);
+        }
+    }
+
+    public isPreloadCompleted(): boolean {
+        return this.preloadCompleted;
+    }
+
+    public async loadGitignorePatterns(): Promise<void> {
         try {
             const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
             try {
@@ -400,17 +442,17 @@ export class FileOperations {
                     .filter(line => line.startsWith('!'))
                     .map(line => line.substring(1)); // 先頭の「!」を除去
                 
-                this.logger.info(`${this.gitignorePatterns.length}件の.gitignoreパターンと${this.gitignoreNegatedPatterns.length}件の否定パターンを読み込みました`);
+                this.logger.debug(`${this.gitignorePatterns.length}件の.gitignoreパターンと${this.gitignoreNegatedPatterns.length}件の否定パターンを読み込みました`);
             } catch (error) {
                 // .gitignoreファイルが存在しなくてもエラーにはしない
-                this.logger.info(`.gitignoreファイルが見つかりません: ${error instanceof Error ? error.message : String(error)}`);
+                this.logger.debug(`.gitignoreファイルが見つかりません: ${error instanceof Error ? error.message : String(error)}`);
             }
         } finally {
             this.gitignoreLoaded = true;
         }
     }
 
-    private async loadVscodeignorePatterns(): Promise<void> {
+    public async loadVscodeignorePatterns(): Promise<void> {
         try {
             const vscodeignorePath = path.join(this.workspaceRoot, '.vscodeignore');
             try {
@@ -427,16 +469,16 @@ export class FileOperations {
                     .map(line => line.substring(1)); // 先頭の「!」を除去
                 
                 this.vscodeignoreLoaded = true;
-                this.logger.info(`.vscodeignoreから${this.vscodeignorePatterns.length}個のパターンと${this.vscodeignoreNegatedPatterns.length}個の否定パターンを読み込みました`);
+                this.logger.debug(`.vscodeignoreから${this.vscodeignorePatterns.length}個のパターンと${this.vscodeignoreNegatedPatterns.length}個の否定パターンを読み込みました`);
             } catch (error) {
                 // ファイルが存在しない場合は空の配列を設定
                 this.vscodeignorePatterns = [];
                 this.vscodeignoreNegatedPatterns = [];
                 this.vscodeignoreLoaded = true;
-                this.logger.info('.vscodeignoreファイルが見つかりませんでした');
+                this.logger.debug('.vscodeignoreファイルが見つかりませんでした');
             }
         } catch (error) {
-            this.logger.error(`.vscodeignoreの読み込み中にエラーが発生しました: ${extractErrorMessage(error)}`);
+            this.logger.debug(`.vscodeignoreの読み込み中にエラーが発生しました: ${extractErrorMessage(error)}`);
             // エラーが発生した場合でも、次回の処理で再試行できるようにフラグをリセットしない
             this.vscodeignorePatterns = [];
             this.vscodeignoreNegatedPatterns = [];

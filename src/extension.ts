@@ -22,6 +22,13 @@ export function activate(context: vscode.ExtensionContext) {
     
     commandRegistrar = new CommandRegistrar();
     
+    // ★ バックグラウンド初期化を開始（2秒後）
+    setTimeout(() => {
+        runBackgroundInitialization(context).catch(error => {
+            logger.debug(`Background initialization failed: ${error}`);
+        });
+    }, 2000);
+    
     // 設定の初期状態を反映
     const config = vscode.workspace.getConfiguration('matomeru');
     vscode.commands.executeCommand('setContext', 'matomeru.chatGptIntegration', config.get('chatGptIntegration'));
@@ -137,4 +144,77 @@ export function deactivate() {
     }
     
     logger.dispose();
+}
+
+// ★ バックグラウンド初期化関数群を追加
+async function runBackgroundInitialization(context: vscode.ExtensionContext): Promise<void> {
+    logger.info('Starting background initialization...');
+    
+    try {
+        // ステップ1: Tree-sitter初期化
+        await initializeTreeSitter(context);
+        
+        // ステップ2: 設定ファイル事前読み込み
+        await scheduleIdleTask(() => preloadConfigFiles());
+        
+        // ステップ3: よく使われる言語のパーサーを事前読み込み
+        await scheduleIdleTask(() => preloadCommonParsers(context));
+        
+        logger.info('Background initialization completed');
+    } catch (error) {
+        logger.debug(`Background initialization error: ${error}`);
+    }
+}
+
+async function initializeTreeSitter(context: vscode.ExtensionContext): Promise<void> {
+    try {
+        const parserManager = ParserManager.getInstance(context);
+        await (parserManager as any).ensureInit();
+        logger.debug('Tree-sitter initialized');
+    } catch (error) {
+        logger.debug(`Tree-sitter initialization failed: ${error}`);
+    }
+}
+
+async function preloadConfigFiles(): Promise<void> {
+    if (!commandRegistrar) return;
+    
+    try {
+        const fileOps = (commandRegistrar as any).fileOps;
+        if (fileOps && typeof fileOps.preloadConfigFiles === 'function') {
+            await fileOps.preloadConfigFiles();
+            logger.debug('Config files preloaded');
+        }
+    } catch (error) {
+        logger.debug(`Config files preload failed: ${error}`);
+    }
+}
+
+async function preloadCommonParsers(context: vscode.ExtensionContext): Promise<void> {
+    const commonLanguages = ['javascript', 'typescript', 'python', 'go'];
+    const parserManager = ParserManager.getInstance(context);
+    
+    for (const lang of commonLanguages) {
+        try {
+            await parserManager.getParser(lang);
+            logger.debug(`Parser for ${lang} preloaded`);
+            // 各パーサー読み込み間に少し間隔を空ける
+            await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+            logger.debug(`Failed to preload parser for ${lang}: ${error}`);
+        }
+    }
+}
+
+async function scheduleIdleTask(task: () => Promise<void>): Promise<void> {
+    return new Promise((resolve) => {
+        setImmediate(async () => {
+            try {
+                await task();
+            } catch (error) {
+                logger.debug(`Idle task failed: ${error}`);
+            }
+            resolve();
+        });
+    });
 }

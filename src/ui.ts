@@ -35,24 +35,33 @@ export async function showInEditor(content: string, language: 'markdown' | 'yaml
 }
 
 export async function copyToClipboard(content: string): Promise<void> {
-    try {
-        await vscode.env.clipboard.writeText(content);
-        
-        const { formattedSize, tokens } = calculateContentMetrics(content);
-        const formattedTokens = formatTokenCount(tokens);
-        
-        vscode.window.showInformationMessage(
-            content.length === 0
-                ? vscode.l10n.t('msg.clipboardCopySuccess')
-                : vscode.l10n.t('msg.clipboardCopySuccessWithSize', formattedSize, formattedTokens)
-        );
-        
-        logger.info('クリップボードにコピーしました');
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error(vscode.l10n.t('msg.clipboardError', errorMessage));
-        throw new ClipboardError(errorMessage);
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            await vscode.env.clipboard.writeText(content);
+
+            const { formattedSize, tokens } = calculateContentMetrics(content);
+            const formattedTokens = formatTokenCount(tokens);
+
+            vscode.window.showInformationMessage(
+                content.length === 0
+                    ? vscode.l10n.t('msg.clipboardCopySuccess')
+                    : vscode.l10n.t('msg.clipboardCopySuccessWithSize', formattedSize, formattedTokens)
+            );
+
+            logger.info('クリップボードにコピーしました');
+            return;
+        } catch (error) {
+            lastError = error;
+            if (attempt < 3) {
+                await new Promise((r) => setTimeout(r, 100));
+            }
+        }
     }
+
+    const errorMessage = lastError instanceof Error ? lastError.message : String(lastError);
+    logger.error(vscode.l10n.t('msg.clipboardError', errorMessage));
+    throw new ClipboardError(errorMessage);
 }
 
 export async function openInChatGPT(content: string): Promise<void> {
