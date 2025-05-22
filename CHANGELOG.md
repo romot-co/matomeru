@@ -4,6 +4,10 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.0.15] - 2025-??-??
+### Improved
+- コピー操作を最大3回再試行することで、クリップボードへのコピー信頼性を向上
+
 ## [0.0.14] - 2024-05-11
 ### 追加
 - **依存関係の分析と可視化**:
