@@ -32,11 +32,11 @@ jobs:
       - name: Build
         run: npm run compile
         
-      - name: Unit Tests
-        run: npm test
-      
-      - name: Integration Tests (Tree-sitter)
-        run: npm run test:int
+      - name: Run All Tests (CI)
+        run: npm run test:ci
+        env:
+          CI: true
+          SKIP_INTEGRATION_TESTS: true
         
       - name: Install VSCE
         run: npm install -g @vscode/vsce

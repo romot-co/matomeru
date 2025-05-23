@@ -29,6 +29,7 @@ jest.mock('../utils/logger', () => ({
             info: jest.fn(),
             warn: jest.fn(),
             error: jest.fn(),
+            debug: jest.fn(),
             dispose: jest.fn()
         })
     }
@@ -83,7 +84,7 @@ describe('Extension Activation', () => {
         (vscode as any).workspace.fs.stat = mockStat;
         (vscode as any).workspace.openTextDocument = mockCreateTextDocument;
         (vscode as any).workspace.workspaceFolders = [{
-            uri: vscode.Uri.file('/test/workspace'),
+            uri: { fsPath: '/test/workspace' },
             name: 'test',
             index: 0
         }];
@@ -195,4 +196,109 @@ describe('Extension Activation', () => {
             // expect(mockRegisterCommand).toHaveBeenCalledWith('matomeru.diffToChatGPT', expect.any(Function));
         });
     });
+
+    describe('設定変更監視', () => {
+        test('matomeru.includeDependencies設定変更時にログが記録されること', async () => {
+            await activate(mockContext);
+            const configChangeCallback = mockOnDidChangeConfiguration.mock.calls[0][0];
+            
+            mockGetConfiguration.mockReturnValue({
+                get: jest.fn().mockReturnValue(true)
+            });
+            
+            const fakeEvent = { 
+                affectsConfiguration: (key: string) => key === 'matomeru.includeDependencies'
+            } as any;
+            
+            const logSpy = jest.spyOn(console, 'log').mockImplementation();
+            configChangeCallback(fakeEvent);
+            logSpy.mockRestore();
+            
+            expect(mockGetConfiguration).toHaveBeenCalledWith('matomeru');
+        });
+
+        test('matomeru.mermaid.maxNodes設定変更時にログが記録されること', async () => {
+            await activate(mockContext);
+            const configChangeCallback = mockOnDidChangeConfiguration.mock.calls[0][0];
+            
+            mockGetConfiguration.mockReturnValue({
+                get: jest.fn().mockReturnValue(500)
+            });
+            
+            const fakeEvent = { 
+                affectsConfiguration: (key: string) => key === 'matomeru.mermaid.maxNodes'
+            } as any;
+            
+            const logSpy = jest.spyOn(console, 'log').mockImplementation();
+            configChangeCallback(fakeEvent);
+            logSpy.mockRestore();
+            
+            expect(mockGetConfiguration).toHaveBeenCalledWith('matomeru');
+        });
+
+        test('matomeru.outputFormat設定変更時にログが記録されること', async () => {
+            await activate(mockContext);
+            const configChangeCallback = mockOnDidChangeConfiguration.mock.calls[0][0];
+            
+            mockGetConfiguration.mockReturnValue({
+                get: jest.fn().mockReturnValue('yaml')
+            });
+            
+            const fakeEvent = { 
+                affectsConfiguration: (key: string) => key === 'matomeru.outputFormat'
+            } as any;
+            
+            const logSpy = jest.spyOn(console, 'log').mockImplementation();
+            configChangeCallback(fakeEvent);
+            logSpy.mockRestore();
+            
+            expect(mockGetConfiguration).toHaveBeenCalledWith('matomeru');
+        });
+    });
+
+    describe('deactivate', () => {
+        test('拡張機能の非活性化が正しく実行されること', async () => {
+            // まず拡張機能をactivate
+            await activate(mockContext);
+            
+            // 6つのコマンドが登録されていることを確認
+            expect(mockContext.subscriptions).toHaveLength(6);
+            
+            // deactivateを実行
+            const extensionModule = await import('../extension');
+            extensionModule.deactivate();
+            
+            // deactivateが正常に実行されることを確認（エラーが投げられない）
+            expect(true).toBe(true);
+        });
+    });
+
+    describe('バックグラウンド初期化', () => {
+        test('バックグラウンド初期化が実行されること', async () => {
+            // activateを実行すると2秒後にバックグラウンド初期化が開始される
+            await activate(mockContext);
+            
+            // activateが完了していることを確認
+            expect(mockContext.subscriptions).toHaveLength(6);
+        });
+    });
+
+    describe('コマンド登録処理', () => {
+        test('activateが正常に完了すること', async () => {
+            await activate(mockContext);
+            
+            // 6つのコマンドが登録されていることを確認
+            expect(mockRegisterCommand).toHaveBeenCalledTimes(5);
+            expect(mockContext.subscriptions).toHaveLength(6);
+        });
+    });
+});
+
+// タイマーを有効にする
+beforeAll(() => {
+    jest.useFakeTimers();
+});
+
+afterAll(() => {
+    jest.useRealTimers();
 });

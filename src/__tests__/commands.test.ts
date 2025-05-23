@@ -41,6 +41,21 @@ jest.mock('../utils/fileUtils', () => ({
   formatTokenCount: jest.fn().mockReturnValue('256')
 }));
 
+jest.mock('../extension', () => ({
+  getExtensionContext: jest.fn()
+}));
+
+jest.mock('../services/parserManager', () => ({
+  ParserManager: {
+    getInstance: jest.fn().mockReturnValue({
+      isInitialized: jest.fn().mockReturnValue(true),
+      ensureInit: jest.fn(),
+      getParser: jest.fn(),
+      dispose: jest.fn()
+    })
+  }
+}));
+
 describe('CommandRegistrar', () => {
   let commandRegistrar: CommandRegistrar;
   let mockFileOps: jest.Mocked<FileOperations>;
@@ -59,7 +74,11 @@ describe('CommandRegistrar', () => {
       estimateDirectorySize: jest.fn(),
       setCurrentSelectedPath: jest.fn(),
       dispose: jest.fn(),
-      processFileList: jest.fn(), 
+      processFileList: jest.fn(),
+      isPreloadCompleted: jest.fn().mockReturnValue(true),
+      preloadConfigFiles: jest.fn(),
+      loadGitignorePatterns: jest.fn(),
+      loadVscodeignorePatterns: jest.fn(),
     } as any as jest.Mocked<FileOperations>; 
     
     // ファクトリ関数が参照する変数に代入
@@ -70,6 +89,7 @@ describe('CommandRegistrar', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      debug: jest.fn(),
     } as unknown as jest.Mocked<Logger>;
 
     (Logger.getInstance as jest.Mock).mockReturnValue(mockLogger);
@@ -229,6 +249,9 @@ describe('CommandRegistrar', () => {
     });
 
     test('URIが指定された場合、クリップボードにコピーされること', async () => {
+      // preloadCompletedをtrueにして初期化待機をスキップ
+      mockFileOps.isPreloadCompleted.mockReturnValue(true);
+      
       await commandRegistrar.processToClipboard(mockUri);
 
       expect(mockFileOps.scanDirectory).toHaveBeenCalled();
@@ -237,6 +260,9 @@ describe('CommandRegistrar', () => {
     });
 
     test('クリップボードへのコピーに失敗した場合、エラーが記録されること', async () => {
+      // preloadCompletedをtrueにして初期化待機をスキップ
+      mockFileOps.isPreloadCompleted.mockReturnValue(true);
+      
       const clipboardError = new Error('Clipboard error');
       (ui.copyToClipboard as jest.MockedFunction<typeof ui.copyToClipboard>).mockRejectedValue(clipboardError);
 

@@ -8,6 +8,7 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/__tests__/**',
+    '!src/__integration__/**',
     '!**/node_modules/**',
   ],
   transform: {

@@ -1,14 +1,5 @@
-// TreesitterのParser型をimportして使用していないが、
-// setup.integration.tsでParser.init()が実行されることを確認するために残しておく
-// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unused-vars
-// const _Parser = require('web-tree-sitter');
-// import Parser, { Language } from 'web-tree-sitter'; 
 import * as vscode from 'vscode';
-// import * as path from 'path'; // path は使われなくなったので削除
-// import * as fs from 'fs'; 
 import { stripComments } from '../utils/compressUtils';
-// import { ParserManager } from '../services/parserManager'; 
-// import { getExtensionContext } from '../extension'; 
 
 describe('stripComments – integration (mocked parser)', () => {
   const ctx = {

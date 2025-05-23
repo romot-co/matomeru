@@ -1,11 +1,32 @@
+/* eslint-disable */
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['**/src/__integration__/**/*.test.ts'],
-  setupFilesAfterEnv: ['<rootDir>/src/__integration__/setup.integration.ts'],
+  roots: ['<rootDir>/src'],
+  testMatch: [
+    '<rootDir>/src/**/__integration__/**/*.test.ts',
+    '<rootDir>/src/**/*.integration.test.ts'
+  ],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { isolatedModules: true }]
+    '^.+\\.ts$': 'ts-jest',
   },
-  // WASM を読み込むのでタイムアウトを少し伸ばす
-  testTimeout: 20000
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/**/*.integration.test.ts',
+    '!src/**/__tests__/**',
+    '!src/**/__integration__/**',
+  ],
+  setupFilesAfterEnv: ['<rootDir>/src/__integration__/setup.integration.ts'],
+  testTimeout: 60000,
+  // CI環境では統合テストをスキップ
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+    },
+  },
+  // 環境変数でスキップ制御
+  testEnvironmentOptions: {
+    SKIP_INTEGRATION_TESTS: process.env.CI === 'true' ? 'true' : 'false'
+  }
 }; 

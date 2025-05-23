@@ -1,9 +1,34 @@
 import * as vscode from 'vscode';
 import { DirectoryStructure } from '../directoryStructure';
-import { DirectoryInfo } from '../types/fileTypes';
+import { DirectoryInfo, FileInfo } from '../types/fileTypes';
 import { ConfigService } from '../services/configService';
+import { describe, expect, beforeEach } from '@jest/globals';
 
 jest.mock('../services/configService');
+
+// VSCode APIのモック
+jest.mock('vscode', () => ({
+  Uri: {
+    file: jest.fn((path: string) => ({ fsPath: path }))
+  }
+}));
+
+// ConfigServiceのモック
+jest.mock('../services/configService', () => ({
+  ConfigService: {
+    getInstance: jest.fn(() => ({
+      getConfig: jest.fn(() => ({
+        directoryStructure: {
+          directoryIcon: '📁',
+          fileIcon: '📄',
+          indentSize: 2,
+          showFileExtensions: true,
+          useEmoji: true
+        }
+      }))
+    }))
+  }
+}));
 
 describe('DirectoryStructure', () => {
     let directoryStructure: DirectoryStructure;
@@ -25,9 +50,132 @@ describe('DirectoryStructure', () => {
         directoryStructure = new DirectoryStructure();
     });
 
-    it('空のディレクトリリストに対して空文字列を返す', () => {
-        const result = directoryStructure.generate([]);
-        expect(result).toBe('');
+    const createFileInfo = (relativePath: string): FileInfo => ({
+        uri: vscode.Uri.file(`/workspace/${relativePath}`),
+        relativePath,
+        content: `// Content of ${relativePath}`,
+        language: 'typescript',
+        size: 100
+    });
+
+    const createDirectoryInfo = (
+        relativePath: string, 
+        files: FileInfo[] = [], 
+        subdirs: Map<string, DirectoryInfo> = new Map()
+    ): DirectoryInfo => ({
+        uri: vscode.Uri.file(`/workspace/${relativePath}`),
+        relativePath,
+        files,
+        directories: subdirs
+    });
+
+    describe('ディレクトリマージ機能', () => {
+        it('2つの異なるディレクトリを正しくマージすること', () => {
+            const dir1 = createDirectoryInfo('src', [createFileInfo('src/app.ts')]);
+            const dir2 = createDirectoryInfo('tests', [createFileInfo('tests/app.test.ts')]);
+            
+            const result = directoryStructure.generate([dir1, dir2]);
+            
+            expect(result).toContain('📁 .');
+            expect(result).toContain('📄 app.ts');
+            expect(result).toContain('📄 app.test.ts');
+        });
+
+        it('同じディレクトリ内でファイルが重複しないこと', () => {
+            const file1 = createFileInfo('src/utils.ts');
+            const file2 = createFileInfo('src/utils.ts'); // 同じファイル
+            
+            const dir1 = createDirectoryInfo('src', [file1]);
+            const dir2 = createDirectoryInfo('src', [file2]);
+            
+            const result = directoryStructure.generate([dir1, dir2]);
+            
+            // utils.tsが1回だけ出現することを確認
+            const utilsMatches = result.match(/utils\.ts/g);
+            expect(utilsMatches).toHaveLength(1);
+        });
+
+        it('ネストしたディレクトリを正しくマージすること', () => {
+            const nestedSubdir = new Map<string, DirectoryInfo>();
+            nestedSubdir.set('nested', createDirectoryInfo('src/utils/nested', [
+                createFileInfo('src/utils/nested/deep.ts')
+            ]));
+            
+            const utilsSubdir = new Map<string, DirectoryInfo>();
+            utilsSubdir.set('utils', createDirectoryInfo('src/utils', [
+                createFileInfo('src/utils/helper.ts')
+            ], nestedSubdir));
+            
+            const dir1 = createDirectoryInfo('src', [createFileInfo('src/index.ts')], utilsSubdir);
+            const dir2 = createDirectoryInfo('src', [createFileInfo('src/main.ts')]);
+            
+            const result = directoryStructure.generate([dir1, dir2]);
+            
+            expect(result).toContain('📄 index.ts');
+            expect(result).toContain('📄 main.ts');
+            expect(result).toContain('📄 helper.ts');
+            expect(result).toContain('📄 deep.ts');
+        });
+
+        it('異なる深度のディレクトリパスを正しく処理すること', () => {
+            const dir1 = createDirectoryInfo('', [createFileInfo('root.ts')]);
+            const dir2 = createDirectoryInfo('src/components', [createFileInfo('src/components/Button.tsx')]);
+            
+            const result = directoryStructure.generate([dir1, dir2]);
+            
+            expect(result).toContain('📄 root.ts');
+            expect(result).toContain('📄 Button.tsx');
+            expect(result).toContain('📁 src');
+            expect(result).toContain('📁 components');
+        });
+    });
+
+    describe('ファイル表示オプション', () => {
+        it('ファイル拡張子を表示すること（デフォルト）', () => {
+            const dir = createDirectoryInfo('src', [createFileInfo('src/app.ts')]);
+            
+            const result = directoryStructure.generate([dir]);
+            
+            expect(result).toContain('📄 app.ts');
+        });
+
+        it('アルファベット順でファイルをソートすること', () => {
+            const files = [
+                createFileInfo('src/zebra.ts'),
+                createFileInfo('src/alpha.ts'),
+                createFileInfo('src/beta.ts')
+            ];
+            const dir = createDirectoryInfo('src', files);
+            
+            const result = directoryStructure.generate([dir]);
+            
+            const lines = result.split('\n');
+            const alphaIndex = lines.findIndex(line => line.includes('alpha.ts'));
+            const betaIndex = lines.findIndex(line => line.includes('beta.ts'));
+            const zebraIndex = lines.findIndex(line => line.includes('zebra.ts'));
+            
+            expect(alphaIndex).toBeLessThan(betaIndex);
+            expect(betaIndex).toBeLessThan(zebraIndex);
+        });
+
+        it('ディレクトリもアルファベット順でソートすること', () => {
+            const subDirs = new Map<string, DirectoryInfo>();
+            subDirs.set('zebra', createDirectoryInfo('zebra'));
+            subDirs.set('alpha', createDirectoryInfo('alpha'));
+            subDirs.set('beta', createDirectoryInfo('beta'));
+            
+            const dir = createDirectoryInfo('', [], subDirs);
+            
+            const result = directoryStructure.generate([dir]);
+            
+            const lines = result.split('\n');
+            const alphaIndex = lines.findIndex(line => line.includes('📁 alpha'));
+            const betaIndex = lines.findIndex(line => line.includes('📁 beta'));
+            const zebraIndex = lines.findIndex(line => line.includes('📁 zebra'));
+            
+            expect(alphaIndex).toBeLessThan(betaIndex);
+            expect(betaIndex).toBeLessThan(zebraIndex);
+        });
     });
 
     it('単一のディレクトリを正しく表示する', () => {
@@ -450,4 +598,133 @@ describe('DirectoryStructure', () => {
         expect(lines[srcIndex + 1]).toContain('📄 index.ts');
         expect(lines[docsIndex + 1]).toContain('📄 README.md');
     });
-}); 
+
+    describe('エッジケース', () => {
+        it('空のディレクトリリストを処理すること', () => {
+            const result = directoryStructure.generate([]);
+            
+            expect(result).toBe('');
+        });
+
+        it('空のディレクトリを処理すること', () => {
+            const dir = createDirectoryInfo('empty');
+            
+            const result = directoryStructure.generate([dir]);
+            
+            expect(result).toContain('📁 .');
+            expect(result).toContain('📁 empty');
+        });
+
+        it('ルートディレクトリ（"."）を正しく処理すること', () => {
+            const dir = createDirectoryInfo('.', [createFileInfo('README.md')]);
+            
+            const result = directoryStructure.generate([dir]);
+            
+            expect(result).toContain('📁 .');
+            expect(result).toContain('📄 README.md');
+        });
+
+        it('複雑なディレクトリ構造を正しくインデントすること', () => {
+            const deepNested = new Map<string, DirectoryInfo>();
+            deepNested.set('level3', createDirectoryInfo('src/level1/level2/level3', [
+                createFileInfo('src/level1/level2/level3/deep.ts')
+            ]));
+            
+            const level2 = new Map<string, DirectoryInfo>();
+            level2.set('level2', createDirectoryInfo('src/level1/level2', [], deepNested));
+            
+            const level1 = new Map<string, DirectoryInfo>();
+            level1.set('level1', createDirectoryInfo('src/level1', [], level2));
+            
+            const dir = createDirectoryInfo('src', [], level1);
+            
+            const result = directoryStructure.generate([dir]);
+            
+            // インデントレベルをチェック
+            const lines = result.split('\n');
+            const srcLine = lines.find(line => line.includes('📁 src'));
+            const level1Line = lines.find(line => line.includes('📁 level1'));
+            const level2Line = lines.find(line => line.includes('📁 level2'));
+            const level3Line = lines.find(line => line.includes('📁 level3'));
+            const deepFile = lines.find(line => line.includes('📄 deep.ts'));
+            
+            expect(srcLine).toBeDefined();
+            expect(level1Line).toBeDefined();
+            expect(level2Line).toBeDefined();
+            expect(level3Line).toBeDefined();
+            expect(deepFile).toBeDefined();
+            
+            // インデントの深さを確認（各レベルで2スペースずつ増加）
+            const getIndentLevel = (line: string) => {
+                const match = line.match(/^(\s*)/);
+                return match ? match[1].length : 0;
+            };
+            
+            if (srcLine && level1Line && level2Line && level3Line && deepFile) {
+                expect(getIndentLevel(level1Line)).toBeGreaterThan(getIndentLevel(srcLine!));
+                expect(getIndentLevel(level2Line)).toBeGreaterThan(getIndentLevel(level1Line));
+                expect(getIndentLevel(level3Line)).toBeGreaterThan(getIndentLevel(level2Line));
+                expect(getIndentLevel(deepFile)).toBeGreaterThan(getIndentLevel(level3Line));
+            }
+        });
+
+        it('特殊文字を含むファイル名を正しく処理すること', () => {
+            const files = [
+                createFileInfo('src/file with spaces.ts'),
+                createFileInfo('src/file-with-dashes.js'),
+                createFileInfo('src/file_with_underscores.py'),
+                createFileInfo('src/file.with.dots.json')
+            ];
+            const dir = createDirectoryInfo('src', files);
+            
+            const result = directoryStructure.generate([dir]);
+            
+            expect(result).toContain('📄 file with spaces.ts');
+            expect(result).toContain('📄 file-with-dashes.js');
+            expect(result).toContain('📄 file_with_underscores.py');
+            expect(result).toContain('📄 file.with.dots.json');
+        });
+    });
+
+    describe('ディレクトリマージの詳細テスト', () => {
+        it('複数のDirectoryInfoが同じ相対パスを持つ場合に正しくマージすること', () => {
+            const file1 = createFileInfo('shared/utils.ts');
+            const file2 = createFileInfo('shared/config.ts');
+            
+            const dir1 = createDirectoryInfo('shared', [file1]);
+            const dir2 = createDirectoryInfo('shared', [file2]);
+            
+            const result = directoryStructure.generate([dir1, dir2]);
+            
+            expect(result).toContain('📄 utils.ts');
+            expect(result).toContain('📄 config.ts');
+            
+            // ファイルが正しく含まれていることを確認
+            expect(result).toContain('📄 utils.ts');
+            expect(result).toContain('📄 config.ts');
+        });
+
+        it('サブディレクトリの競合を正しく解決すること', () => {
+            const commonSubdir1 = new Map<string, DirectoryInfo>();
+            commonSubdir1.set('common', createDirectoryInfo('src/common', [
+                createFileInfo('src/common/types.ts')
+            ]));
+            
+            const commonSubdir2 = new Map<string, DirectoryInfo>();
+            commonSubdir2.set('common', createDirectoryInfo('src/common', [
+                createFileInfo('src/common/utils.ts')
+            ]));
+            
+            const dir1 = createDirectoryInfo('src', [createFileInfo('src/app.ts')], commonSubdir1);
+            const dir2 = createDirectoryInfo('src', [createFileInfo('src/main.ts')], commonSubdir2);
+            
+            const result = directoryStructure.generate([dir1, dir2]);
+            
+            expect(result).toContain('📄 app.ts');
+            expect(result).toContain('📄 main.ts');
+            expect(result).toContain('📄 types.ts');
+            expect(result).toContain('📄 utils.ts');
+            expect(result).toContain('📁 common');
+        });
+    });
+});

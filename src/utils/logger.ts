@@ -66,9 +66,11 @@ export class Logger {
 
     /**
      * 出力チャンネルを非表示
+     * 注意: VSCode API では hide() は利用できないため、何もしない
      */
     hide(): void {
-        this.outputChannel.hide();
+        // VSCode API のOutputChannelにはhideメソッドが存在しないため、何もしない
+        // ユーザーが手動でチャンネルを非表示にする必要がある
     }
 
     /**

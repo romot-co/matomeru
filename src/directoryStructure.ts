@@ -21,7 +21,12 @@ export class DirectoryStructure {
         for (const dir of dirs) {
             // もし dir.relativePath が空または '.' ならファイルを root に追加
             if (!dir.relativePath || dir.relativePath === '.') {
-                root.files.push(...dir.files);
+                // ファイルの重複を避けてマージ
+                for (const file of dir.files) {
+                    if (!root.files.find(f => f.relativePath === file.relativePath)) {
+                        root.files.push(file);
+                    }
+                }
                 // ルート直下のサブディレクトリもマージ
                 for (const [name, subDir] of dir.directories) {
                     if (root.directories.has(name)) {
@@ -48,7 +53,11 @@ export class DirectoryStructure {
                     current = current.directories.get(part)!;
                 }
                 // 最終ディレクトリにファイルとサブディレクトリをマージ
-                current.files.push(...dir.files);
+                for (const file of dir.files) {
+                    if (!current.files.find(f => f.relativePath === file.relativePath)) {
+                        current.files.push(file);
+                    }
+                }
                 for (const [name, subDir] of dir.directories) {
                     if (current.directories.has(name)) {
                         current.directories.set(name, this.mergeTwoDirectoryInfos(current.directories.get(name)!, subDir));

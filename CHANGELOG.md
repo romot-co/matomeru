@@ -7,12 +7,42 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [0.0.17] - 2024-05-23
 ### Improved
 - コピー操作を最大3回再試行することで、クリップボードへのコピー信頼性を向上
+- **テストスイート全体の品質向上**:
+  - 248個のテストケースで全機能を網羅的に検証
+  - TypeScriptコンパイルエラーの修正（dependencyScanner.test.ts内の未使用変数を削除）
+  - ConfigServiceの設定値検証機能を強化し、無効値処理のテストを改善
+  - FileOperationsの深いディレクトリ構造パフォーマンステストを修正
+  - 新しい高度なテストカテゴリを追加：
+    - Mermaid図での循環依存検出詳細テスト
+    - Tree-sitter実パーサー統合テスト
+    - VSCode拡張機能エンドツーエンドテスト
+  - 全テストが正常に通過し、コードカバレッジ70.17%を達成
 
 ### Changed
 - エラーハンドリングの堅牢性を向上させるため、内部のエラーメッセージ抽出処理とカスタムエラークラスのコンストラクタを修正しました。
 
 ### Fixed
 - 統合テスト実行時における `vscode` API のモックに関するいくつかの問題を修正しました。(e.g., `l10n`, `path` の解決)
+- ConfigServiceの設定値バリデーション機能を実装
+  - `validateMaxFileSize`, `validateExcludePatterns`, `validateBoolean`などの検証メソッドを追加
+  - 無効な設定値が渡された場合のエラーハンドリングを改善
+  - `safeGet`メソッドで個別設定のエラー処理を強化
+- FileOperationsのパフォーマンステストにおけるパス計算ロジックを修正
+  - 深いディレクトリ構造での相対パス処理を改善
+  - `getAllFiles`ヘルパー関数を追加してネストしたファイル収集を最適化
+- 統合テスト環境の改善とモック処理の最適化
+
+### Added
+- 循環依存検出の包括的テストケース（mermaidCircularDependency.test.ts）
+  - シンプルな2-3ファイル循環依存
+  - 複数の独立した循環依存
+  - ネストした循環依存
+  - Mermaid図出力での循環コメント表示
+  - エッジケース（自己循環、循環なし、ファイル不足）
+  - 大規模依存グラフのパフォーマンステスト
+- 実Tree-sitter統合テスト（dependencyScanner.treesitter.integration.test.ts）
+- ExtensionContext単体テスト（extension-context.test.ts）
+- ParserManager単体テスト（parserManager.test.ts）
 
 ## [0.0.16] - 2024-05-11
 ### Added

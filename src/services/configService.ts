@@ -33,30 +33,82 @@ export class ConfigService {
     }
 
     private loadConfig(): MatomeruConfig {
-        const config = vscode.workspace.getConfiguration('matomeru');
-        const excludePatterns = config.get<string[]>('excludePatterns');
-        const directoryStructure = {
-            directoryIcon: config.get<string>('directoryStructure.directoryIcon'),
-            fileIcon: config.get<string>('directoryStructure.fileIcon'),
-            indentSize: config.get<number>('directoryStructure.indentSize'),
-            showFileExtensions: config.get<boolean>('directoryStructure.showFileExtensions'),
-            useEmoji: config.get<boolean>('directoryStructure.useEmoji')
-        };
+        try {
+            const config = vscode.workspace.getConfiguration('matomeru');
+            if (!config) {
+                return this.deepCopyDefaultConfig();
+            }
 
+            return {
+                maxFileSize: this.validateMaxFileSize(this.safeGet(config, 'maxFileSize')),
+                excludePatterns: this.validateExcludePatterns(this.safeGet(config, 'excludePatterns')),
+                chatGptIntegration: this.validateBoolean(this.safeGet(config, 'chatGptIntegration'), defaultConfig.chatGptIntegration),
+                directoryStructure: {
+                    directoryIcon: this.validateString(this.safeGet(config, 'directoryStructure.directoryIcon'), defaultConfig.directoryStructure.directoryIcon),
+                    fileIcon: this.validateString(this.safeGet(config, 'directoryStructure.fileIcon'), defaultConfig.directoryStructure.fileIcon),
+                    indentSize: this.validateIndentSize(this.safeGet(config, 'directoryStructure.indentSize')),
+                    showFileExtensions: this.validateBoolean(this.safeGet(config, 'directoryStructure.showFileExtensions'), defaultConfig.directoryStructure.showFileExtensions),
+                    useEmoji: this.validateBoolean(this.safeGet(config, 'directoryStructure.useEmoji'), defaultConfig.directoryStructure.useEmoji)
+                },
+                useGitignore: this.validateBoolean(this.safeGet(config, 'useGitignore'), defaultConfig.useGitignore),
+                useVscodeignore: this.validateBoolean(this.safeGet(config, 'useVscodeignore'), defaultConfig.useVscodeignore),
+                prefixText: this.validateString(this.safeGet(config, 'prefixText'), defaultConfig.prefixText)
+            };
+        } catch (error) {
+            // エラーが発生した場合はデフォルト設定を返す
+            return this.deepCopyDefaultConfig();
+        }
+    }
+
+    private safeGet<T>(config: vscode.WorkspaceConfiguration, key: string): T | undefined {
+        try {
+            return config.get<T>(key);
+        } catch (error) {
+            // 個別の設定取得でエラーが発生した場合はundefinedを返す
+            return undefined;
+        }
+    }
+
+    private deepCopyDefaultConfig(): MatomeruConfig {
         return {
-            maxFileSize: config.get<number>('maxFileSize') ?? defaultConfig.maxFileSize,
-            excludePatterns: excludePatterns ? [...excludePatterns] : [...defaultConfig.excludePatterns],
-            chatGptIntegration: config.get<boolean>('chatGptIntegration') ?? defaultConfig.chatGptIntegration,
-            directoryStructure: {
-                directoryIcon: directoryStructure.directoryIcon ?? defaultConfig.directoryStructure.directoryIcon,
-                fileIcon: directoryStructure.fileIcon ?? defaultConfig.directoryStructure.fileIcon,
-                indentSize: directoryStructure.indentSize ?? defaultConfig.directoryStructure.indentSize,
-                showFileExtensions: directoryStructure.showFileExtensions ?? defaultConfig.directoryStructure.showFileExtensions,
-                useEmoji: directoryStructure.useEmoji ?? defaultConfig.directoryStructure.useEmoji
-            },
-            useGitignore: config.get<boolean>('useGitignore') ?? defaultConfig.useGitignore,
-            useVscodeignore: config.get<boolean>('useVscodeignore') ?? defaultConfig.useVscodeignore,
-            prefixText: config.get<string>('prefixText') ?? defaultConfig.prefixText
+            ...defaultConfig,
+            excludePatterns: [...defaultConfig.excludePatterns],
+            directoryStructure: { ...defaultConfig.directoryStructure }
         };
+    }
+
+    private validateMaxFileSize(value: unknown): number {
+        if (typeof value === 'number' && value > 0 && Number.isInteger(value) && Number.isSafeInteger(value)) {
+            return value;
+        }
+        return defaultConfig.maxFileSize;
+    }
+
+    private validateExcludePatterns(value: unknown): string[] {
+        if (Array.isArray(value) && value.every(item => typeof item === 'string')) {
+            return [...value];
+        }
+        return [...defaultConfig.excludePatterns];
+    }
+
+    private validateBoolean(value: unknown, defaultValue: boolean): boolean {
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        return defaultValue;
+    }
+
+    private validateString(value: unknown, defaultValue: string): string {
+        if (typeof value === 'string') {
+            return value;
+        }
+        return defaultValue;
+    }
+
+    private validateIndentSize(value: unknown): number {
+        if (typeof value === 'number' && value > 0 && value <= 8 && Number.isInteger(value)) {
+            return value;
+        }
+        return defaultConfig.directoryStructure.indentSize;
     }
 } 
