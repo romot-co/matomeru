@@ -4,7 +4,7 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.0.18] - 2025-01-21
+## [0.0.18] - 2025-05-23
 ### Improved
 - コピー操作を最大3回再試行することで、クリップボードへのコピー信頼性を向上
 - テストスイート全体の品質向上
@@ -21,7 +21,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - TypeScriptコンパイルエラー（dependencyScanner.test.ts内の未使用変数）を修正
 - エラーハンドリングの堅牢性を向上させるため、内部のエラーメッセージ抽出処理とカスタムエラークラスのコンストラクタを修正
 
-## [0.0.16] - 2024-05-11
+## [0.0.16] - 2025-05-11
 ### Added
 - **依存関係の分析と可視化**:
   - 有効にすると、TypeScript/JavaScript, Python, Go ファイルの import/dependency 文をスキャンします。
@@ -30,7 +30,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - **Mermaid グラフ設定**:
   - 生成される依存関係グラフの最大ノード数を制御するための `matomeru.mermaid.maxNodes` (number, デフォルト: `300`) 設定を追加。制限を超えた場合は警告が表示されます。
 
-## [0.0.13] - 2024-05-09
+## [0.0.13] - 2025-05-09
 ### Added
 - **(Experimental)** YAML 形式での出力をサポート (`matomeru.outputFormat` 設定)。Markdownに加え、YAML形式でディレクトリ構造やファイル内容を出力できるようになりました。
 
