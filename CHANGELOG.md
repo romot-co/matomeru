@@ -4,10 +4,10 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [0.0.17] - 2024-05-23
+## [0.0.18] - 2025-01-21
 ### Improved
 - コピー操作を最大3回再試行することで、クリップボードへのコピー信頼性を向上
-- テストスイート全体の品質向上（248個のテストケースで全機能を網羅的に検証、コードカバレッジ70.17%達成）
+- テストスイート全体の品質向上
 - ConfigServiceの設定値検証機能を強化し、無効値処理のエラーハンドリングを改善
 - FileOperationsの深いディレクトリ構造パフォーマンステストを修正
 
