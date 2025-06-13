@@ -4,6 +4,31 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.0] - 2025-06-13
+### Added
+- **Multi-root workspace support**: Process files from multiple workspace folders with proper context isolation
+- **Enhanced code compression**: When enabled, now removes comments, unnecessary whitespace, and newlines for more efficient LLM context usage
+- **YAML memory optimization**: New `matomeru.yaml.includeContent` setting (default: false) to exclude file content in YAML output for large projects
+- **Security enhancements**: Security-sensitive patterns in `excludePatterns` are now always enforced, even when users customize the configuration
+
+### Improved
+- **Token conversion accuracy**: Unified token-to-byte conversion factor (3.6) across all components for consistent estimation
+- **Language detection**: Fixed `.tsx` files now correctly identified as 'tsx' instead of 'typescript'
+- **Configuration validation**: Enhanced validation logic ensures default security patterns are always included
+- **Code compression**: Now intelligently preserves syntax based on language type (indent-based vs brace-based)
+- **Performance**: Optimized file scanning for multi-root workspaces
+
+### Fixed
+- Fixed issue where user-defined exclude patterns could completely override default security patterns
+- Fixed recursive directory scanning in multi-root workspaces missing workspace root parameter
+- Fixed TypeScript compilation errors in test suites
+- Fixed localization key mismatches between English and Japanese files
+- Removed obsolete Git diff commands (diffToEditor/diffToChatGPT) references
+- Fixed configuration schema mismatches for new settings
+
+### Changed
+- Removed "Experimental" label from code compression feature - it's now stable and production-ready
+
 ## [0.0.18] - 2025-05-23
 ### Improved
 - コピー操作を最大3回再試行することで、クリップボードへのコピー信頼性を向上

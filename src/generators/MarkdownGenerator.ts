@@ -30,7 +30,7 @@ export class MarkdownGenerator implements IGenerator {
 
         const config = vscode.workspace.getConfiguration('matomeru');
         logger.debug('--- MarkdownGenerator Config Check ---');
-        logger.debug(`matomeru.markdown.prefixText: ${config.get<string>('markdown.prefixText')}`);
+        logger.debug(`matomeru.prefixText: ${config.get<string>('prefixText')}`);
         logger.debug(`matomeru.includeDependencies: ${config.get<boolean>('includeDependencies')}`);
         logger.debug(`matomeru.mermaid.maxNodes: ${config.get<number>('mermaid.maxNodes')}`);
 

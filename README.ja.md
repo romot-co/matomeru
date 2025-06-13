@@ -9,8 +9,9 @@
 ## 機能
 
 - 選択したディレクトリ構造とファイル内容を**Markdown形式で自動生成**
-- **新機能: YAML出力**: `matomeru.outputFormat` 設定により、Markdown と YAML の間で出力形式を選択できるようになりました。
+- **YAML出力**: `matomeru.outputFormat` 設定により、Markdown と YAML の間で出力形式を選択できるようになりました。
 - **依存関係の分析と可視化**: `matomeru.includeDependencies` が有効な場合、ファイル内のimport/dependency文（TypeScript/JavaScript, Python, Go対応）をスキャンし、Markdown出力の先頭に関係性を視覚化するMermaidフローチャートを生成します。
+- **マルチルートワークスペース対応**: 複数のワークスペースフォルダーからファイルを適切にコンテキスト分離して処理
 - **自動的にフォーマットして整理**：
   - ディレクトリツリー構造
   - Markdown互換の出力
@@ -26,19 +27,21 @@
   - ディレクトリとファイルの絵文字アイコン
   - インデントの設定
   - ファイル拡張子の表示/非表示
-- **コード圧縮機能 (実験的)**: Tree-sitterを使用してコメント等を除去し、LLM向けのコンテキスト長削減を試みます。（詳細は設定例の項目を参照）
+- **強化されたコード圧縮機能**: Tree-sitterを使用してコメント、不要な空白、改行を除去し、LLM向けのコンテキスト長削減を実現します。（詳細は設定例の項目を参照）
 - 柔軟なファイル除外機能：
   - カスタムパターンで除外設定
   - .gitignore/.vscodeignoreファイルのパターンを使用して自動的にファイルを除外（オプション）
+  - セキュリティに配慮したファイルは常にデフォルトで除外
 - 多言語対応（英語/日本語）
 - サイズ見積り機能で大きなプロジェクトを処理前に確認可能
+- **メモリ最適化されたYAML出力**: 大規模プロジェクト向けにYAML形式でファイル内容を除外するオプション
 
 ## インストール
 
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.0.17.vsix
+   code --install-extension matomeru-0.1.0.vsix
    ```
 
 ## 使い方
@@ -99,13 +102,15 @@
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
+  "matomeru.directoryStructure.useEmoji": true,
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
   "matomeru.enableCompression": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
-  "matomeru.gitDiff.range": ""
+  "matomeru.gitDiff.range": "",
+  "matomeru.yaml.includeContent": false
 }
 ```
 </details>
@@ -115,12 +120,14 @@
 - `"HEAD~3..HEAD"`: 最新3コミットの変更を表示
 - `"origin/main..HEAD"`: mainブランチと現在のHEADの差分を表示
 
-**コード圧縮機能**: `matomeru.enableCompression`を`true`に設定すると、以下の主要言語について、Tree-sitterを使用してコードからコメント等の除去を**試みます**。これにより、LLMに送るコードをより簡潔にし、コンテキストを効率化できます。（Tree-sitterによるパースに失敗した場合は元のコードが出力されます。）
+**コード圧縮機能**: `matomeru.enableCompression`を`true`に設定すると、以下の主要言語について、Tree-sitterを使用してコードからコメント、不要な空白、改行を除去します。これにより、LLMに送るコードをより簡潔にし、コンテキストを効率化できます。（Tree-sitterによるパースに失敗した場合は元のコードが出力されます。）
 
 ```txt
 javascript, typescript, tsx, python, css, ruby, 
 csharp, c, cpp, go, rust, java, ini, regex
 ```
+
+**YAMLメモリ最適化**: `matomeru.yaml.includeContent`設定（デフォルト: `false`）は、YAML出力にファイル内容を含めるかどうかを制御します。大規模プロジェクトでは、これを無効にしておくことでメモリの問題を防ぎながら、プロジェクト構造とメタデータを提供できます。
 
 **セキュリティに関する注記**: Matomeruはデフォルトで、シークレットキー、認証情報、証明書、環境設定ファイル
 (`*.key`、`*.pem`、`*.env`など) のような機密ファイルを自動的に除外します。さらに、ロックファイル、キャッシュディレクトリ、ビルド成果物、一時ファイルなど、多くの一般的な非ソースファイルもデフォルトで除外されます。

@@ -6,8 +6,6 @@
     "cmd.quickProcessToChatGPT": "Matomeru: Send to ChatGPT",
     "cmd.estimateSize": "Matomeru: Estimate Size",
     "cmd.copyGitDiff": "Matomeru: Copy Git Diff",
-    "cmd.diffToEditor": "Matomeru: Diff to Editor",
-    "cmd.diffToChatGPT": "Matomeru: Diff to ChatGPT",
     "config.maxFileSize.description": "The maximum file size (in bytes) to process",
     "config.excludePatterns.description": "File patterns to exclude",
     "config.chatGptIntegration.description": "Enable ChatGPT integration (macOS only)",
@@ -15,6 +13,7 @@
     "config.directoryStructure.fileIcon.description": "Icon to represent files",
     "config.directoryStructure.indentSize.description": "Indentation size for directory structure",
     "config.directoryStructure.showFileExtensions.description": "Whether to show file extensions in the directory structure.",
+    "config.directoryStructure.useEmoji.description": "Use emoji icons in directory structure display",
     "config.prefixText.description": "Text to be added at the beginning of the generated Markdown.",
     "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
     "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
@@ -26,5 +25,6 @@
     "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes.",
     "matomeru.outputFormat.description": "Output format for the generated document (markdown / yaml)",
     "config.includeDependencies.description": "Scan and include import/dependency statements for each file and generate a Mermaid graph in Markdown output.",
-    "config.mermaid.maxNodes.description": "Maximum number of nodes to render in the Mermaid dependency graph. If exceeded, a warning will be shown."
+    "config.mermaid.maxNodes.description": "Maximum number of nodes to render in the Mermaid dependency graph. If exceeded, a warning will be shown.",
+    "config.yaml.includeContent.description": "Include file content in YAML output. Disable for large projects to avoid memory issues."
 } 

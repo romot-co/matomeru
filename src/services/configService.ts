@@ -85,10 +85,16 @@ export class ConfigService {
     }
 
     private validateExcludePatterns(value: unknown): string[] {
+        const defaultPatterns = [...defaultConfig.excludePatterns];
+        
         if (Array.isArray(value) && value.every(item => typeof item === 'string')) {
-            return [...value];
+            // デフォルトパターンとユーザー設定を結合し、重複を除去
+            const userPatterns = [...value];
+            const combinedPatterns = [...new Set([...defaultPatterns, ...userPatterns])];
+            return combinedPatterns;
         }
-        return [...defaultConfig.excludePatterns];
+        
+        return defaultPatterns;
     }
 
     private validateBoolean(value: unknown, defaultValue: boolean): boolean {

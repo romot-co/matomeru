@@ -27,7 +27,7 @@ jest.mock('../utils/fileUtils', () => ({
 
 const mockedFs = jest.mocked(fs);
 const mockedFsStream = jest.mocked(fsStream);
-const ROOT = '/ws';
+const ROOT = '/test/workspace';
 const BASE_OPTS: ScanOptions = {
   maxFileSize: 1024 * 1024,
   excludePatterns: [],

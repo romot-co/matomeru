@@ -87,6 +87,7 @@ export class YamlGenerator implements IGenerator {
     const filesData: any[] = [];
     const maxFileSize = cfg.get<number>('maxFileSize'); // In Bytes
     const includeDependencies = cfg.get<boolean>('includeDependencies');
+    const includeContent = cfg.get<boolean>('yaml.includeContent', false);
 
     const collectFilesRecursively = (dirInfo: DirectoryInfo) => {
         for (const file of dirInfo.files) {
@@ -97,8 +98,10 @@ export class YamlGenerator implements IGenerator {
                 path: file.relativePath,
                 size: file.size, 
                 language: file.language,
-                content: file.content,
             };
+            if (includeContent) {
+                fileEntry.content = file.content;
+            }
             if (includeDependencies && file.imports) {
                 fileEntry.imports = file.imports;
             }

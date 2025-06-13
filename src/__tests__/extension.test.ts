@@ -16,8 +16,6 @@ jest.mock('../commands', () => ({
         processToChatGPT: jest.fn(),
         estimateSize: jest.fn(),
         diffToClipboard: jest.fn(),
-        diffToEditor: jest.fn(),
-        diffToChatGPT: jest.fn(),
         dispose: jest.fn()
     }))
 }));

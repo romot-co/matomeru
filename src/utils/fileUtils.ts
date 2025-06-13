@@ -1,5 +1,6 @@
 import { isBinaryFileSync } from 'isbinaryfile';
 import { Buffer } from 'buffer';
+import { TOKENS_PER_BYTE } from './constants';
 
 /**
  * ファイルがバイナリかどうかを判定する
@@ -53,8 +54,8 @@ export function formatFileSize(bytes: number, decimalPoint = 1): string {
  */
 export function calculateContentMetrics(content: string): { size: number, tokens: number, formattedSize: string } {
   const size = Buffer.byteLength(content, 'utf-8');
-  // トークン数を概算（文字バイト数を4で割った値を使用）
-  const tokens = Math.ceil(size / 4);
+  // トークン数を概算（文字バイト数をTOKENS_PER_BYTEで割った値を使用）
+  const tokens = Math.ceil(size / TOKENS_PER_BYTE);
   const formattedSize = formatFileSize(size);
   
   return { size, tokens, formattedSize };

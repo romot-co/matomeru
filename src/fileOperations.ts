@@ -14,124 +14,213 @@ export class FileOperations {
     private readonly logger: Logger;
     private readonly workspaceRoot: string;
     private currentSelectedPath: string | undefined;
-    private gitignorePatterns: string[] = [];
-    private gitignoreNegatedPatterns: string[] = [];
-    private gitignoreLoaded: boolean = false;
-    private gitignoreWatcher: vscode.FileSystemWatcher | undefined;
-    private vscodeignorePatterns: string[] = [];
-    private vscodeignoreNegatedPatterns: string[] = [];
-    private vscodeignoreLoaded: boolean = false;
-    private vscodeignoreWatcher: vscode.FileSystemWatcher | undefined;
+    private gitignorePatterns: Map<string, string[]> = new Map();
+    private gitignoreNegatedPatterns: Map<string, string[]> = new Map();
+    private gitignoreLoaded: Map<string, boolean> = new Map();
+    private gitignoreWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
+    private vscodeignorePatterns: Map<string, string[]> = new Map();
+    private vscodeignoreNegatedPatterns: Map<string, string[]> = new Map();
+    private vscodeignoreLoaded: Map<string, boolean> = new Map();
+    private vscodeignoreWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
     private preloadCompleted: boolean = false;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
         this.logger = Logger.getInstance('FileOperations');
-        // .gitignoreファイルの変更を監視するwatcherを作成
-        this.setupGitignoreWatcher();
-        // .vscodeignoreファイルの変更を監視するwatcherを作成
-        this.setupVscodeignoreWatcher();
+        // 全ワークスペースフォルダーの設定ファイル監視をセットアップ
+        this.setupAllWorkspaceWatchers();
         
-        // ★ バックグラウンドで事前読み込みをスケジュール
+        // バックグラウンドで事前読み込みをスケジュール
         setTimeout(() => {
             this.preloadConfigFiles().catch(error => {
-                this.logger.debug(`Preload failed: ${error}`);
+                this.logger.error(`Preload failed: ${error}`);
             });
         }, 1000);
     }
 
     /**
+     * ファイルパスから適切なワークスペースフォルダーを特定する
+     */
+    public getWorkspaceRootForPath(filePath: string): string {
+        if (!vscode.workspace.workspaceFolders) {
+            return this.workspaceRoot;
+        }
+
+        // ファイルパスを正規化
+        const normalizedFilePath = path.normalize(filePath);
+
+        // ファイルパスを含むワークスペースフォルダーを検索
+        for (const folder of vscode.workspace.workspaceFolders) {
+            const normalizedWorkspacePath = path.normalize(folder.uri.fsPath);
+            const relativePath = path.relative(normalizedWorkspacePath, normalizedFilePath);
+            
+            // 相対パスが上位ディレクトリを指していない（../が含まれない）場合
+            // 空文字列の場合は完全一致を意味する
+            if (!relativePath.startsWith('..')) {
+                return folder.uri.fsPath;
+            }
+        }
+
+        // フォールバック: 最初のワークスペースフォルダー
+        return vscode.workspace.workspaceFolders[0].uri.fsPath;
+    }
+
+    /**
+     * ファイルURIのリストをワークスペース別にグループ化する
+     */
+    public groupFilesByWorkspace(uris: vscode.Uri[]): Map<string, vscode.Uri[]> {
+        const groups = new Map<string, vscode.Uri[]>();
+        
+        for (const uri of uris) {
+            const workspaceRoot = this.getWorkspaceRootForPath(uri.fsPath);
+            if (!groups.has(workspaceRoot)) {
+                groups.set(workspaceRoot, []);
+            }
+            groups.get(workspaceRoot)!.push(uri);
+        }
+        
+        return groups;
+    }
+
+    /**
+     * 全ワークスペースフォルダーの設定ファイル監視をセットアップ
+     */
+    private setupAllWorkspaceWatchers(): void {
+        if (!vscode.workspace.workspaceFolders) {
+            // 単一フォルダーワークスペースの場合
+            this.setupGitignoreWatcher(this.workspaceRoot);
+            this.setupVscodeignoreWatcher(this.workspaceRoot);
+            return;
+        }
+
+        // マルチルートワークスペースの場合
+        for (const folder of vscode.workspace.workspaceFolders) {
+            this.setupGitignoreWatcher(folder.uri.fsPath);
+            this.setupVscodeignoreWatcher(folder.uri.fsPath);
+        }
+    }
+
+    /**
      * .gitignoreファイルの変更を監視するwatcherをセットアップ
      */
-    private setupGitignoreWatcher(): void {
+    private setupGitignoreWatcher(workspaceRoot: string): void {
         try {
+            // 既存のwatcherがあれば無視（重複防止）
+            if (this.gitignoreWatchers.has(workspaceRoot)) {
+                return;
+            }
+
             // .gitignoreファイルを監視するFileSystemWatcherを作成
-            const gitignorePath = new vscode.RelativePattern(this.workspaceRoot, '.gitignore');
-            this.gitignoreWatcher = vscode.workspace.createFileSystemWatcher(gitignorePath);
+            const gitignorePath = new vscode.RelativePattern(workspaceRoot, '.gitignore');
+            const watcher = vscode.workspace.createFileSystemWatcher(gitignorePath);
 
             // 変更イベントに対応するリスナーを追加
-            this.gitignoreWatcher.onDidChange(() => {
-                this.resetGitignoreState();
-                this.logger.info('.gitignoreファイルが変更されました。パターンは次回のスキャン時に再読み込みされます。');
+            watcher.onDidChange(() => {
+                this.resetGitignoreState(workspaceRoot);
+                this.logger.info(`.gitignoreファイルが変更されました (${workspaceRoot})。パターンは次回のスキャン時に再読み込みされます。`);
             });
 
             // 作成イベントに対応するリスナーを追加
-            this.gitignoreWatcher.onDidCreate(() => {
-                this.resetGitignoreState();
-                this.logger.info('.gitignoreファイルが作成されました。パターンは次回のスキャン時に読み込まれます。');
+            watcher.onDidCreate(() => {
+                this.resetGitignoreState(workspaceRoot);
+                this.logger.info(`.gitignoreファイルが作成されました (${workspaceRoot})。パターンは次回のスキャン時に読み込まれます。`);
             });
 
             // 削除イベントに対応するリスナーを追加
-            this.gitignoreWatcher.onDidDelete(() => {
-                this.resetGitignoreState();
-                this.logger.info('.gitignoreファイルが削除されました。以前のパターンは無効になります。');
+            watcher.onDidDelete(() => {
+                this.resetGitignoreState(workspaceRoot);
+                this.logger.info(`.gitignoreファイルが削除されました (${workspaceRoot})。以前のパターンは無効になります。`);
             });
+
+            this.gitignoreWatchers.set(workspaceRoot, watcher);
         } catch (error) {
-            this.logger.error(`.gitignoreのウォッチャー設定中にエラーが発生しました: ${extractErrorMessage(error)}`);
+            this.logger.error(`.gitignoreのウォッチャー設定中にエラーが発生しました (${workspaceRoot}): ${extractErrorMessage(error)}`);
         }
     }
 
     /**
      * gitignoreの状態をリセットし、次回スキャン時に再読み込みさせる
      */
-    private resetGitignoreState(): void {
-        this.gitignoreLoaded = false;
-        this.gitignorePatterns = [];
-        this.gitignoreNegatedPatterns = [];
+    private resetGitignoreState(workspaceRoot?: string): void {
+        if (workspaceRoot) {
+            this.gitignoreLoaded.set(workspaceRoot, false);
+            this.gitignorePatterns.delete(workspaceRoot);
+            this.gitignoreNegatedPatterns.delete(workspaceRoot);
+        } else {
+            this.gitignoreLoaded.clear();
+            this.gitignorePatterns.clear();
+            this.gitignoreNegatedPatterns.clear();
+        }
     }
 
     /**
      * .vscodeignoreファイルの変更を監視するwatcherをセットアップ
      */
-    private setupVscodeignoreWatcher(): void {
+    private setupVscodeignoreWatcher(workspaceRoot: string): void {
         try {
+            // 既存のwatcherがあれば無視（重複防止）
+            if (this.vscodeignoreWatchers.has(workspaceRoot)) {
+                return;
+            }
+
             // .vscodeignoreファイルを監視するFileSystemWatcherを作成
-            const vscodeignorePath = new vscode.RelativePattern(this.workspaceRoot, '.vscodeignore');
-            this.vscodeignoreWatcher = vscode.workspace.createFileSystemWatcher(vscodeignorePath);
+            const vscodeignorePath = new vscode.RelativePattern(workspaceRoot, '.vscodeignore');
+            const watcher = vscode.workspace.createFileSystemWatcher(vscodeignorePath);
 
             // 変更イベントに対応するリスナーを追加
-            this.vscodeignoreWatcher.onDidChange(() => {
-                this.resetVscodeignoreState();
-                this.logger.info('.vscodeignoreファイルが変更されました。パターンは次回のスキャン時に再読み込みされます。');
+            watcher.onDidChange(() => {
+                this.resetVscodeignoreState(workspaceRoot);
+                this.logger.info(`.vscodeignoreファイルが変更されました (${workspaceRoot})。パターンは次回のスキャン時に再読み込みされます。`);
             });
 
             // 作成イベントに対応するリスナーを追加
-            this.vscodeignoreWatcher.onDidCreate(() => {
-                this.resetVscodeignoreState();
-                this.logger.info('.vscodeignoreファイルが作成されました。パターンは次回のスキャン時に読み込まれます。');
+            watcher.onDidCreate(() => {
+                this.resetVscodeignoreState(workspaceRoot);
+                this.logger.info(`.vscodeignoreファイルが作成されました (${workspaceRoot})。パターンは次回のスキャン時に読み込まれます。`);
             });
 
             // 削除イベントに対応するリスナーを追加
-            this.vscodeignoreWatcher.onDidDelete(() => {
-                this.resetVscodeignoreState();
-                this.logger.info('.vscodeignoreファイルが削除されました。以前のパターンは無効になります。');
+            watcher.onDidDelete(() => {
+                this.resetVscodeignoreState(workspaceRoot);
+                this.logger.info(`.vscodeignoreファイルが削除されました (${workspaceRoot})。以前のパターンは無効になります。`);
             });
+
+            this.vscodeignoreWatchers.set(workspaceRoot, watcher);
         } catch (error) {
-            this.logger.error(`.vscodeignoreのウォッチャー設定中にエラーが発生しました: ${extractErrorMessage(error)}`);
+            this.logger.error(`.vscodeignoreのウォッチャー設定中にエラーが発生しました (${workspaceRoot}): ${extractErrorMessage(error)}`);
         }
     }
 
     /**
      * vscodeignoreの状態をリセットし、次回スキャン時に再読み込みさせる
      */
-    private resetVscodeignoreState(): void {
-        this.vscodeignoreLoaded = false;
-        this.vscodeignorePatterns = [];
-        this.vscodeignoreNegatedPatterns = [];
+    private resetVscodeignoreState(workspaceRoot?: string): void {
+        if (workspaceRoot) {
+            this.vscodeignoreLoaded.set(workspaceRoot, false);
+            this.vscodeignorePatterns.delete(workspaceRoot);
+            this.vscodeignoreNegatedPatterns.delete(workspaceRoot);
+        } else {
+            this.vscodeignoreLoaded.clear();
+            this.vscodeignorePatterns.clear();
+            this.vscodeignoreNegatedPatterns.clear();
+        }
     }
 
     /**
      * FileOperationsインスタンスのリソースを解放する
      */
     dispose(): void {
-        if (this.gitignoreWatcher) {
-            this.gitignoreWatcher.dispose();
-            this.gitignoreWatcher = undefined;
+        // 全てのgitignoreWatcherを解放
+        for (const watcher of this.gitignoreWatchers.values()) {
+            watcher.dispose();
         }
-        if (this.vscodeignoreWatcher) {
-            this.vscodeignoreWatcher.dispose();
-            this.vscodeignoreWatcher = undefined;
+        this.gitignoreWatchers.clear();
+
+        // 全てのvscodeignoreWatcherを解放
+        for (const watcher of this.vscodeignoreWatchers.values()) {
+            watcher.dispose();
         }
+        this.vscodeignoreWatchers.clear();
     }
 
     setCurrentSelectedPath(path: string | undefined): void {
@@ -148,22 +237,22 @@ export class FileOperations {
         });
     }
 
-    async scanDirectory(targetPath: string, options: ScanOptions): Promise<DirectoryInfo> {
+    async scanDirectory(targetPath: string, options: ScanOptions, workspaceRoot?: string): Promise<DirectoryInfo> {
+        const targetWorkspaceRoot = workspaceRoot || this.getWorkspaceRootForPath(targetPath);
+        
         try {
-            // .gitignoreパターンを読み込む（初回のみ）
-            if (options.useGitignore && !this.gitignoreLoaded) {
-                await this.loadGitignorePatterns();
+            if (options.useGitignore && !this.gitignoreLoaded.get(targetWorkspaceRoot)) {
+                await this.loadGitignorePatterns(targetWorkspaceRoot);
             }
 
-            // .vscodeignoreパターンを読み込む（初回のみ）
-            if (options.useVscodeignore && !this.vscodeignoreLoaded) {
-                await this.loadVscodeignorePatterns();
+            if (options.useVscodeignore && !this.vscodeignoreLoaded.get(targetWorkspaceRoot)) {
+                await this.loadVscodeignorePatterns(targetWorkspaceRoot);
             }
 
             const absolutePath = path.isAbsolute(targetPath)
                 ? targetPath
-                : path.join(this.workspaceRoot, targetPath);
-            const relativePath = path.relative(this.workspaceRoot, absolutePath);
+                : path.join(targetWorkspaceRoot, targetPath);
+            const relativePath = path.relative(targetWorkspaceRoot, absolutePath);
 
             const stats = await fs.stat(absolutePath);
             this.logger.info(`スキャン対象: ${absolutePath} (${stats.isFile() ? 'ファイル' : 'ディレクトリ'})`);
@@ -222,10 +311,9 @@ export class FileOperations {
             for (const entry of entries) {
                 const entryNameString = entry.name.toString();
                 const entryPath = path.join(absolutePath, entryNameString);
-                const entryRelativePath = path.relative(this.workspaceRoot, entryPath);
+                const entryRelativePath = path.relative(targetWorkspaceRoot, entryPath);
 
-                // 選択されたディレクトリ自体は除外しないが、それ以外は除外判定を行う
-                const shouldBeExcluded = entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options);
+                const shouldBeExcluded = entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options, targetWorkspaceRoot);
                 
                 if (shouldBeExcluded) {
                     this.logger.info(`除外: ${entryRelativePath}`);
@@ -234,7 +322,7 @@ export class FileOperations {
 
                 if (entry.isDirectory()) {
                     try {
-                        const subDirInfo = await this.scanDirectory(entryPath, options);
+                        const subDirInfo = await this.scanDirectory(entryPath, options, targetWorkspaceRoot);
                         directories.set(entryNameString, subDirInfo);
                     } catch (error) {
                         logError(this.logger, error, true);
@@ -294,12 +382,13 @@ export class FileOperations {
         }
     }
 
-    private async shouldExclude(relativePath: string, options: ScanOptions): Promise<boolean> {
+    private async shouldExclude(relativePath: string, options: ScanOptions, workspaceRoot?: string): Promise<boolean> {
+        const targetWorkspaceRoot = workspaceRoot || this.workspaceRoot;
+        
         // ルートの選択ディレクトリ自体は除外しない
         const currentSelectedRelativePath = this.currentSelectedPath
-            ? path.relative(this.workspaceRoot, this.currentSelectedPath)
+            ? path.relative(targetWorkspaceRoot, this.currentSelectedPath)
             : '';
-        // パスを POSIX 形式に正規化
         const posixRelativePath = relativePath.replace(/\\/g, '/');
 
         if (posixRelativePath === currentSelectedRelativePath.replace(/\\/g, '/')) {
@@ -307,8 +396,9 @@ export class FileOperations {
         }
 
         // 否定パターンのチェック - .gitignore
-        if (options.useGitignore && this.gitignoreNegatedPatterns.length > 0) {
-            for (const pattern of this.gitignoreNegatedPatterns) {
+        if (options.useGitignore) {
+            const gitignoreNegated = this.gitignoreNegatedPatterns.get(targetWorkspaceRoot) || [];
+            for (const pattern of gitignoreNegated) {
                 if (this.matchPattern(posixRelativePath, pattern)) {
                     // 否定パターンにマッチした場合は強制的に除外しない
                     this.logger.info(`否定パターン一致(gitignore): ${posixRelativePath} -> !${pattern}`);
@@ -318,8 +408,9 @@ export class FileOperations {
         }
 
         // 否定パターンのチェック - .vscodeignore
-        if (options.useVscodeignore && this.vscodeignoreNegatedPatterns.length > 0) {
-            for (const pattern of this.vscodeignoreNegatedPatterns) {
+        if (options.useVscodeignore) {
+            const vscodeignoreNegated = this.vscodeignoreNegatedPatterns.get(targetWorkspaceRoot) || [];
+            for (const pattern of vscodeignoreNegated) {
                 if (this.matchPattern(posixRelativePath, pattern)) {
                     // 否定パターンにマッチした場合は強制的に除外しない
                     this.logger.info(`否定パターン一致(vscodeignore): ${posixRelativePath} -> !${pattern}`);
@@ -329,8 +420,9 @@ export class FileOperations {
         }
 
         // 通常パターンのチェック - .gitignore
-        if (options.useGitignore && this.gitignorePatterns.length > 0) {
-            for (const pattern of this.gitignorePatterns) {
+        if (options.useGitignore) {
+            const gitignorePatterns = this.gitignorePatterns.get(targetWorkspaceRoot) || [];
+            for (const pattern of gitignorePatterns) {
                 if (this.matchPattern(posixRelativePath, pattern)) {
                     this.logger.info(`通常パターン一致(gitignore): ${posixRelativePath} -> ${pattern}`);
                     return true;
@@ -339,8 +431,9 @@ export class FileOperations {
         }
 
         // 通常パターンのチェック - .vscodeignore
-        if (options.useVscodeignore && this.vscodeignorePatterns.length > 0) {
-            for (const pattern of this.vscodeignorePatterns) {
+        if (options.useVscodeignore) {
+            const vscodeignorePatterns = this.vscodeignorePatterns.get(targetWorkspaceRoot) || [];
+            for (const pattern of vscodeignorePatterns) {
                 if (this.matchPattern(posixRelativePath, pattern)) {
                     this.logger.info(`通常パターン一致(vscodeignore): ${posixRelativePath} -> ${pattern}`);
                     return true;
@@ -351,7 +444,6 @@ export class FileOperations {
         // 設定された除外パターンを考慮
         if (options.excludePatterns.length > 0) {
             for (const pattern of options.excludePatterns) {
-                // excludePatterns も POSIX 形式を期待する
                 if (this.matchPattern(posixRelativePath, pattern.replace(/\\/g, '/'))) {
                     this.logger.info(`除外パターン一致: ${posixRelativePath} -> ${pattern}`);
                     return true;
@@ -363,36 +455,25 @@ export class FileOperations {
     }
 
     private matchPattern(filePath: string, pattern: string): boolean {
-        // minimatch に渡す前にパターンも POSIX 形式に正規化 (特に Windows で dir\** のようなパターンが渡された場合)
         const posixPattern = pattern.replace(/\\/g, '/');
-        // filePath は既に POSIX 形式になっている想定
 
-        // パターンが "excluded-dir/**" のようなディレクトリ指定の場合、末尾のスラッシュも考慮
-        // .gitignore の仕様に合わせ、ディレクトリ指定は末尾に / をつけることが多い
         if (posixPattern.endsWith('/')) {
-            const dirPattern = posixPattern.slice(0, -1); // 末尾のスラッシュを除去
-            // ディレクトリ自体、またはその配下のパスにマッチするかどうか
+            const dirPattern = posixPattern.slice(0, -1);
             if (filePath === dirPattern || filePath.startsWith(dirPattern + '/')) {
                  return true;
             }
         } else if (posixPattern.endsWith('/**')) {
-            // "/**" パターンは minimatch がうまく扱えない場合があるため、別途処理するケースを考慮
-            // 例: "abc/**" は "abc/" または "abc/def" などにマッチ
             const basePattern = posixPattern.slice(0, -3);
             if (filePath === basePattern || filePath.startsWith(basePattern + '/')) {
                  return true;
             }
-            // Note: minimatch での再現も試みる
         }
         
-        // minimatch を利用（matchBaseは意図しないマッチを防ぐためfalseに）
         const options = {
-            dot: true,       // ドットファイルにマッチさせる
-            nocase: true,    // 大文字小文字を区別しない (Windows との互換性のため)
-            matchBase: false // パス全体でマッチさせる (Git の挙動に近づける)
+            dot: true,
+            nocase: true,
+            matchBase: false
         };
-        
-        // minimatch は POSIX スタイルのパスを期待する
         if (minimatch(filePath, posixPattern, options)) {
             return true;
         }
@@ -407,7 +488,6 @@ export class FileOperations {
         if (this.preloadCompleted) return;
         
         try {
-            this.logger.debug('Starting config files preload...');
             
             await Promise.all([
                 this.loadGitignorePatterns(),
@@ -415,9 +495,8 @@ export class FileOperations {
             ]);
             
             this.preloadCompleted = true;
-            this.logger.debug('Config files preload completed');
         } catch (error) {
-            this.logger.debug(`Config files preload failed: ${error}`);
+            this.logger.error(`Config files preload failed: ${error}`);
         }
     }
 
@@ -425,36 +504,43 @@ export class FileOperations {
         return this.preloadCompleted;
     }
 
-    public async loadGitignorePatterns(): Promise<void> {
+    public async loadGitignorePatterns(workspaceRoot?: string): Promise<void> {
+        const targetWorkspaceRoot = workspaceRoot || this.workspaceRoot;
+        
         try {
-            const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
+            const gitignorePath = path.join(targetWorkspaceRoot, '.gitignore');
             try {
                 const content = await fs.readFile(gitignorePath, 'utf-8');
                 const lines = content
                     .split('\n')
                     .map(line => line.trim())
-                    // コメント行や空行を除外
                     .filter(line => line && !line.startsWith('#'));
                 
                 // 通常パターンと否定パターンに分ける
-                this.gitignorePatterns = lines.filter(line => !line.startsWith('!'));
-                this.gitignoreNegatedPatterns = lines
+                const patterns = lines.filter(line => !line.startsWith('!'));
+                const negatedPatterns = lines
                     .filter(line => line.startsWith('!'))
                     .map(line => line.substring(1)); // 先頭の「!」を除去
                 
-                this.logger.debug(`${this.gitignorePatterns.length}件の.gitignoreパターンと${this.gitignoreNegatedPatterns.length}件の否定パターンを読み込みました`);
+                this.gitignorePatterns.set(targetWorkspaceRoot, patterns);
+                this.gitignoreNegatedPatterns.set(targetWorkspaceRoot, negatedPatterns);
+                
+                this.logger.info(`${patterns.length}件の.gitignoreパターンと${negatedPatterns.length}件の否定パターンを読み込みました (${targetWorkspaceRoot})`);
             } catch (error) {
-                // .gitignoreファイルが存在しなくてもエラーにはしない
-                this.logger.debug(`.gitignoreファイルが見つかりません: ${error instanceof Error ? error.message : String(error)}`);
+                this.logger.info(`.gitignoreファイルが見つかりません (${targetWorkspaceRoot})`);
+                this.gitignorePatterns.set(targetWorkspaceRoot, []);
+                this.gitignoreNegatedPatterns.set(targetWorkspaceRoot, []);
             }
         } finally {
-            this.gitignoreLoaded = true;
+            this.gitignoreLoaded.set(targetWorkspaceRoot, true);
         }
     }
 
-    public async loadVscodeignorePatterns(): Promise<void> {
+    public async loadVscodeignorePatterns(workspaceRoot?: string): Promise<void> {
+        const targetWorkspaceRoot = workspaceRoot || this.workspaceRoot;
+        
         try {
-            const vscodeignorePath = path.join(this.workspaceRoot, '.vscodeignore');
+            const vscodeignorePath = path.join(targetWorkspaceRoot, '.vscodeignore');
             try {
                 const content = await fs.readFile(vscodeignorePath, 'utf-8');
                 const lines = content
@@ -463,26 +549,27 @@ export class FileOperations {
                     .filter(line => line && !line.startsWith('#'));
                 
                 // 通常パターンと否定パターンに分ける
-                this.vscodeignorePatterns = lines.filter(line => !line.startsWith('!'));
-                this.vscodeignoreNegatedPatterns = lines
+                const patterns = lines.filter(line => !line.startsWith('!'));
+                const negatedPatterns = lines
                     .filter(line => line.startsWith('!'))
                     .map(line => line.substring(1)); // 先頭の「!」を除去
                 
-                this.vscodeignoreLoaded = true;
-                this.logger.debug(`.vscodeignoreから${this.vscodeignorePatterns.length}個のパターンと${this.vscodeignoreNegatedPatterns.length}個の否定パターンを読み込みました`);
+                this.vscodeignorePatterns.set(targetWorkspaceRoot, patterns);
+                this.vscodeignoreNegatedPatterns.set(targetWorkspaceRoot, negatedPatterns);
+                
+                this.vscodeignoreLoaded.set(targetWorkspaceRoot, true);
+                this.logger.info(`.vscodeignoreから${patterns.length}個のパターンと${negatedPatterns.length}個の否定パターンを読み込みました (${targetWorkspaceRoot})`);
             } catch (error) {
-                // ファイルが存在しない場合は空の配列を設定
-                this.vscodeignorePatterns = [];
-                this.vscodeignoreNegatedPatterns = [];
-                this.vscodeignoreLoaded = true;
-                this.logger.debug('.vscodeignoreファイルが見つかりませんでした');
+                this.vscodeignorePatterns.set(targetWorkspaceRoot, []);
+                this.vscodeignoreNegatedPatterns.set(targetWorkspaceRoot, []);
+                this.vscodeignoreLoaded.set(targetWorkspaceRoot, true);
+                this.logger.info(`.vscodeignoreファイルが見つかりませんでした (${targetWorkspaceRoot})`);
             }
         } catch (error) {
-            this.logger.debug(`.vscodeignoreの読み込み中にエラーが発生しました: ${extractErrorMessage(error)}`);
-            // エラーが発生した場合でも、次回の処理で再試行できるようにフラグをリセットしない
-            this.vscodeignorePatterns = [];
-            this.vscodeignoreNegatedPatterns = [];
-            this.vscodeignoreLoaded = true;
+            this.logger.error(`.vscodeignoreの読み込み中にエラーが発生しました (${targetWorkspaceRoot}): ${extractErrorMessage(error)}`);
+            this.vscodeignorePatterns.set(targetWorkspaceRoot, []);
+            this.vscodeignoreNegatedPatterns.set(targetWorkspaceRoot, []);
+            this.vscodeignoreLoaded.set(targetWorkspaceRoot, true);
         }
     }
 
@@ -502,7 +589,7 @@ export class FileOperations {
             '.js': 'javascript',
             '.ts': 'typescript',
             '.jsx': 'javascript',
-            '.tsx': 'typescript',
+            '.tsx': 'tsx',
             '.json': 'json',
             '.md': 'markdown',
             '.py': 'python',
@@ -550,13 +637,11 @@ export class FileOperations {
      */
     async estimateDirectorySize(targetPath: string, options: ScanOptions): Promise<{ totalFiles: number, totalSize: number }> {
         try {
-            // .gitignoreパターンを読み込む（初回のみ）
-            if (options.useGitignore && !this.gitignoreLoaded) {
+                if (options.useGitignore && !this.gitignoreLoaded) {
                 await this.loadGitignorePatterns();
             }
 
-            // .vscodeignoreパターンを読み込む（初回のみ）
-            if (options.useVscodeignore && !this.vscodeignoreLoaded) {
+                if (options.useVscodeignore && !this.vscodeignoreLoaded) {
                 await this.loadVscodeignorePatterns();
             }
 
@@ -585,7 +670,6 @@ export class FileOperations {
                 }
 
                 // バイナリファイルのチェック
-                // Note: 実際の内容は読み込まないため、ここではファイル拡張子からバイナリかどうかを推測
                 if (this.isProbablyBinaryByExtension(relativePath)) {
                     this.logger.info(`バイナリファイルをスキップ: ${relativePath}`);
                     return { totalFiles: 0, totalSize: 0 };
@@ -601,7 +685,6 @@ export class FileOperations {
                 const entryPath = path.join(absolutePath, entry.name);
                 const entryRelativePath = path.relative(this.workspaceRoot, entryPath);
 
-                // 選択されたディレクトリ自体は除外しない
                 if (entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options)) {
                     this.logger.info(`除外: ${entryRelativePath}`);
                     continue;
@@ -624,8 +707,7 @@ export class FileOperations {
                             continue;
                         }
 
-                        // バイナリファイルのチェック（ファイル拡張子からの推測）
-                        if (this.isProbablyBinaryByExtension(entryRelativePath)) {
+                                if (this.isProbablyBinaryByExtension(entryRelativePath)) {
                             this.logger.info(`バイナリファイルをスキップ: ${entryRelativePath}`);
                             continue;
                         }
@@ -654,15 +736,10 @@ export class FileOperations {
      */
     private isProbablyBinaryByExtension(filePath: string): boolean {
         const binaryExtensions = [
-            // 画像ファイル
             '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.tiff', '.heic',
-            // 音声・動画ファイル
             '.mp3', '.wav', '.ogg', '.mp4', '.avi', '.mov', '.flv', '.webm',
-            // 圧縮ファイル
             '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
-            // ドキュメント
             '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-            // その他
             '.exe', '.dll', '.so', '.dylib', '.class', '.pyc', '.o', '.a', '.lib',
             '.bin', '.dat', '.db', '.sqlite', '.sqlite3', '.wasm'
         ];
@@ -681,11 +758,9 @@ export class FileOperations {
         const results: DirectoryInfo[] = [];
         const rootScanPath = this.currentSelectedPath || this.workspaceRoot;
 
-        // .gitignoreパターンを読み込む（初回のみ）
         if (options.useGitignore && !this.gitignoreLoaded) {
             await this.loadGitignorePatterns();
         }
-        // .vscodeignoreパターンを読み込む（初回のみ）
         if (options.useVscodeignore && !this.vscodeignoreLoaded) {
             await this.loadVscodeignorePatterns();
         }

@@ -135,7 +135,10 @@ describe('ConfigService', () => {
             const config = ConfigService.getInstance().getConfig();
             
             expect(config.maxFileSize).toBe(customMaxFileSize);
-            expect(config.excludePatterns).toEqual(customExcludePatterns);
+            // excludePatterns はデフォルトパターンとユーザー設定がマージされる
+            expect(config.excludePatterns).toContain('*.tmp');
+            expect(config.excludePatterns).toContain('build/**');
+            expect(config.excludePatterns).toContain('node_modules/**'); // デフォルトパターンも含まれる
             expect(config.chatGptIntegration).toBe(true);
             expect(config.directoryStructure.directoryIcon).toBe('[DIR]');
             expect(config.directoryStructure.fileIcon).toBe('[FILE]');
@@ -147,7 +150,7 @@ describe('ConfigService', () => {
             expect(config.prefixText).toBe('Custom prefix');
         });
 
-        test('配列設定が正しく上書きされること', () => {
+        test('配列設定がデフォルトとマージされること', () => {
             const customPatterns = ['custom1', 'custom2/**', '!important.js'];
             
             mockConfig.get.mockImplementation((key: string) => {
@@ -157,8 +160,19 @@ describe('ConfigService', () => {
             
             const config = ConfigService.getInstance().getConfig();
             
-            expect(config.excludePatterns).toEqual(customPatterns);
-            expect(config.excludePatterns).not.toBe(defaultConfig.excludePatterns);
+            // カスタムパターンが含まれる
+            expect(config.excludePatterns).toContain('custom1');
+            expect(config.excludePatterns).toContain('custom2/**');
+            expect(config.excludePatterns).toContain('!important.js');
+            
+            // デフォルトパターンも含まれる
+            expect(config.excludePatterns).toContain('node_modules/**');
+            expect(config.excludePatterns).toContain('.git/**');
+            expect(config.excludePatterns).toContain('*.env*');
+            
+            // 重複がない
+            const uniquePatterns = [...new Set(config.excludePatterns)];
+            expect(config.excludePatterns.length).toBe(uniquePatterns.length);
         });
     });
 
@@ -203,7 +217,8 @@ describe('ConfigService', () => {
             const initialConfig = configService.getConfig();
             expect(initialConfig.maxFileSize).toBe(1024);
             expect(initialConfig.chatGptIntegration).toBe(false);
-            expect(initialConfig.excludePatterns).toEqual(['*.log']);
+            expect(initialConfig.excludePatterns).toContain('*.log');
+            expect(initialConfig.excludePatterns).toContain('node_modules/**'); // デフォルトも含まれる
             
             // 複数設定を同時変更
             mockConfig.get.mockImplementation((key: string) => {
@@ -217,7 +232,9 @@ describe('ConfigService', () => {
             const newConfig = configService.getConfig();
             expect(newConfig.maxFileSize).toBe(4096);
             expect(newConfig.chatGptIntegration).toBe(true);
-            expect(newConfig.excludePatterns).toEqual(['*.tmp', '*.log']);
+            expect(newConfig.excludePatterns).toContain('*.tmp');
+            expect(newConfig.excludePatterns).toContain('*.log');
+            expect(newConfig.excludePatterns).toContain('node_modules/**'); // デフォルトも含まれる
         });
     });
 
@@ -413,7 +430,12 @@ describe('ConfigService', () => {
                 });
                 
                 const config = ConfigService.getInstance().getConfig();
-                expect(config.excludePatterns).toEqual(value);
+                // ユーザーパターンがすべて含まれる
+                value.forEach((pattern: string) => {
+                    expect(config.excludePatterns).toContain(pattern);
+                });
+                // デフォルトパターンも含まれる
+                expect(config.excludePatterns).toContain('node_modules/**');
                 
                 ConfigService.resetInstance();
             });
@@ -491,7 +513,12 @@ describe('ConfigService', () => {
             const config = ConfigService.getInstance().getConfig();
             const end = Date.now();
             
-            expect(config.excludePatterns).toEqual(largeExcludePatterns);
+            // ユーザーパターンがすべて含まれる
+            largeExcludePatterns.forEach(pattern => {
+                expect(config.excludePatterns).toContain(pattern);
+            });
+            // デフォルトパターンも含まれる
+            expect(config.excludePatterns).toContain('node_modules/**');
             expect(end - start).toBeLessThan(50); // 50ms以内
         });
     });

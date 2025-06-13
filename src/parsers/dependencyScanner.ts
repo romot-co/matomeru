@@ -1,64 +1,60 @@
 import path from 'path';
 import * as fs from 'fs';
-// web-tree-sitter の型を使用。SyntaxNode は Parser.SyntaxNode または直接エクスポートされているか確認が必要。
-// web-tree-sitterのAPIドキュメントに基づき、Parser.SyntaxNode が一般的。
-// Tree は Parser.Tree または単に Tree。
 import type { Parser as WebTreeSitterParser, Language, Tree as WebTreeSitterTree } from 'web-tree-sitter'; 
-// SyntaxNode 型を Tree['rootNode'] から取得する試み
 type WebTreeSitterSyntaxNode = WebTreeSitterTree['rootNode'];
 
 import * as vscode from 'vscode'; // vscode API を使用するためインポート
 import { ParserManager } from '../services/parserManager'; // ParserManager をインポート
 import { getExtensionContext } from '../extension'; // getExtensionContext をインポート
 
-// Tree-sitter 言語モジュールの直接インポートは不要になる
-// import TypeScriptLang from 'tree-sitter-typescript'; 
-// import PythonLang from 'tree-sitter-python';
-// import GoLang from 'tree-sitter-go';
 
 const logger = {
-    // eslint-disable-next-line no-console
-    debug: (message: string, ...optionalParams: any[]) => console.debug(`[DependencyScanner] ${message}`, ...optionalParams),
-    // eslint-disable-next-line no-console
     warn: (message: string, ...optionalParams: any[]) => console.warn(`[DependencyScanner] ${message}`, ...optionalParams),
-    // eslint-disable-next-line no-console
     error: (message: string, ...optionalParams: any[]) => console.error(`[DependencyScanner] ${message}`, ...optionalParams),
 };
 
-// scanDependencies を非同期関数に変更
 export async function scanDependencies(
     filePath: string, 
     content: string, 
     language: string
-): Promise<string[]> { // 戻り値を Promise<string[]> に変更
+): Promise<string[]> {
     const dependencies = new Set<string>();
     const baseDir = path.dirname(filePath);
 
-    // ParserManager を介してパーサーを非同期に取得
-    const ctx = getExtensionContext(); // ExtensionContext を取得
-    const parser: WebTreeSitterParser | null = await ParserManager.getInstance(ctx).getParser(language); // 型注釈を追加
+    const ctx = getExtensionContext();
+    const parser: WebTreeSitterParser | null = await ParserManager.getInstance(ctx).getParser(language);
 
     if (!parser) {
         logger.warn(`Failed to get parser for language: ${language} in ${filePath}`);
-        return []; // パーサーが取得できなければ空配列を返す
+        return [];
     }
 
-    // workspaceRoot を vscode API から取得
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+    // ファイルのワークスペースルートを動的に検出
+    let workspaceRoot = '';
+    if (vscode.workspace.workspaceFolders) {
+        for (const folder of vscode.workspace.workspaceFolders) {
+            if (filePath.startsWith(folder.uri.fsPath)) {
+                workspaceRoot = folder.uri.fsPath;
+                break;
+            }
+        }
+        if (!workspaceRoot && vscode.workspace.workspaceFolders.length > 0) {
+            workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        }
+    }
+    
     if (!workspaceRoot) {
         logger.warn('Workspace root not found, cannot resolve relative paths accurately.');
-        // workspaceRoot がない場合でも、外部依存の検出は可能かもしれないが、相対パスは不正確になる
     }
 
     let ast: WebTreeSitterTree | null;
     try {
         ast = parser.parse(content);
         if (!ast) {
-            logger.debug(`Parsing returned null for ${language} file ${filePath}`);
             return [];
         }
     } catch (error) {
-        logger.debug(`Error parsing ${language} file ${filePath}:`, error);
+        logger.error(`Error parsing ${language} file ${filePath}:`, error);
         return [];
     }
 
@@ -76,10 +72,7 @@ export async function scanDependencies(
             '(import_statement name: (dotted_name (identifier) @path) @import_stmt)', 
             '(import_statement name: (aliased_import original_name:(dotted_name (identifier) @path)) @import_stmt)',
             '(import_from_statement module_name: (dotted_name (identifier) @path) @import_from_stmt)',
-            // from .module import X  -> module is @path
-            // from ..module import X -> module is @path (identifier) and parent is (relative_import (import_prefix)+)
             '(import_from_statement module_name: (relative_import (import_prefix)* (identifier)? @path) @import_from_stmt)', 
-            // from . import X -> X is @item_name, module_name is (relative_import (import_prefix)+)
             '(import_from_statement module_name: (relative_import (import_prefix)+ @dots) (import_list (aliased_import (identifier) @item_name)))@import_from_relative_item'
         ];
         importNodesQueryString = '[\n' + pythonPatterns.join('\n') + '\n]';
@@ -104,10 +97,9 @@ export async function scanDependencies(
         for (const match of matches) {
             const pathNodeCapture = match.captures.find(c => c.name === 'path' || c.name === 'dots' || c.name ==='item_name');
             if (pathNodeCapture) {
-                const node: WebTreeSitterSyntaxNode = pathNodeCapture.node; // 型は変更済み
+                const node: WebTreeSitterSyntaxNode = pathNodeCapture.node;
                 let importPath: string = node.text;
                 
-                // クオート判定の修正
                 if (/^['"`]/.test(importPath) && /['"`]$/.test(importPath)) {
                     importPath = importPath.slice(1, -1);
                 }
@@ -146,7 +138,6 @@ export async function scanDependencies(
                         const resolvedPath = resolveImportPath(importPath, baseDir);
                         let relativeImport = path.relative(workspaceRoot, resolvedPath);
                         relativeImport = relativeImport.replace(/\\/g, '/');
-                        // Consistently use workspace-root relative paths without ./ prefix
                         dependencies.add(relativeImport);
                     } else {
                         dependencies.add(`external:${importPath}`);

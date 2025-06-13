@@ -41,8 +41,6 @@
   "cmd.quickProcessToClipboard": "Matomeru: Copy to Clipboard",
   "cmd.quickProcessToChatGPT": "Matomeru: Send to ChatGPT",
   "cmd.copyGitDiff": "Matomeru: Copy Git Diff",
-  "cmd.diffToEditor": "Matomeru: Diff to Editor",
-  "cmd.diffToChatGPT": "Matomeru: Diff to ChatGPT",
   "config.maxFileSize.description": "The maximum file size (in bytes) to process",
   "config.excludePatterns.description": "File patterns to exclude",
   "config.chatGptIntegration.description": "Enable ChatGPT integration (macOS only)",
@@ -50,10 +48,11 @@
   "config.directoryStructure.fileIcon.description": "Icon to represent files",
   "config.directoryStructure.indentSize.description": "Indentation size for directory structure",
   "config.directoryStructure.showFileExtensions.description": "Show file extensions in file names",
+  "config.directoryStructure.useEmoji.description": "Use emoji icons in directory structure display",
   "config.prefixText.description": "Text to be added at the beginning of the generated document",
   "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
   "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
-  "config.enableCompression": "Remove comments and other code elements (Tree-sitter)",
+  "config.enableCompression": "Remove comments, unnecessary whitespace and newlines (Tree-sitter)",
   "config.gitDiff.range.description": "Git revision range (e.g. 'origin/main..HEAD'). Empty for working tree changes.",
   "matomeru.outputFormat.description": "Output format for the generated document (markdown / yaml)",
   "msg.vscodeignorePatternLoaded": "Loaded {0} patterns and {1} negation patterns from .vscodeignore",
@@ -65,5 +64,8 @@
   "msg.gitCliNotFound": "Git CLI not found",
   "msg.noChanges": "No changes detected",
   "displayName": "Matomeru",
-  "description": "Combine and copy your entire codes into one AI-ready document (Markdown or YAML)."
+  "description": "Combine and copy your entire codes into one AI-ready document (Markdown or YAML).",
+  "config.includeDependencies.description": "Scan and include import/dependency statements from each file, generating Mermaid graphs in Markdown output.",
+  "config.mermaid.maxNodes.description": "Maximum number of nodes to render in Mermaid dependency graph. Warning shown when exceeded.",
+  "config.yaml.includeContent.description": "Include file content in YAML output. Disable for large projects to avoid memory issues."
 } 

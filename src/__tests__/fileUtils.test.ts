@@ -4,6 +4,7 @@ import {
   calculateContentMetrics, 
   formatTokenCount 
 } from '../utils/fileUtils';
+import { TOKENS_PER_BYTE } from '../utils/constants';
 import { Buffer } from 'buffer';
 
 // isbinaryfileのモック
@@ -106,7 +107,7 @@ describe('fileUtils', () => {
       const result = calculateContentMetrics(content);
       
       expect(result.size).toBe(Buffer.byteLength(content, 'utf-8'));
-      expect(result.tokens).toBe(Math.ceil(result.size / 4));
+      expect(result.tokens).toBe(Math.ceil(result.size / TOKENS_PER_BYTE));
       expect(result.formattedSize).toBe(formatFileSize(result.size));
     });
 
@@ -116,7 +117,7 @@ describe('fileUtils', () => {
       
       // 日本語はUTF-8で3バイト/文字なので適切に計算されるか確認
       expect(result.size).toBe(Buffer.byteLength(content, 'utf-8'));
-      expect(result.tokens).toBe(Math.ceil(result.size / 4));
+      expect(result.tokens).toBe(Math.ceil(result.size / TOKENS_PER_BYTE));
     });
   });
 

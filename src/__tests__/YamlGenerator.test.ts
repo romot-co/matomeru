@@ -64,7 +64,7 @@ describe('YamlGenerator', () => {
         });
 
         test('単一のファイルを含むルートディレクトリ (. relativePath)', async () => {
-            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024 });
+            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024, 'yaml.includeContent': true });
             const file: FileInfo = { uri: vscode.Uri.file('/test/file1.ts'), relativePath: 'file1.ts', content: 'c', language: 'ts', size: 10 };
             const dir: DirectoryInfo = {
                 uri: vscode.Uri.file('/test'), relativePath: '.',
@@ -77,7 +77,7 @@ describe('YamlGenerator', () => {
         });
 
         test('単一のファイルを含む名前付きディレクトリ', async () => {
-            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024 });
+            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024, 'yaml.includeContent': true });
             const file: FileInfo = { uri: vscode.Uri.file('/test/src/file1.ts'), relativePath: 'src/file1.ts', content: 'c', language: 'ts', size: 10 };
             const dir: DirectoryInfo = {
                 uri: vscode.Uri.file('/test/src'), relativePath: 'src',
@@ -90,7 +90,7 @@ describe('YamlGenerator', () => {
         });
 
         test('複数のファイルとネストしたディレクトリ', async () => {
-            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024 });
+            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024, 'yaml.includeContent': true });
             const file1: FileInfo = { uri: vscode.Uri.file('/README.md'), relativePath: 'README.md', content: '#P', language: 'md', size: 10 };
             const subFile: FileInfo = { uri: vscode.Uri.file('/src/main.ts'), relativePath: 'src/main.ts', content: 'main', language: 'ts', size: 20 };
             const subDir: DirectoryInfo = { uri: vscode.Uri.file('/src'), relativePath: 'src', files: [subFile], directories: new Map() };
@@ -105,7 +105,7 @@ describe('YamlGenerator', () => {
         });
 
         test('maxFileSize 設定で大きなファイルが除外される', async () => {
-            setupMockConfig({ prefixText: '', maxFileSize: 50 });
+            setupMockConfig({ prefixText: '', maxFileSize: 50, 'yaml.includeContent': true });
             const fileSmall: FileInfo = { uri: vscode.Uri.file('/s.txt'), relativePath: 's.txt', content: 'small', language: 't', size: 10 };
             const fileLarge: FileInfo = { uri: vscode.Uri.file('/l.txt'), relativePath: 'l.txt', content: 'large_content', language: 't', size: 100 };
             const dir: DirectoryInfo = { uri: vscode.Uri.file('/'), relativePath: '.', files: [fileSmall, fileLarge], directories: new Map() };
@@ -122,6 +122,26 @@ describe('YamlGenerator', () => {
             const result = await yamlGenerator.generate([dir]);
             const parsedResult = yaml.load(result) as any;
             expect(parsedResult.files[0].size).toBe(12345);
+        });
+
+        test('yaml.includeContent が false の場合、ファイル内容が出力されない（デフォルト動作）', async () => {
+            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024, 'yaml.includeContent': false });
+            const file: FileInfo = { uri: vscode.Uri.file('/test.txt'), relativePath: 'test.txt', content: 'file content', language: 'plaintext', size: 12 };
+            const dir: DirectoryInfo = { uri: vscode.Uri.file('/'), relativePath: '.', files: [file], directories: new Map() };
+            const result = await yamlGenerator.generate([dir]);
+            const parsedResult = yaml.load(result) as any;
+            expect(parsedResult.files).toEqual([{ path: 'test.txt', size: 12, language: 'plaintext' }]);
+            expect(parsedResult.files[0]).not.toHaveProperty('content');
+        });
+
+        test('yaml.includeContent が true の場合、ファイル内容が出力される', async () => {
+            setupMockConfig({ prefixText: '', maxFileSize: 1024 * 1024, 'yaml.includeContent': true });
+            const file: FileInfo = { uri: vscode.Uri.file('/test.txt'), relativePath: 'test.txt', content: 'file content', language: 'plaintext', size: 12 };
+            const dir: DirectoryInfo = { uri: vscode.Uri.file('/'), relativePath: '.', files: [file], directories: new Map() };
+            const result = await yamlGenerator.generate([dir]);
+            const parsedResult = yaml.load(result) as any;
+            expect(parsedResult.files).toEqual([{ path: 'test.txt', size: 12, language: 'plaintext', content: 'file content' }]);
+            expect(parsedResult.files[0]).toHaveProperty('content', 'file content');
         });
     });
 }); 

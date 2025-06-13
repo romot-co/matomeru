@@ -43,20 +43,21 @@ describe('compressUtils', () => {
     extensionPath: '/test/extension'
   } as any;
 
-  test('stripComments should remove comments from JavaScript code', async () => {
+  test('stripComments should remove comments and minify whitespace from JavaScript code', async () => {
     const jsCode = "// abc\nconst x = 1; /* test */";
     const result = await stripComments(jsCode, 'javascript', mockContext);
     
-    // コメントが除去され、余計な文字が残らないことを確認
-    expect(result).toBe("\nconst x = 1;");
+    // コメントが除去され、空白も最小化されることを確認
+    expect(result).toBe("const x = 1;");
   });
 
-  test('stripComments should return original code for unsupported languages', async () => {
-    const unknownCode = "# This is a comment in an unknown language";
+  test('stripComments should apply basic whitespace minification for unsupported languages', async () => {
+    const unknownCode = "# This is a comment   \n   in an unknown language";
     const result = await stripComments(unknownCode, 'unknown', mockContext);
     
-    // サポートされていない言語の場合、元のコードがそのまま返されることを確認
-    expect(result).toBe(unknownCode);
+    // サポートされていない言語の場合、基本的な空白圧縮のみ適用されることを確認
+    expect(result).toBe("# This is a comment in an unknown language");
+    expect(result.length).toBeLessThan(unknownCode.length);
   });
   
   test('stripComments should handle parser errors gracefully', async () => {

@@ -6,8 +6,6 @@
     "cmd.quickProcessToChatGPT": "Matomeru: ChatGPTに送信",
     "cmd.estimateSize": "Matomeru: サイズを見積る",
     "cmd.copyGitDiff": "Matomeru: Git差分をコピー",
-    "cmd.diffToEditor": "Matomeru: 差分をエディタに表示",
-    "cmd.diffToChatGPT": "Matomeru: 差分をChatGPTに送信",
     "config.maxFileSize.description": "処理対象とする最大ファイルサイズ（バイト）",
     "config.excludePatterns.description": "除外するファイルパターン",
     "config.chatGptIntegration.description": "ChatGPT連携機能を有効化する（macOSのみ対応）",
@@ -15,10 +13,11 @@
     "config.directoryStructure.fileIcon.description": "ファイルを表すアイコン",
     "config.directoryStructure.indentSize.description": "ディレクトリ構造のインデントサイズ",
     "config.directoryStructure.showFileExtensions.description": "ディレクトリ構造でファイル拡張子を表示するかどうか",
+    "config.directoryStructure.useEmoji.description": "ディレクトリ構造で絵文字アイコンを使用するかどうか",
     "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する",
     "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト",
     "config.useVscodeignore.description": ".vscodeignoreファイルのパターンを使用してファイルを除外する",
-    "config.enableCompression": "コードのコメントなどを削除し圧縮する(Tree-sitter)",
+    "config.enableCompression": "コードのコメント・不要な空白・改行を削除し圧縮する(Tree-sitter)",
     "config.verboseCompression": "コード圧縮処理に関する詳細なログを出力する",
     "msg.noGitRepo": "Gitリポジトリではありません",
     "msg.gitCliNotFound": "Git CLIが見つかりません",
@@ -26,5 +25,6 @@
     "config.gitDiff.range.description": "Gitリビジョン範囲（例: 'origin/main..HEAD'）。空の場合はワークツリーの変更",
     "matomeru.outputFormat.description": "生成ドキュメントの出力形式 (markdown / yaml)",
     "config.includeDependencies.description": "各ファイルのimport/dependency文をスキャンして含め、Markdown出力にMermaidグラフを生成します。",
-    "config.mermaid.maxNodes.description": "Mermaid依存関係グラフにレンダリングするノードの最大数。超えた場合は警告が表示されます。"
+    "config.mermaid.maxNodes.description": "Mermaid依存関係グラフにレンダリングするノードの最大数。超えた場合は警告が表示されます。",
+    "config.yaml.includeContent.description": "YAML出力にファイル内容を含める。大きなプロジェクトではメモリ問題を避けるため無効にしてください。"
 } 

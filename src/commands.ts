@@ -7,6 +7,7 @@ import { IGenerator } from './generators/IGenerator';
 import { showInEditor, copyToClipboard, openInChatGPT } from './ui';
 import { Logger } from './utils/logger';
 import { formatFileSize, formatTokenCount } from './utils/fileUtils';
+import { TOKENS_PER_BYTE } from './utils/constants';
 import { collectChangedFiles, GitNotRepositoryError, GitCliNotFoundError } from './utils/gitUtils';
 import { getExtensionContext } from './extension';
 import { ParserManager } from './services/parserManager';
@@ -53,29 +54,42 @@ export class CommandRegistrar {
             });
 
             const config = vscode.workspace.getConfiguration('matomeru');
-            const dirInfos = await Promise.all(
-                uris.map(async (uri, index) => {
-                    this.logger.info(vscode.l10n.t('msg.scanningDirectory', index + 1, uri.fsPath));
-                    try {
-                        this.fileOps.setCurrentSelectedPath(uri.fsPath);
-                        const result = await this.fileOps.scanDirectory(uri.fsPath, {
-                            maxFileSize: config.get('maxFileSize', 1048576),
-                            excludePatterns: config.get('excludePatterns', []),
-                            useGitignore: config.get('useGitignore', false),
-                            useVscodeignore: config.get('useVscodeignore', false),
-                            includeDependencies: config.get('includeDependencies', false)
-                        } as ScanOptions);
-                        this.fileOps.setCurrentSelectedPath(undefined);
-                        return result;
-                    } catch (error) {
-                        this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
-                        throw error;
-                    }
-                })
-            );
+            
+            // ファイルをワークスペース別にグループ化
+            const workspaceGroups = this.fileOps.groupFilesByWorkspace(uris);
+            const allDirInfos: DirectoryInfo[] = [];
+
+            // 各ワークスペースグループを順次処理
+            for (const [workspaceRoot, groupUris] of workspaceGroups) {
+                this.logger.info(`Processing workspace: ${workspaceRoot} (${groupUris.length} items)`);
+                
+                const dirInfos = await Promise.all(
+                    groupUris.map(async (uri, index) => {
+                        this.logger.info(vscode.l10n.t('msg.scanningDirectory', index + 1, uri.fsPath));
+                        try {
+                            this.fileOps.setCurrentSelectedPath(uri.fsPath);
+                            const result = await this.fileOps.scanDirectory(uri.fsPath, {
+                                maxFileSize: config.get('maxFileSize', 1048576),
+                                excludePatterns: config.get('excludePatterns', []),
+                                useGitignore: config.get('useGitignore', false),
+                                useVscodeignore: config.get('useVscodeignore', false),
+                                includeDependencies: config.get('includeDependencies', false)
+                            } as ScanOptions, workspaceRoot);
+                            this.fileOps.setCurrentSelectedPath(undefined);
+                            return result;
+                        } catch (error) {
+                            this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
+                            throw error;
+                        }
+                    })
+                );
+                
+                allDirInfos.push(...dirInfos.filter(Boolean) as DirectoryInfo[]);
+            }
+
             const generator = await this.getGenerator();
             const outputFormat = vscode.workspace.getConfiguration('matomeru').get<'markdown' | 'yaml'>('outputFormat', 'markdown');
-            const content = await generator.generate(dirInfos.filter(Boolean) as DirectoryInfo[]);
+            const content = await generator.generate(allDirInfos);
             return { content, format: outputFormat };
         } catch (error) {
             this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
@@ -178,15 +192,15 @@ export class CommandRegistrar {
                 this.fileOps.setCurrentSelectedPath(undefined);
             }
 
-            // トークン数を概算（文字バイト数を3.5で割った値を使用し、精度を少し向上）
-            const estimatedTokens = Math.ceil(totalSize / 3.5);
+            // トークン数を概算（文字バイト数をTOKENS_PER_BYTEで割った値を使用し、精度を少し向上）
+            const estimatedTokens = Math.ceil(totalSize / TOKENS_PER_BYTE);
             const formattedSize = formatFileSize(totalSize);
             const formattedTokens = formatTokenCount(estimatedTokens);
             
             // マークダウン形式のための追加サイズを考慮
             const markdownOverhead = totalFiles * 100; // ファイルごとにヘッダー情報や区切り文字などが追加されると仮定
             const totalEstimatedSize = totalSize + markdownOverhead;
-            const totalEstimatedTokens = Math.ceil(totalEstimatedSize / 3.5);
+            const totalEstimatedTokens = Math.ceil(totalEstimatedSize / TOKENS_PER_BYTE);
             const formattedTotalSize = formatFileSize(totalEstimatedSize);
             const formattedTotalTokens = formatTokenCount(totalEstimatedTokens);
 
@@ -252,45 +266,6 @@ export class CommandRegistrar {
         }
     }
 
-    /**
-     * GitのDiff情報をエディタに表示する
-     * @param _uri 未使用（コマンドハンドラーシグネチャと一致させるため）
-     * @param _uris 未使用（コマンドハンドラーシグネチャと一致させるため）
-     */
-    async diffToEditor(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
-        try {
-            const config = vscode.workspace.getConfiguration('matomeru');
-            const range = config.get<string>('gitDiff.range');
-            
-            const result = await this.processGitDiff(range);
-            if (result) {
-                await showInEditor(result.content, result.format);
-                this.logger.info(vscode.l10n.t('msg.outputToEditor'));
-            }
-        } catch (error) {
-            this.handleGitError(error);
-        }
-    }
-
-    /**
-     * GitのDiff情報をChatGPTに送信する
-     * @param _uri 未使用（コマンドハンドラーシグネチャと一致させるため）
-     * @param _uris 未使用（コマンドハンドラーシグネチャと一致させるため）
-     */
-    async diffToChatGPT(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
-        try {
-            const config = vscode.workspace.getConfiguration('matomeru');
-            const range = config.get<string>('gitDiff.range');
-            
-            const result = await this.processGitDiff(range);
-            if (result) {
-                await openInChatGPT(result.content);
-                this.logger.info(vscode.l10n.t('msg.sentToChatGPT'));
-            }
-        } catch (error) {
-            this.handleGitError(error);
-        }
-    }
 
     /**
      * Git変更ファイルからMarkdownを生成する共通処理

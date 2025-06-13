@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { CommandRegistrar } from '../commands';
 import { FileOperations } from '../fileOperations';
 import { collectChangedFiles, GitNotRepositoryError } from '../utils/gitUtils';
-import { copyToClipboard, showInEditor, openInChatGPT } from '../ui';
+import { copyToClipboard } from '../ui';
 import { MarkdownGenerator } from '../generators/MarkdownGenerator';
 import { YamlGenerator } from '../generators/YamlGenerator';
 
@@ -162,73 +162,4 @@ describe('CommandRegistrar - Git Diff Commands', () => {
     });
   });
   
-  describe('diffToEditor', () => {
-    test('変更があればエディタに表示する', async () => {
-      // outputFormat を markdown に設定 (beforeEach のデフォルト)
-      const mockFiles = [{ fsPath: 'file1.ts' }, { fsPath: 'file2.js' }];
-      (collectChangedFiles as jest.Mock).mockResolvedValue(mockFiles);
-      
-      await commandRegistrar.diffToEditor();
-      
-      expect(collectChangedFiles).toHaveBeenCalled();
-      expect(markdownGenerateSpy).toHaveBeenCalled();
-      expect(showInEditor).toHaveBeenCalledWith(mockMarkdown, 'markdown');
-    });
-
-    test('変更があればエディタにYAML形式で表示する', async () => {
-      // outputFormat を yaml に設定
-      (vscode.workspace.getConfiguration() as any).get = jest.fn().mockImplementation((key: string) => {
-        if (key === 'gitDiff.range') return '';
-        if (key === 'outputFormat') return 'yaml';
-        return undefined;
-      });
-
-      const mockYamlContent = 'project_overview: Test YAML\nfiles:\n  - path: file1.ts\n    content: test content';
-      yamlGenerateSpy.mockResolvedValue(mockYamlContent);
-
-      const mockFiles = [{ fsPath: 'file1.ts' }];
-      (collectChangedFiles as jest.Mock).mockResolvedValue(mockFiles);
-
-      await commandRegistrar.diffToEditor();
-
-      expect(collectChangedFiles).toHaveBeenCalled();
-      expect(yamlGenerateSpy).toHaveBeenCalled();
-      expect(showInEditor).toHaveBeenCalledWith(mockYamlContent, 'yaml');
-    });
-  });
-  
-  describe('diffToChatGPT', () => {
-    test('変更があればChatGPTに送信する', async () => {
-      // outputFormat を markdown に設定 (beforeEach のデフォルト)
-      const mockFiles = [{ fsPath: 'file1.ts' }, { fsPath: 'file2.js' }];
-      (collectChangedFiles as jest.Mock).mockResolvedValue(mockFiles);
-      
-      await commandRegistrar.diffToChatGPT();
-      
-      expect(collectChangedFiles).toHaveBeenCalled();
-      expect(markdownGenerateSpy).toHaveBeenCalled();
-      expect(openInChatGPT).toHaveBeenCalledWith(mockMarkdown);
-    });
-
-    test('変更があればChatGPTにYAML形式で送信する', async () => {
-      // outputFormat を yaml に設定
-      (vscode.workspace.getConfiguration() as any).get = jest.fn().mockImplementation((key: string) => {
-        if (key === 'gitDiff.range') return '';
-        if (key === 'outputFormat') return 'yaml';
-        return undefined;
-      });
-
-      const mockYamlContent = 'project_overview: Test YAML\nfiles:\n  - path: file1.ts\n    content: test content';
-      yamlGenerateSpy.mockResolvedValue(mockYamlContent);
-
-      const mockFiles = [{ fsPath: 'file1.ts' }];
-      (collectChangedFiles as jest.Mock).mockResolvedValue(mockFiles);
-
-      await commandRegistrar.diffToChatGPT();
-
-      expect(collectChangedFiles).toHaveBeenCalled();
-      expect(yamlGenerateSpy).toHaveBeenCalled();
-      expect(openInChatGPT).toHaveBeenCalledWith(mockYamlContent);
-    });
-  });
 }); 

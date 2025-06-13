@@ -8,6 +8,7 @@ import * as ui from '../ui';
 import { DirectoryInfo } from '../types/fileTypes';
 import { DirectoryNotFoundError, FileSizeLimitError } from '../errors/errors';
 import { formatFileSize, formatTokenCount } from '../utils/fileUtils';
+import { TOKENS_PER_BYTE } from '../utils/constants';
 
 // FileOperations のモックインスタンスを保持する変数
 let mockFileOpsInstance: jest.Mocked<FileOperations>;
@@ -79,6 +80,14 @@ describe('CommandRegistrar', () => {
       preloadConfigFiles: jest.fn(),
       loadGitignorePatterns: jest.fn(),
       loadVscodeignorePatterns: jest.fn(),
+      groupFilesByWorkspace: jest.fn().mockImplementation((uris: unknown) => {
+        const map = new Map();
+        if (Array.isArray(uris) && uris.length > 0) {
+          map.set('/test/workspace', uris);
+        }
+        return map;
+      }),
+      getWorkspaceRootForPath: jest.fn().mockReturnValue('/test/workspace'),
     } as any as jest.Mocked<FileOperations>; 
     
     // ファクトリ関数が参照する変数に代入
@@ -424,16 +433,16 @@ describe('CommandRegistrar', () => {
     test('サイズとトークン数が正しくフォーマットされて表示されること', async () => {
       await commandRegistrar.estimateSize(mockUri);
 
-      // トークン数は約 Math.ceil(1024 / 3.5) = 293
+      // トークン数は約 Math.ceil(1024 / TOKENS_PER_BYTE) = Math.ceil(1024 / 3.6) = 285
       expect(formatFileSize).toHaveBeenCalledWith(1024);
-      expect(formatTokenCount).toHaveBeenCalledWith(293);
+      expect(formatTokenCount).toHaveBeenCalledWith(Math.ceil(1024 / TOKENS_PER_BYTE));
       
       // マークダウン変換後の見積もり
       // markdownOverhead = 5 * 100 = 500
       // totalEstimatedSize = 1024 + 500 = 1524
-      // totalEstimatedTokens = Math.ceil(1524 / 3.5) = 436
+      // totalEstimatedTokens = Math.ceil(1524 / TOKENS_PER_BYTE) = Math.ceil(1524 / 3.6) = 424
       expect(formatFileSize).toHaveBeenCalledWith(1524);
-      expect(formatTokenCount).toHaveBeenCalledWith(436);
+      expect(formatTokenCount).toHaveBeenCalledWith(Math.ceil(1524 / TOKENS_PER_BYTE));
       
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
         expect.stringContaining('msg.sizeEstimation')
@@ -463,54 +472,4 @@ describe('CommandRegistrar', () => {
     });
   });
 
-  describe('diffToEditor', () => {
-    const mockDiffContent = 'diff content';
-    const mockProcessGitDiff = jest.fn<() => Promise<{content: string, format: 'markdown' | 'yaml'} | undefined>>();
-    let originalProcessGitDiff: any;
-
-    beforeEach(() => {
-      originalProcessGitDiff = (commandRegistrar as any).processGitDiff;
-      (commandRegistrar as any).processGitDiff = mockProcessGitDiff;
-      (ui.showInEditor as jest.MockedFunction<typeof ui.showInEditor>).mockClear();
-      (ui.showInEditor as jest.MockedFunction<typeof ui.showInEditor>).mockResolvedValue(undefined);
-      (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
-        get: jest.fn((key: string) => {
-          if (key === 'gitDiff.range') return '';
-          if (key === 'outputFormat') return 'markdown';
-          return undefined;
-        })
-      });
-    });
-
-    afterEach(() => {
-      (commandRegistrar as any).processGitDiff = originalProcessGitDiff;
-    });
-
-    test('Git差分をエディタに表示すること', async () => {
-      mockProcessGitDiff.mockResolvedValue({ content: mockDiffContent, format: 'markdown' });
-      await commandRegistrar.diffToEditor();
-      expect(mockProcessGitDiff).toHaveBeenCalled();
-      expect(ui.showInEditor).toHaveBeenCalledWith(mockDiffContent, 'markdown');
-    });
-
-    test('processGitDiff が undefined を返した場合、showInEditor が呼ばれないこと', async () => {
-      mockProcessGitDiff.mockResolvedValue(undefined);
-      await commandRegistrar.diffToEditor();
-      expect(ui.showInEditor).not.toHaveBeenCalled();
-    });
-
-    test('outputFormat が yaml の場合、showInEditor に yaml が渡されること', async () => {
-      (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
-        get: jest.fn((key: string) => {
-          if (key === 'gitDiff.range') return '';
-          if (key === 'outputFormat') return 'yaml';
-          return undefined;
-        })
-      });
-      mockProcessGitDiff.mockResolvedValue({ content: mockDiffContent, format: 'yaml' });
-
-      await commandRegistrar.diffToEditor();
-      expect(ui.showInEditor).toHaveBeenCalledWith(mockDiffContent, 'yaml');
-    });
-  });
 }); 

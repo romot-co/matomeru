@@ -12,8 +12,9 @@ Combine and copy your entire codes into one LLM-ready Markdown / YAML.
 ## Features
 
 - **Generate Markdown documentation** for your directory structures and file contents
-- **NEW: YAML Output**: Choose between Markdown and YAML for your output format via the `matomeru.outputFormat` setting.
+- **YAML Output**: Choose between Markdown and YAML for your output format via the `matomeru.outputFormat` setting.
 - **Dependency Analysis & Visualization**: Scans import/dependency statements (for TypeScript/JavaScript, Python, Go) and generates a Mermaid flowchart in the Markdown output to visualize relationships when `matomeru.includeDependencies` is enabled.
+- **Multi-root Workspace Support**: Process files from multiple workspace folders with proper context isolation
 - **Automatically format and organize**:
   - Directory tree structure
   - Markdown-compatible output
@@ -29,19 +30,21 @@ Combine and copy your entire codes into one LLM-ready Markdown / YAML.
   - Emoji icons for directories and files
   - Configurable indentation
   - Optional file extension display
-- **Code Compression (Experimental)**: Attempts to remove comments using Tree-sitter to reduce context length for LLMs. (See Configuration section for details)
+- **Enhanced Code Compression**: Removes comments, unnecessary whitespace, and newlines using Tree-sitter to reduce context length for LLMs. (See Configuration section for details)
 - Flexible file exclusion:
   - Configure custom patterns to exclude
   - Use .gitignore .vscodeignore patterns to automatically exclude files (optional)
+  - Security-sensitive files are always excluded by default
 - Localization support (English/Japanese)
 - Estimate size before processing large projects
+- **Memory-optimized YAML output**: Option to exclude file content in YAML format for large projects
 
 ## Installation
 
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.0.17.vsix
+   code --install-extension matomeru-0.1.0.vsix
    ```
 
 ## Usage
@@ -61,6 +64,15 @@ You can also use keyboard shortcuts for quick access:
 - `Ctrl+Alt+E` / `Cmd+Alt+E` (Mac): Output to Editor
 
 These shortcuts can be customized in VS Code's Keyboard Shortcuts editor (`Ctrl+K Ctrl+S` / `Cmd+K Cmd+S` on Mac).
+
+### Estimate Size
+
+Before processing large projects, you can estimate the size of the output:
+1. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P` on Mac)
+2. Run "Matomeru: Estimate Size"
+3. Select the directories/files to estimate
+
+This will display the total file count, size, and estimated token count.
 
 ## Configuration
 
@@ -102,28 +114,37 @@ These shortcuts can be customized in VS Code's Keyboard Shortcuts editor (`Ctrl+
   "matomeru.directoryStructure.fileIcon": "📄",
   "matomeru.directoryStructure.indentSize": 2,
   "matomeru.directoryStructure.showFileExtensions": true,
+  "matomeru.directoryStructure.useEmoji": true,
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
   "matomeru.enableCompression": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
-  "matomeru.gitDiff.range": ""
+  "matomeru.gitDiff.range": "",
+  "matomeru.yaml.includeContent": false
 }
 ```
 </details>
+
+**Prefix Text**: The `matomeru.prefixText` setting allows you to add custom text at the beginning of the generated output. This is useful for adding project overviews, context, or instructions:
+```json
+"matomeru.prefixText": "# Project Overview\nThis is a TypeScript project for..."
+```
 
 **Git Diff Range**: When `matomeru.gitDiff.range` is set, Matomeru will use that revision range when collecting changed files. Example values:
 - Empty string (default): Shows working tree changes compared to HEAD
 - `"HEAD~3..HEAD"`: Shows changes in last 3 commits
 - `"origin/main..HEAD"`: Shows changes between main branch and current HEAD
 
-**Code Compression**: When `matomeru.enableCompression` is set to `true`, Matomeru *attempts* to remove comments and unnecessary code using Tree-sitter for the following languages, making the code more compact for LLMs. (If parsing fails, the original code will be used.)
+**Code Compression**: When `matomeru.enableCompression` is set to `true`, Matomeru removes comments, unnecessary whitespace, and newlines using Tree-sitter for the following languages, making the code more compact for LLMs while preserving syntax and functionality. (If parsing fails, the original code will be used.)
 
 ```txt
 javascript, typescript, tsx, python, css, ruby, 
 csharp, c, cpp, go, rust, java, ini, regex
 ```
+
+**YAML Memory Optimization**: The `matomeru.yaml.includeContent` setting (default: `false`) controls whether file content is included in YAML output. For large projects, keeping this disabled prevents memory issues while still providing project structure and metadata.
 
 **Note on Security**: By default, Matomeru automatically excludes sensitive files like secret keys, 
 credentials, certificates, and environment files (`*.key`, `*.pem`, `*.env`, etc.) to prevent accidental 

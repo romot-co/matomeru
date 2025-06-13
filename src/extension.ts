@@ -22,10 +22,10 @@ export function activate(context: vscode.ExtensionContext) {
     
     commandRegistrar = new CommandRegistrar();
     
-    // ★ バックグラウンド初期化を開始（2秒後）
+    // バックグラウンド初期化を開始（2秒後）
     setTimeout(() => {
         runBackgroundInitialization(context).catch(error => {
-            logger.debug(`Background initialization failed: ${error}`);
+            logger.error(`Background initialization failed: ${error}`);
         });
     }, 2000);
     
@@ -119,9 +119,6 @@ export function activate(context: vscode.ExtensionContext) {
         registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar)),
         // Git Diff関連コマンドの追加
         registerCommand('matomeru.copyGitDiff', commandRegistrar.diffToClipboard.bind(commandRegistrar))
-        // 以下のコマンドはv0.0.12では使用しません
-        // registerCommand('matomeru.diffToEditor', commandRegistrar.diffToEditor.bind(commandRegistrar)),
-        // registerCommand('matomeru.diffToChatGPT', commandRegistrar.diffToChatGPT.bind(commandRegistrar))
     );
 }
 
@@ -146,7 +143,7 @@ export function deactivate() {
     logger.dispose();
 }
 
-// ★ バックグラウンド初期化関数群を追加
+// バックグラウンド初期化関数群
 async function runBackgroundInitialization(context: vscode.ExtensionContext): Promise<void> {
     logger.info('Starting background initialization...');
     
@@ -162,7 +159,7 @@ async function runBackgroundInitialization(context: vscode.ExtensionContext): Pr
         
         logger.info('Background initialization completed');
     } catch (error) {
-        logger.debug(`Background initialization error: ${error}`);
+        logger.error(`Background initialization error: ${error}`);
     }
 }
 
@@ -170,9 +167,9 @@ async function initializeTreeSitter(context: vscode.ExtensionContext): Promise<v
     try {
         const parserManager = ParserManager.getInstance(context);
         await (parserManager as any).ensureInit();
-        logger.debug('Tree-sitter initialized');
+        logger.info('Tree-sitter initialized');
     } catch (error) {
-        logger.debug(`Tree-sitter initialization failed: ${error}`);
+        logger.error(`Tree-sitter initialization failed: ${error}`);
     }
 }
 
@@ -183,10 +180,10 @@ async function preloadConfigFiles(): Promise<void> {
         const fileOps = (commandRegistrar as any).fileOps;
         if (fileOps && typeof fileOps.preloadConfigFiles === 'function') {
             await fileOps.preloadConfigFiles();
-            logger.debug('Config files preloaded');
+            logger.info('Config files preloaded');
         }
     } catch (error) {
-        logger.debug(`Config files preload failed: ${error}`);
+        logger.error(`Config files preload failed: ${error}`);
     }
 }
 
@@ -197,11 +194,11 @@ async function preloadCommonParsers(context: vscode.ExtensionContext): Promise<v
     for (const lang of commonLanguages) {
         try {
             await parserManager.getParser(lang);
-            logger.debug(`Parser for ${lang} preloaded`);
+            logger.info(`Parser for ${lang} preloaded`);
             // 各パーサー読み込み間に少し間隔を空ける
             await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
-            logger.debug(`Failed to preload parser for ${lang}: ${error}`);
+        logger.error(`Failed to preload parser for ${lang}: ${error}`);
         }
     }
 }
@@ -212,7 +209,7 @@ async function scheduleIdleTask(task: () => Promise<void>): Promise<void> {
             try {
                 await task();
             } catch (error) {
-                logger.debug(`Idle task failed: ${error}`);
+                logger.error(`Idle task failed: ${error}`);
             }
             resolve();
         });

@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.0.18",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -44,15 +44,6 @@
       {
         "command": "matomeru.copyGitDiff",
         "title": "%cmd.copyGitDiff%"
-      },
-      {
-        "command": "matomeru.diffToEditor",
-        "title": "%cmd.diffToEditor%"
-      },
-      {
-        "command": "matomeru.diffToChatGPT",
-        "title": "%cmd.diffToChatGPT%",
-        "when": "matomeru.chatGptIntegration && isOSX"
       }
     ],
     "keybindings": [
@@ -192,6 +183,11 @@
           "default": true,
           "description": "%config.directoryStructure.showFileExtensions.description%"
         },
+        "matomeru.directoryStructure.useEmoji": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.directoryStructure.useEmoji.description%"
+        },
         "matomeru.prefixText": {
           "type": "string",
           "default": "",
@@ -240,6 +236,11 @@
           "type": "number",
           "default": 300,
           "description": "%config.mermaid.maxNodes.description%"
+        },
+        "matomeru.yaml.includeContent": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.yaml.includeContent.description%"
         }
       }
     }
