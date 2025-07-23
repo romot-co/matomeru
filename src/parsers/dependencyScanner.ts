@@ -107,10 +107,10 @@ export async function scanDependencies(
                 if (language === 'python') {
                     const captureName = pathNodeCapture.name;
                     if (captureName === 'dots') {
-                        const dotCount = importPath.length;
+                        const dotCount = node.text.length;
                         const itemNameCapture = match.captures.find(c => c.name === 'item_name');
                         const rest = itemNameCapture ? itemNameCapture.node.text : '';
-                        const resolvedPath = path.resolve(baseDir, '../'.repeat(Math.max(dotCount - 1, 0)), rest);
+                        const resolvedPath = path.resolve(baseDir, '../'.repeat(dotCount), rest);
                         const relativeImport = path.relative(workspaceRoot, resolvedPath);
                         dependencies.add(relativeImport.replace(/\\/g, '/'));
                         continue;
@@ -120,7 +120,7 @@ export async function scanDependencies(
                         for (const child of parent.children) {
                             if (child && (child as any).type === 'import_prefix') dotCount++;
                         }
-                        const resolvedPath = path.resolve(baseDir, '../'.repeat(Math.max(dotCount - 1, 0)), importPath);
+                        const resolvedPath = path.resolve(baseDir, '../'.repeat(dotCount), importPath);
                         const relativeImport = path.relative(workspaceRoot, resolvedPath);
                         dependencies.add(relativeImport.replace(/\\/g, '/'));
                         continue;

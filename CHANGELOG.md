@@ -4,6 +4,18 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.1] - 2025-07-23
+### Fixed
+- **Python dependency scanning**: Fixed incorrect dot count calculation in relative imports that caused dependency graph corruption
+  - Changed from using `importPath.length` to `node.text.length` for accurate dot counting
+  - Removed incorrect `-1` offset in `../` repeat calculation
+- **Code compression for indent-dependent languages**: Fixed indentation destruction in Python/YAML files
+  - Preserved original indentation structure instead of converting all indents to single tabs
+  - Only removes excessive blank lines and trailing whitespace for better code readability
+- **Parser initialization race condition**: Fixed potential concurrent `Parser.init()` calls
+  - Added `initPromise` caching to ensure thread-safe initialization
+  - Prevents WASM loading conflicts when multiple parsers are requested simultaneously
+
 ## [0.1.0] - 2025-06-13
 ### Added
 - **Multi-root workspace support**: Process files from multiple workspace folders with proper context isolation

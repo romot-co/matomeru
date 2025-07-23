@@ -71,14 +71,12 @@ async function minifyWhitespace(code: string, langId: string, ctx: ExtensionCont
  */
 function basicWhitespaceMinify(code: string, langId: string): string {
   if (isIndentDependentLanguage(langId)) {
-    // インデント依存言語: 行頭空白をタブ1文字に変換、改行は保持
+    // インデント依存言語: 余分な空行のみ削除、インデントは保持
     return code
       .split('\n')
-      .map(line => {
-        const trimmed = line.trim();
-        return trimmed ? '\t' + trimmed : trimmed;
-      })
+      .map(line => line.trimEnd()) // 行末の余分な空白のみ削除
       .join('\n')
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // 3つ以上の連続改行を2つに
       .trim();
   } else {
     // その他の言語: 連続空白を1文字に、改行を空白に変換
@@ -94,19 +92,12 @@ function basicWhitespaceMinify(code: string, langId: string): string {
  */
 function minifyCodeSegment(segment: string, langId: string): string {
   if (isIndentDependentLanguage(langId)) {
-    // インデント依存言語: 行頭インデントのみ最小化、改行は保持
+    // インデント依存言語: 余分な空行のみ削除、インデントは保持
     return segment
       .split('\n')
-      .map(line => {
-        const trimmed = line.trim();
-        if (!trimmed) return ''; // 空行はそのまま
-        const leadingWhitespace = line.match(/^[ \t]*/)?.[0] || '';
-        if (leadingWhitespace.length > 0) {
-          return '\t' + trimmed; // インデントがある行は1タブ + 内容
-        }
-        return trimmed; // インデントがない行はそのまま
-      })
-      .join('\n');
+      .map(line => line.trimEnd()) // 行末の余分な空白のみ削除
+      .join('\n')
+      .replace(/\n\s*\n\s*\n/g, '\n\n'); // 3つ以上の連続改行を2つに
   } else {
     // その他の言語: 連続空白を1文字に、改行を空白に変換
     return segment

@@ -58,6 +58,7 @@ export class ParserManager {
   private static instance: ParserManager;
   private cache = new Map<Lang, Parser>();
   private initialized = false;
+  private initPromise?: Promise<void>;
   private logger = Logger.getInstance('ParserManager');
   private constructor(private readonly ctx: vscode.ExtensionContext) {}
 
@@ -135,8 +136,19 @@ export class ParserManager {
   /** Parser.init() を一度だけ呼び出す */
   async ensureInit(): Promise<void> {
     if (this.initialized) return;
-    await Parser.init();        // ← ここで WASM ランタイムを準備
-    this.initialized = true;
+    
+    // 既に初期化中の場合は同じPromiseを返す
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    
+    // 初期化Promiseを作成・キャッシュ
+    this.initPromise = (async () => {
+      await Parser.init();        // ← ここで WASM ランタイムを準備
+      this.initialized = true;
+    })();
+    
+    return this.initPromise;
   }
 
   public isInitialized(): boolean {
