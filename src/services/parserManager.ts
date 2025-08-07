@@ -73,14 +73,21 @@ export class ParserManager {
    */
   dispose(): void {
     // パーサーのキャッシュをクリア
-    this.cache.forEach(_parser => {
-      // Tree-sitterのParser自体にはdisposeメソッドがないが、
-      // キャッシュをクリアしてGCの対象にする
+    this.cache.forEach(parser => {
+      // Tree-sitterのParserのdelete()メソッドを呼び出してメモリリークを防ぐ
+      if (parser && typeof parser.delete === 'function') {
+        try {
+          parser.delete();
+        } catch (error) {
+          this.logger.warn('Failed to delete parser: ' + (error instanceof Error ? error.message : String(error)));
+        }
+      }
     });
     this.cache.clear();
     this.initialized = false;
     this.logger.info('ParserManager disposed');
-    ParserManager.instance = undefined as any;
+    // シングルトンインスタンスをnullに設定
+    ParserManager.instance = null as any;
   }
 
   /** languageId から Parser を返す（未キャッシュならロード） */

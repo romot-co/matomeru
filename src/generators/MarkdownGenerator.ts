@@ -23,7 +23,7 @@ export class MarkdownGenerator implements IGenerator {
         return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     }
 
-    async generate(directories: DirectoryInfo[]): Promise<string> {
+    async generate(directories: DirectoryInfo[], options?: { compression?: boolean }): Promise<string> {
         if (!directories.length) {
             return '';
         }
@@ -69,7 +69,7 @@ export class MarkdownGenerator implements IGenerator {
         
         const allFiles = this.getAllFiles(directories);
         for (const file of allFiles) {
-            coreContentSections.push(await this.generateFileSection(file));
+            coreContentSections.push(await this.generateFileSection(file, options?.compression || false));
         }
         let coreMarkdown = coreContentSections.join('\n');
 
@@ -105,7 +105,7 @@ export class MarkdownGenerator implements IGenerator {
         }
     }
 
-    private async generateFileSection(file: FileInfo): Promise<string> {
+    private async generateFileSection(file: FileInfo, useCompression: boolean = false): Promise<string> {
         const sections: string[] = [];
 
         sections.push(`## ${file.relativePath}\n`);
@@ -113,10 +113,9 @@ export class MarkdownGenerator implements IGenerator {
         sections.push(`- Size: ${this.formatFileSize(file.size)}`);
         sections.push(`- Language: ${file.language}\n`);
 
-        const config = vscode.workspace.getConfiguration('matomeru');
         let content = file.content;
         
-        if (config.get('enableCompression')) {
+        if (useCompression) {
             try {
                 const ctx = getExtensionContext();
                 content = await stripComments(file.content, file.language, ctx);
@@ -241,9 +240,12 @@ export class MarkdownGenerator implements IGenerator {
         }
         
         for (const edge of edges) {
-            if (graphLines.length -1 >= maxNodes && truncated && !graphLines.some(line => line.includes('more dependencies linked here...'))) {
-                 graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
-                 break;
+            // ノード数が上限に達した場合の処理を明確化
+            if (truncated && nodes.size > maxNodes) {
+                if (!graphLines.some(line => line.includes('more dependencies linked here...'))) {
+                    graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
+                }
+                break; // これ以上エッジを追加しない
             }
             graphLines.push(`    "${edge.from}" --> "${edge.to}"`);
         }

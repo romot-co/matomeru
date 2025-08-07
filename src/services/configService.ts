@@ -52,7 +52,18 @@ export class ConfigService {
                 },
                 useGitignore: this.validateBoolean(this.safeGet(config, 'useGitignore'), defaultConfig.useGitignore),
                 useVscodeignore: this.validateBoolean(this.safeGet(config, 'useVscodeignore'), defaultConfig.useVscodeignore),
-                prefixText: this.validateString(this.safeGet(config, 'prefixText'), defaultConfig.prefixText)
+                prefixText: this.validateString(this.safeGet(config, 'prefixText'), defaultConfig.prefixText),
+                outputFormat: this.validateOutputFormat(this.safeGet(config, 'outputFormat')),
+                includeDependencies: this.validateBoolean(this.safeGet(config, 'includeDependencies'), defaultConfig.includeDependencies),
+                mermaid: {
+                    maxNodes: this.validateNumber(this.safeGet(config, 'mermaid.maxNodes'), defaultConfig.mermaid.maxNodes, 1, 10000)
+                },
+                yaml: {
+                    includeContent: this.validateBoolean(this.safeGet(config, 'yaml.includeContent'), defaultConfig.yaml.includeContent)
+                },
+                gitDiff: {
+                    range: this.validateString(this.safeGet(config, 'gitDiff.range'), defaultConfig.gitDiff.range)
+                }
             };
         } catch (error) {
             // エラーが発生した場合はデフォルト設定を返す
@@ -64,7 +75,8 @@ export class ConfigService {
         try {
             return config.get<T>(key);
         } catch (error) {
-            // 個別の設定取得でエラーが発生した場合はundefinedを返す
+            // 個別の設定取得でエラーが発生した場合はundefinedを返し、ログで警告する
+            console.warn(`ConfigService: Failed to get config key '${key}':`, error instanceof Error ? error.message : String(error));
             return undefined;
         }
     }
@@ -116,5 +128,25 @@ export class ConfigService {
             return value;
         }
         return defaultConfig.directoryStructure.indentSize;
+    }
+
+    private validateOutputFormat(value: unknown): 'markdown' | 'yaml' {
+        if (value === 'markdown' || value === 'yaml') {
+            return value;
+        }
+        return defaultConfig.outputFormat;
+    }
+
+    private validateNumber(value: unknown, defaultValue: number, min?: number, max?: number): number {
+        if (typeof value === 'number' && Number.isInteger(value) && Number.isSafeInteger(value)) {
+            if (min !== undefined && value < min) {
+                return defaultValue;
+            }
+            if (max !== undefined && value > max) {
+                return defaultValue;
+            }
+            return value;
+        }
+        return defaultValue;
     }
 } 

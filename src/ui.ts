@@ -65,8 +65,9 @@ export async function copyToClipboard(content: string): Promise<void> {
 }
 
 export async function openInChatGPT(content: string): Promise<void> {
-    const config = vscode.workspace.getConfiguration('matomeru');
-    const chatGptIntegration = config.get<boolean>('chatGptIntegration', false);
+    // ConfigServiceを使用して設定を取得
+    const config = (await import('./services/configService')).ConfigService.getInstance().getConfig();
+    const chatGptIntegration = config.chatGptIntegration;
 
     if (!chatGptIntegration) {
         logger.warn(vscode.l10n.t('msg.chatGPTDisabled'));
@@ -81,14 +82,27 @@ export async function openInChatGPT(content: string): Promise<void> {
     try {
         const { formattedSize, tokens } = calculateContentMetrics(content);
         
+        // ユーザーに確認ダイアログを表示（セキュリティ向上）
+        const userConfirmation = await vscode.window.showInformationMessage(
+            vscode.l10n.t('msg.chatGPTClipboardWarning'),
+            { modal: true },
+            vscode.l10n.t('msg.continue'),
+            vscode.l10n.t('msg.cancel')
+        );
+        
+        if (userConfirmation !== vscode.l10n.t('msg.continue')) {
+            return;
+        }
+        
+        // AppleScriptの待機時間を延長して安定性を向上
         const script = `
         tell application "Google Chrome"
             activate
             open location "https://chat.openai.com"
-            delay 2
+            delay 4
             tell application "System Events"
                 keystroke "v" using command down
-                delay 1
+                delay 2
                 keystroke return
             end tell
         end tell

@@ -115,6 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         registerCommand('matomeru.quickProcessToEditor', commandRegistrar.processToEditor.bind(commandRegistrar)),
         registerCommand('matomeru.quickProcessToClipboard', commandRegistrar.processToClipboard.bind(commandRegistrar)),
+        registerCommand('matomeru.quickProcessToClipboardCompressed', commandRegistrar.processToClipboardCompressed.bind(commandRegistrar)),
         registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar.processToChatGPT.bind(commandRegistrar)),
         registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar)),
         // Git Diff関連コマンドの追加

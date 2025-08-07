@@ -1,5 +1,5 @@
 import { DirectoryInfo } from '../types/fileTypes';
 
 export interface IGenerator {
-  generate(dirs: DirectoryInfo[]): Promise<string>;
+  generate(dirs: DirectoryInfo[], options?: { compression?: boolean }): Promise<string>;
 } 

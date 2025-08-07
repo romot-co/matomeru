@@ -14,6 +14,17 @@ export interface MatomeruConfig {
     useGitignore: boolean;    // .gitignoreファイルのパターンを使用するかどうか
     useVscodeignore: boolean; // .vscodeignoreファイルのパターンを使用するかどうか
     prefixText: string;
+    outputFormat: 'markdown' | 'yaml';  // 出力フォーマット
+    includeDependencies: boolean;  // 依存関係を含めるかどうか
+    mermaid: {
+        maxNodes: number;  // Mermaidグラフの最大ノード数
+    };
+    yaml: {
+        includeContent: boolean;  // YAMLにファイル内容を含めるかどうか
+    };
+    gitDiff: {
+        range: string;  // Gitの差分範囲
+    };
 }
 
 export const defaultConfig: MatomeruConfig = {
@@ -28,7 +39,8 @@ export const defaultConfig: MatomeruConfig = {
         "Thumbs.db",
         "*.key", "*.pem", "*.crt", "id_rsa", "id_dsa", 
         "*.p12", "*.pfx", "*.jks", "*secret*.*", 
-        "*password*.*", "*token*.*", "*.env*", "credential*",
+        "*password*.*", "*token*.*", "*.env*", "**/.env*", "credential*",
+        "**/secrets/**", "**/*.secret*", "**/credentials/**", "**/api_key*",
         "config.*secret*.json", "private.*",
         "pnpm-lock.yaml", "yarn.lock", "package-lock.json",
         ".yarn/**", ".pnp.*", ".npm/**", "*.lock",
@@ -47,5 +59,16 @@ export const defaultConfig: MatomeruConfig = {
     },
     prefixText: "",
     useGitignore: false,
-    useVscodeignore: false
+    useVscodeignore: false,
+    outputFormat: 'markdown',
+    includeDependencies: false,
+    mermaid: {
+        maxNodes: 300
+    },
+    yaml: {
+        includeContent: false
+    },
+    gitDiff: {
+        range: ''
+    }
 }; 

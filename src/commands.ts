@@ -11,6 +11,7 @@ import { TOKENS_PER_BYTE } from './utils/constants';
 import { collectChangedFiles, GitNotRepositoryError, GitCliNotFoundError } from './utils/gitUtils';
 import { getExtensionContext } from './extension';
 import { ParserManager } from './services/parserManager';
+import { ConfigService } from './services/configService';
 
 export class CommandRegistrar {
     private readonly fileOps: FileOperations;
@@ -46,7 +47,7 @@ export class CommandRegistrar {
         return new MarkdownGenerator();
     }
 
-    private async processDirectories(uris: vscode.Uri[]): Promise<{content: string, format: 'markdown' | 'yaml'}> {
+    private async processDirectories(uris: vscode.Uri[], options?: { compression?: boolean }): Promise<{content: string, format: 'markdown' | 'yaml'}> {
         try {
             this.logger.info(vscode.l10n.t('msg.processingUris', uris.length));
             uris.forEach((uri, index) => {
@@ -88,9 +89,8 @@ export class CommandRegistrar {
             }
 
             const generator = await this.getGenerator();
-            const outputFormat = vscode.workspace.getConfiguration('matomeru').get<'markdown' | 'yaml'>('outputFormat', 'markdown');
-            const content = await generator.generate(allDirInfos);
-            return { content, format: outputFormat };
+            const content = await generator.generate(allDirInfos, options);
+            return { content, format: config.get('outputFormat', 'markdown') };
         } catch (error) {
             this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
             throw error;
@@ -139,6 +139,27 @@ export class CommandRegistrar {
             const { content } = await this.processDirectories(selectedUris);
             await copyToClipboard(content);
             this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
+        } catch (error) {
+            this.logger.error(error instanceof Error ? error.message : String(error));
+        }
+    }
+
+    async processToClipboardCompressed(uri?: vscode.Uri, uris?: vscode.Uri[]): Promise<void> {
+        try {
+            const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
+            if (!selectedUris.length) {
+                throw new Error(vscode.l10n.t('msg.noSelection'));
+            }
+
+            // 初回実行時のみ簡単な初期化待機
+            if (!this.firstRunCompleted) {
+                await this.waitForInitialization(1000); // 1秒まで待機
+                this.firstRunCompleted = true;
+            }
+
+            const { content } = await this.processDirectories(selectedUris, { compression: true });
+            await copyToClipboard(content);
+            this.logger.info(vscode.l10n.t('msg.copiedToClipboardCompressed'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
@@ -253,8 +274,8 @@ export class CommandRegistrar {
      */
     async diffToClipboard(_uri?: vscode.Uri, _uris?: vscode.Uri[]): Promise<void> {
         try {
-            const config = vscode.workspace.getConfiguration('matomeru');
-            const range = config.get<string>('gitDiff.range');
+            const config = ConfigService.getInstance().getConfig();
+            const range = config.gitDiff.range;
             
             const result = await this.processGitDiff(range);
             if (result) {
@@ -280,20 +301,20 @@ export class CommandRegistrar {
             return undefined;
         }
         
-        const config = vscode.workspace.getConfiguration('matomeru');
+        const config = ConfigService.getInstance().getConfig();
         const scanOptions: ScanOptions = {
-            maxFileSize: config.get('maxFileSize', 1048576),
-            excludePatterns: config.get('excludePatterns', []),
-            useGitignore: config.get('useGitignore', false),
-            useVscodeignore: config.get('useVscodeignore', false)
+            maxFileSize: config.maxFileSize,
+            excludePatterns: config.excludePatterns,
+            useGitignore: config.useGitignore,
+            useVscodeignore: config.useVscodeignore,
+            includeDependencies: config.includeDependencies
         };
         
         const dirInfos = await this.fileOps.processFileList(fileUris, scanOptions);
         
         const generator = await this.getGenerator();
-        const outputFormat = config.get<'markdown' | 'yaml'>('outputFormat', 'markdown');
         const content = await generator.generate(dirInfos.filter(Boolean) as DirectoryInfo[]);
-        return { content, format: outputFormat };
+        return { content, format: config.outputFormat };
     }
 
     /**

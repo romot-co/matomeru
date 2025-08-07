@@ -13,6 +13,7 @@ jest.mock('../commands', () => ({
     CommandRegistrar: jest.fn().mockImplementation(() => ({
         processToEditor: jest.fn(),
         processToClipboard: jest.fn(),
+        processToClipboardCompressed: jest.fn(),
         processToChatGPT: jest.fn(),
         estimateSize: jest.fn(),
         diffToClipboard: jest.fn(),
@@ -259,8 +260,8 @@ describe('Extension Activation', () => {
             // まず拡張機能をactivate
             await activate(mockContext);
             
-            // 6つのコマンドが登録されていることを確認
-            expect(mockContext.subscriptions).toHaveLength(6);
+            // 7つのコマンドが登録されていることを確認
+            expect(mockContext.subscriptions).toHaveLength(7);
             
             // deactivateを実行
             const extensionModule = await import('../extension');
@@ -277,7 +278,7 @@ describe('Extension Activation', () => {
             await activate(mockContext);
             
             // activateが完了していることを確認
-            expect(mockContext.subscriptions).toHaveLength(6);
+            expect(mockContext.subscriptions).toHaveLength(7);
         });
     });
 
@@ -286,8 +287,8 @@ describe('Extension Activation', () => {
             await activate(mockContext);
             
             // 6つのコマンドが登録されていることを確認
-            expect(mockRegisterCommand).toHaveBeenCalledTimes(5);
-            expect(mockContext.subscriptions).toHaveLength(6);
+            expect(mockRegisterCommand).toHaveBeenCalledTimes(6);
+            expect(mockContext.subscriptions).toHaveLength(7);
         });
     });
 });

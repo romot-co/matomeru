@@ -1,7 +1,6 @@
 import { ParserManager } from '../services/parserManager';
 import { ExtensionContext } from 'vscode';
 import { Logger } from './logger';
-import * as vscode from 'vscode';
 
 const logger = Logger.getInstance('CompressUtils');
 
@@ -165,16 +164,9 @@ export async function stripComments(
     // コメント除去後（またはコメントがない場合）に空白・改行を最小化
     result = await minifyWhitespace(result, langId, ctx);
     
-    // 詳細なログ出力 (verboseCompression設定がある場合)
-    const config = vscode.workspace.getConfiguration('matomeru');
+    // ログ出力
     const commentsRemoved = commentNodes ? commentNodes.length : 0;
-    if (config.get('verboseCompression')) {
-      logger.info(`Original code (${langId}, ${code.length} chars):\n${code}`);
-      logger.info(`Compressed code (${result.length} chars):\n${result}`);
-      logger.info(`Removed ${commentsRemoved} comments and minified whitespace, saved ${code.length - result.length} chars`);
-    } else {
-      logger.info(`Compressed ${langId} code: removed ${commentsRemoved} comments and minified whitespace (${code.length} → ${result.length} chars, ${Math.round((code.length - result.length) / code.length * 100)}% reduction)`);
-    }
+    logger.info(`Compressed ${langId} code: removed ${commentsRemoved} comments and minified whitespace (${code.length} → ${result.length} chars, ${Math.round((code.length - result.length) / code.length * 100)}% reduction)`);
     
     return result;
 

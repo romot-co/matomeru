@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -31,6 +31,10 @@
       {
         "command": "matomeru.quickProcessToClipboard",
         "title": "%cmd.quickProcessToClipboard%"
+      },
+      {
+        "command": "matomeru.quickProcessToClipboardCompressed",
+        "title": "%cmd.quickProcessToClipboardCompressed%"
       },
       {
         "command": "matomeru.quickProcessToChatGPT",
@@ -64,6 +68,12 @@
         "mac": "cmd+alt+e",
         "command": "matomeru.quickProcessToEditor",
         "when": "explorerViewletVisible && !inputFocus"
+      },
+      {
+        "key": "ctrl+alt+shift+c",
+        "mac": "cmd+alt+shift+c",
+        "command": "matomeru.quickProcessToClipboardCompressed",
+        "when": "explorerViewletVisible && !inputFocus"
       }
     ],
     "menus": {
@@ -74,6 +84,10 @@
         },
         {
           "command": "matomeru.quickProcessToClipboard",
+          "group": "matomeru@2"
+        },
+        {
+          "command": "matomeru.quickProcessToClipboardCompressed",
           "group": "matomeru@2"
         },
         {
@@ -202,16 +216,6 @@
           "type": "boolean",
           "default": false,
           "description": "%config.useVscodeignore.description%"
-        },
-        "matomeru.enableCompression": {
-          "type": "boolean",
-          "default": false,
-          "description": "%config.enableCompression%"
-        },
-        "matomeru.verboseCompression": {
-          "type": "boolean",
-          "default": false,
-          "description": "%config.verboseCompression%"
         },
         "matomeru.gitDiff.range": {
           "type": "string",

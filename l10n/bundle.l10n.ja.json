@@ -33,12 +33,14 @@
   "msg.directoryProcessingError": "ディレクトリ処理エラー: ",
   "msg.outputToEditor": "エディタに出力しました",
   "msg.copiedToClipboard": "クリップボードにコピーしました",
+  "msg.copiedToClipboardCompressed": "クリップボードにコピーしました（圧縮）",
   "msg.sentToChatGPT": "ChatGPTに送信しました",
   "msg.commandsRegistered": "コマンドが登録されました",
   "msg.selectButton": "選択",
   "cmd.process": "ディレクトリ/ファイルを処理",
   "cmd.quickProcessToEditor": "Matomeru: エディタに出力",
   "cmd.quickProcessToClipboard": "Matomeru: クリップボードにコピー",
+  "cmd.quickProcessToClipboardCompressed": "Matomeru: クリップボードにコピー（圧縮）",
   "cmd.quickProcessToChatGPT": "Matomeru: ChatGPTに送信",
   "cmd.copyGitDiff": "Matomeru: Git差分をコピー",
   "config.maxFileSize.description": "処理対象とする最大ファイルサイズ（バイト）",
@@ -67,5 +69,9 @@
   "msg.normalPatternMatched": "通常パターン一致({0}): {1} -> {2}",
   "msg.noGitRepo": "Gitリポジトリではありません",
   "msg.gitCliNotFound": "Git CLIが見つかりません",
-  "msg.noChanges": "変更がありません"
+  "msg.noChanges": "変更がありません",
+  "msg.chatGPTClipboardWarning": "このアクションはコンテンツをクリップボードにコピーし、ChromeでChatGPTを開きます。コンテンツがクリップボードに表示されます。続行しますか？",
+  "msg.continue": "続行",
+  "msg.cancel": "キャンセル",
+  "cmd.estimateSize": "Matomeru: サイズ見積り"
 } 

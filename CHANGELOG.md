@@ -4,6 +4,43 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.2] - 2025-08-07
+### Changed
+- **Compression architecture overhaul**: Removed setting-based compression (`enableCompression`/`verboseCompression`) and replaced with explicit user-controlled commands
+  - Users now choose compression explicitly via menu commands rather than hidden configuration settings
+  - Improved user experience with clear compression options in context menus
+
+### Added
+- **New compressed clipboard command**: "Copy to Clipboard (Compressed)" available in right-click context menu
+  - Keyboard shortcut: `Ctrl+Alt+Shift+C` / `Cmd+Alt+Shift+C` (Mac) for compressed clipboard copy
+  - Removes comments and minifies whitespace using Tree-sitter for more efficient LLM context usage
+- **Enhanced generator architecture**: Both MarkdownGenerator and YamlGenerator now support compression options as parameters
+  - More modular and flexible compression handling
+  - Better separation of concerns between configuration and feature functionality
+
+### Fixed
+- **Memory leak prevention**: Added proper `Parser.delete()` calls in ParserManager.dispose() to prevent Tree-sitter memory leaks
+- **ChatGPT integration stability**: Extended AppleScript delay from 2 to 4 seconds for better browser loading reliability
+- **Security enhancements**: Enhanced excludePatterns with additional security-sensitive patterns
+  - Added `**/.env*`, `**/secrets/**`, `**/*.secret*`, `**/credentials/**`, `**/api_key*` patterns
+- **Syntax errors**: Fixed string concatenation issues in test files that could cause build failures
+- **Resource management**: Improved FileSystemWatcher disposal in FileOperations for cleaner shutdown
+
+### Improved
+- **Configuration system**: Removed compression-related dependencies from ConfigService, making it more modular
+- **Code architecture**: Compression utilities (`compressUtils`) now operate independently without configuration dependencies
+- **Generator interface**: Updated IGenerator interface to support optional compression parameters
+- **Multilingual support**: Added complete English and Japanese translations for new compression commands
+- **Error handling**: Enhanced error logging with detailed messages and proper fallback handling
+- **Type safety**: Reduced usage of `any` types with more specific interface definitions
+- **Test coverage**: Enhanced test suites to cover new architecture and command structures
+
+### Technical Changes
+- Refactored generators to accept compression options via method parameters instead of configuration lookup
+- Updated extension command registration to include new compressed clipboard functionality
+- Improved separation of concerns between configuration management and feature functionality
+- Enhanced resource cleanup and memory management across the extension
+
 ## [0.1.1] - 2025-07-23
 ### Fixed
 - **Python dependency scanning**: Fixed incorrect dot count calculation in relative imports that caused dependency graph corruption

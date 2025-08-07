@@ -2,9 +2,14 @@ import * as vscode from 'vscode';
 import { DirectoryInfo } from '../types/fileTypes';
 import { IGenerator } from './IGenerator';
 import yaml from 'js-yaml';
+import { stripComments } from '../utils/compressUtils';
+import { getExtensionContext } from '../extension';
+import { Logger } from '../utils/logger';
+
+const logger = Logger.getInstance('YamlGenerator');
 
 export class YamlGenerator implements IGenerator {
-  async generate(dirs: DirectoryInfo[]): Promise<string> {
+  async generate(dirs: DirectoryInfo[], options?: { compression?: boolean }): Promise<string> {
     const obj: any = {};
     const cfg = vscode.workspace.getConfiguration('matomeru');
     const prefix = cfg.get<string>('prefixText')?.trim();
@@ -19,7 +24,7 @@ export class YamlGenerator implements IGenerator {
 
     if (dirs.length > 0) {
         obj.directory_structure = this.buildTree(dirs, cfg);
-        obj.files = this.buildFiles(dirs, cfg, allFilesForDependencies);
+        obj.files = await this.buildFiles(dirs, cfg, allFilesForDependencies, options?.compression || false);
     }
 
     const includeDependencies = cfg.get<boolean>('includeDependencies');
@@ -83,13 +88,13 @@ export class YamlGenerator implements IGenerator {
     return root;
   }
 
-  private buildFiles(dirs: DirectoryInfo[], cfg: vscode.WorkspaceConfiguration, allFilesCollector?: {path: string, imports?: string[]}[]): any[] {
+  private async buildFiles(dirs: DirectoryInfo[], cfg: vscode.WorkspaceConfiguration, allFilesCollector?: {path: string, imports?: string[]}[], useCompression: boolean = false): Promise<any[]> {
     const filesData: any[] = [];
     const maxFileSize = cfg.get<number>('maxFileSize'); // In Bytes
     const includeDependencies = cfg.get<boolean>('includeDependencies');
     const includeContent = cfg.get<boolean>('yaml.includeContent', false);
 
-    const collectFilesRecursively = (dirInfo: DirectoryInfo) => {
+    const collectFilesRecursively = async (dirInfo: DirectoryInfo) => {
         for (const file of dirInfo.files) {
             if (maxFileSize !== undefined && file.size > maxFileSize) {
                 continue; // Skip large files
@@ -100,7 +105,20 @@ export class YamlGenerator implements IGenerator {
                 language: file.language,
             };
             if (includeContent) {
-                fileEntry.content = file.content;
+                let content = file.content;
+                if (useCompression) {
+                    try {
+                        const ctx = getExtensionContext();
+                        content = await stripComments(file.content, file.language, ctx);
+                        
+                        if (content !== file.content) {
+                            logger.info(`Compressed content for ${file.relativePath}`);
+                        }
+                    } catch (error) {
+                        logger.error(`Failed to compress content: ${error}`);
+                    }
+                }
+                fileEntry.content = content;
             }
             if (includeDependencies && file.imports) {
                 fileEntry.imports = file.imports;
@@ -111,11 +129,13 @@ export class YamlGenerator implements IGenerator {
             }
         }
         for (const subDir of dirInfo.directories.values()) {
-            collectFilesRecursively(subDir);
+            await collectFilesRecursively(subDir);
         }
     };
 
-    dirs.forEach(collectFilesRecursively);
+    for (const dir of dirs) {
+        await collectFilesRecursively(dir);
+    }
     return filesData.sort((a, b) => a.path.localeCompare(b.path));
   }
 } 

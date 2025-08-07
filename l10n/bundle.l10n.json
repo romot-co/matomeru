@@ -32,6 +32,7 @@
   "msg.directoryProcessingError": "Directory processing error: ",
   "msg.outputToEditor": "Output to editor",
   "msg.copiedToClipboard": "Copied to clipboard",
+  "msg.copiedToClipboardCompressed": "Copied to clipboard (compressed)",
   "msg.sentToChatGPT": "Sent to ChatGPT",
   "msg.commandsRegistered": "Commands registered",
   "msg.selectButton": "Select",
@@ -39,8 +40,10 @@
   "cmd.process": "Process Directory/File",
   "cmd.quickProcessToEditor": "Matomeru: Output to Editor",
   "cmd.quickProcessToClipboard": "Matomeru: Copy to Clipboard",
+  "cmd.quickProcessToClipboardCompressed": "Matomeru: Copy to Clipboard (Compressed)",
   "cmd.quickProcessToChatGPT": "Matomeru: Send to ChatGPT",
   "cmd.copyGitDiff": "Matomeru: Copy Git Diff",
+  "cmd.estimateSize": "Matomeru: Estimate Size",
   "config.maxFileSize.description": "The maximum file size (in bytes) to process",
   "config.excludePatterns.description": "File patterns to exclude",
   "config.chatGptIntegration.description": "Enable ChatGPT integration (macOS only)",
@@ -67,5 +70,8 @@
   "description": "Combine and copy your entire codes into one AI-ready document (Markdown or YAML).",
   "config.includeDependencies.description": "Scan and include import/dependency statements from each file, generating Mermaid graphs in Markdown output.",
   "config.mermaid.maxNodes.description": "Maximum number of nodes to render in Mermaid dependency graph. Warning shown when exceeded.",
-  "config.yaml.includeContent.description": "Include file content in YAML output. Disable for large projects to avoid memory issues."
+  "config.yaml.includeContent.description": "Include file content in YAML output. Disable for large projects to avoid memory issues.",
+  "msg.chatGPTClipboardWarning": "This will copy your content to the clipboard and open ChatGPT in Chrome. Your content will be visible on the clipboard. Continue?",
+  "msg.continue": "Continue",
+  "msg.cancel": "Cancel"
 } 
