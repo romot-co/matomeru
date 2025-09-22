@@ -635,20 +635,22 @@ export class FileOperations {
      * @param options スキャンオプション
      * @returns {Promise<{ totalFiles: number, totalSize: number }>} ファイル数とサイズの合計
      */
-    async estimateDirectorySize(targetPath: string, options: ScanOptions): Promise<{ totalFiles: number, totalSize: number }> {
+    async estimateDirectorySize(targetPath: string, options: ScanOptions, workspaceRoot?: string): Promise<{ totalFiles: number, totalSize: number }> {
         try {
-                if (options.useGitignore && !this.gitignoreLoaded) {
-                await this.loadGitignorePatterns();
-            }
-
-                if (options.useVscodeignore && !this.vscodeignoreLoaded) {
-                await this.loadVscodeignorePatterns();
-            }
-
+            const baseRoot = workspaceRoot ?? this.workspaceRoot;
             const absolutePath = path.isAbsolute(targetPath)
                 ? targetPath
-                : path.join(this.workspaceRoot, targetPath);
-            const relativePath = path.relative(this.workspaceRoot, absolutePath);
+                : path.join(baseRoot, targetPath);
+            const targetWorkspaceRoot = workspaceRoot || this.getWorkspaceRootForPath(absolutePath);
+
+            if (options.useGitignore && !this.gitignoreLoaded.get(targetWorkspaceRoot)) {
+                await this.loadGitignorePatterns(targetWorkspaceRoot);
+            }
+
+            if (options.useVscodeignore && !this.vscodeignoreLoaded.get(targetWorkspaceRoot)) {
+                await this.loadVscodeignorePatterns(targetWorkspaceRoot);
+            }
+            const relativePath = path.relative(targetWorkspaceRoot, absolutePath);
 
             const stats = await fs.stat(absolutePath);
             this.logger.info(`見積り対象: ${absolutePath} (${stats.isFile() ? 'ファイル' : 'ディレクトリ'})`);
@@ -659,7 +661,7 @@ export class FileOperations {
             // ファイルの場合は、サイズをチェックして直接カウント
             if (stats.isFile()) {
                 // 対象のパスが除外されるかチェック
-                if (await this.shouldExclude(relativePath, options)) {
+                if (await this.shouldExclude(relativePath, options, targetWorkspaceRoot)) {
                     return { totalFiles: 0, totalSize: 0 };
                 }
 
@@ -683,9 +685,9 @@ export class FileOperations {
 
             for (const entry of entries) {
                 const entryPath = path.join(absolutePath, entry.name);
-                const entryRelativePath = path.relative(this.workspaceRoot, entryPath);
+                const entryRelativePath = path.relative(targetWorkspaceRoot, entryPath);
 
-                if (entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options)) {
+                if (entryPath !== this.currentSelectedPath && await this.shouldExclude(entryRelativePath, options, targetWorkspaceRoot)) {
                     this.logger.info(`除外: ${entryRelativePath}`);
                     continue;
                 }
@@ -693,7 +695,7 @@ export class FileOperations {
                 if (entry.isDirectory()) {
                     try {
                         const { totalFiles: subDirFiles, totalSize: subDirSize } = 
-                            await this.estimateDirectorySize(entryPath, options);
+                            await this.estimateDirectorySize(entryPath, options, targetWorkspaceRoot);
                         totalFiles += subDirFiles;
                         totalSize += subDirSize;
                     } catch (error) {
@@ -707,7 +709,7 @@ export class FileOperations {
                             continue;
                         }
 
-                                if (this.isProbablyBinaryByExtension(entryRelativePath)) {
+                        if (this.isProbablyBinaryByExtension(entryRelativePath)) {
                             this.logger.info(`バイナリファイルをスキップ: ${entryRelativePath}`);
                             continue;
                         }
@@ -756,20 +758,38 @@ export class FileOperations {
      */
     async processFileList(fileUris: vscode.Uri[], options: ScanOptions): Promise<DirectoryInfo[]> {
         const results: DirectoryInfo[] = [];
-        const rootScanPath = this.currentSelectedPath || this.workspaceRoot;
+        const directoryMap = new Map<string, DirectoryInfo>();
 
-        if (options.useGitignore && !this.gitignoreLoaded) {
-            await this.loadGitignorePatterns();
-        }
-        if (options.useVscodeignore && !this.vscodeignoreLoaded) {
-            await this.loadVscodeignorePatterns();
-        }
+        const getDirectoryInfo = (workspaceRoot: string, dirPath: string): DirectoryInfo => {
+            const key = `${workspaceRoot}::${dirPath || '.'}`;
+            let dirInfo = directoryMap.get(key);
+            if (!dirInfo) {
+                const absoluteDirPath = dirPath ? path.join(workspaceRoot, dirPath) : workspaceRoot;
+                dirInfo = {
+                    uri: vscode.Uri.file(absoluteDirPath),
+                    relativePath: dirPath,
+                    files: [],
+                    directories: new Map()
+                };
+                directoryMap.set(key, dirInfo);
+                results.push(dirInfo);
+            }
+            return dirInfo;
+        };
 
         for (const uri of fileUris) {
             const absolutePath = uri.fsPath;
-            const relativePath = path.relative(this.workspaceRoot, absolutePath);
+            const workspaceRootForPath = this.getWorkspaceRootForPath(absolutePath);
+            const relativePath = path.relative(workspaceRootForPath, absolutePath);
 
-            if (await this.shouldExclude(relativePath, options)) {
+            if (options.useGitignore && !this.gitignoreLoaded.get(workspaceRootForPath)) {
+                await this.loadGitignorePatterns(workspaceRootForPath);
+            }
+            if (options.useVscodeignore && !this.vscodeignoreLoaded.get(workspaceRootForPath)) {
+                await this.loadVscodeignorePatterns(workspaceRootForPath);
+            }
+
+            if (await this.shouldExclude(relativePath, options, workspaceRootForPath)) {
                 this.logger.info(`ファイルリストから除外: ${relativePath}`);
                 continue;
             }
@@ -812,19 +832,8 @@ export class FileOperations {
                 };
 
                 const dirPath = path.dirname(relativePath);
-                if (!results.some(dir => dir.relativePath === dirPath)) {
-                    results.push({
-                        uri: vscode.Uri.file(path.join(rootScanPath, dirPath)),
-                        relativePath: dirPath,
-                        files: [],
-                        directories: new Map()
-                    });
-                }
-
-                const dirInfo = results.find(dir => dir.relativePath === dirPath);
-                if (dirInfo) {
-                    dirInfo.files.push(fileInfo);
-                }
+                const dirInfo = getDirectoryInfo(workspaceRootForPath, dirPath);
+                dirInfo.files.push(fileInfo);
             } catch (error) {
                 logError(this.logger, error, true);
             }
@@ -832,4 +841,4 @@ export class FileOperations {
 
         return results;
     }
-} 
+}

@@ -4,6 +4,17 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.3] - 2025-09-21
+### Changed
+- **Compression algorithm enhancements**: Tightened Tree-sitter based whitespace trimming around operators and now remove Python docstrings / JSDoc-style comments by default for leaner outputs.
+
+### Improved
+- **Compression logging**: Log entries now report the number of removed comment/docstring blocks and the overall size reduction percentage so the effect is visible at a glance.
+
+### Fixed
+- **`.gitignore` / `.vscodeignore` loading**: Corrected `Map` flag handling to ensure ignore patterns load reliably in multi-root workspaces.
+- **Configuration reload latency**: Invoke `ConfigService.reload()` inside `onDidChangeConfiguration` so `matomeru.*` updates take effect immediately.
+
 ## [0.1.2] - 2025-08-07
 ### Changed
 - **Compression architecture overhaul**: Removed setting-based compression (`enableCompression`/`verboseCompression`) and replaced with explicit user-controlled commands

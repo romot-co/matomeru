@@ -1,8 +1,13 @@
 import { ParserManager } from '../services/parserManager';
 import { ExtensionContext } from 'vscode';
 import { Logger } from './logger';
+import type { Tree as WebTreeSitterTree } from 'web-tree-sitter';
 
 const logger = Logger.getInstance('CompressUtils');
+
+type WebTreeSitterSyntaxNode = WebTreeSitterTree['rootNode'];
+
+type RemovalRange = { start: number; end: number };
 
 /**
  * インデント依存言語かどうかを判定
@@ -98,11 +103,179 @@ function minifyCodeSegment(segment: string, langId: string): string {
       .join('\n')
       .replace(/\n\s*\n\s*\n/g, '\n\n'); // 3つ以上の連続改行を2つに
   } else {
-    // その他の言語: 連続空白を1文字に、改行を空白に変換
-    return segment
+    // その他の言語: 連続空白を1文字に、改行を空白に変換し、句読点まわりをタイトにする
+    let result = segment
       .replace(/[ \t\u00A0]+/g, ' ')  // 連続空白を1文字に
-      .replace(/\s*\n+\s*/g, ' ');    // 改行とその前後の空白を1空白に
+      .replace(/\s*\n+\s*/g, ' ');   // 改行とその前後の空白を1空白に
+
+    // 代入・演算子周辺の余分な空白を削除
+    result = result.replace(/\s+([=+*%<>!&|^~?:-])/g, '$1');
+    result = result.replace(/([=+*%<>!&|^~?:-])\s+/g, '$1');
+    result = result.replace(/\s*\/\s*/g, '/');
+
+    // カンマやセミコロンの直前直後の空白を削減
+    result = result.replace(/\s*,\s*/g, ',');
+    result = result.replace(/\s*;\s*/g, ';');
+
+    // 追加で二重スペースを排除
+    result = result.replace(/ {2,}/g, ' ');
+
+    return result.trim();
   }
+}
+
+function collectAdditionalRemovalRanges(
+  root: WebTreeSitterSyntaxNode,
+  langId: string,
+  code: string
+): RemovalRange[] {
+  if (langId !== 'python') {
+    return [];
+  }
+
+  const ranges: RemovalRange[] = [];
+
+  const visit = (node: WebTreeSitterSyntaxNode): void => {
+    if (!node || !node.namedChildren) {
+      return;
+    }
+
+    const namedChildren = (Array.isArray(node.namedChildren)
+      ? node.namedChildren
+      : Array.from(node.namedChildren)) as WebTreeSitterSyntaxNode[];
+
+    if (node.type === 'module') {
+      const docNode = findLeadingDocstring(namedChildren);
+      if (docNode) {
+        ranges.push(expandRangeToWholeLine(docNode.startIndex, docNode.endIndex, code));
+      }
+    }
+
+    if (node.type === 'function_definition' || node.type === 'class_definition') {
+      const body = namedChildren.find(child => child.type === 'block' || child.type === 'suite');
+      if (body && body.namedChildren && body.namedChildren.length > 0) {
+        const bodyChildren = (Array.isArray(body.namedChildren)
+          ? body.namedChildren
+          : Array.from(body.namedChildren)) as WebTreeSitterSyntaxNode[];
+        const docNode = findLeadingDocstring(bodyChildren);
+        if (docNode) {
+          ranges.push(expandRangeToWholeLine(docNode.startIndex, docNode.endIndex, code));
+        }
+      }
+    }
+
+    namedChildren.forEach(child => visit(child as WebTreeSitterSyntaxNode));
+  };
+
+  visit(root);
+
+  const heuristicRanges = collectPythonDocstringHeuristics(code);
+  heuristicRanges.forEach(range => {
+    if (!ranges.some(existing => rangesOverlap(existing, range))) {
+      ranges.push(range);
+    }
+  });
+
+  return ranges;
+}
+
+function findLeadingDocstring(children: WebTreeSitterSyntaxNode[]): WebTreeSitterSyntaxNode | undefined {
+  for (const child of children) {
+    if (!child || child.type === 'comment') {
+      continue;
+    }
+
+    if (child.type === 'expression_statement' && child.namedChildren && child.namedChildren.length === 1) {
+      const candidate = child.namedChildren[0] as WebTreeSitterSyntaxNode;
+      if (isStringLiteralNode(candidate)) {
+        return child;
+      }
+    }
+
+    break;
+  }
+
+  return undefined;
+}
+
+function isStringLiteralNode(node: WebTreeSitterSyntaxNode | undefined): boolean {
+  if (!node) {
+    return false;
+  }
+  const type = node.type.toLowerCase();
+  return type.includes('string');
+}
+
+function expandRangeToWholeLine(start: number, end: number, code: string): RemovalRange {
+  let rangeStart = start;
+  let rangeEnd = end;
+
+  while (rangeStart > 0 && /[ \t]/.test(code[rangeStart - 1])) {
+    rangeStart--;
+  }
+
+  while (rangeEnd < code.length && /[ \t]/.test(code[rangeEnd])) {
+    rangeEnd++;
+  }
+  if (rangeEnd < code.length && code[rangeEnd] === '\r') {
+    rangeEnd++;
+    if (rangeEnd < code.length && code[rangeEnd] === '\n') {
+      rangeEnd++;
+    }
+  } else if (rangeEnd < code.length && code[rangeEnd] === '\n') {
+    rangeEnd++;
+  }
+
+  return { start: rangeStart, end: rangeEnd };
+}
+
+function collectPythonDocstringHeuristics(code: string): RemovalRange[] {
+  const ranges: RemovalRange[] = [];
+
+  const moduleDocRegex = /^\s*("""[\s\S]*?"""|'''[\s\S]*?'''\s*)(\r?\n)?/;
+  const moduleMatch = moduleDocRegex.exec(code);
+  if (moduleMatch && moduleMatch.index === 0) {
+    const matchText = moduleMatch[0];
+    ranges.push({ start: 0, end: matchText.length });
+  }
+
+  const docstringRegex = /\n([ \t]+)("""[\s\S]*?"""|'''[\s\S]*?''')/g;
+  let match: RegExpExecArray | null;
+  while ((match = docstringRegex.exec(code)) !== null) {
+    const newlineIndex = match.index;
+    const docStart = newlineIndex + 1; // skip newline, remove indent + docstring
+    const docEnd = docstringRegex.lastIndex;
+
+    const preceding = code.slice(0, newlineIndex).trimEnd();
+    const lastLine = preceding.slice(preceding.lastIndexOf('\n') + 1);
+    if (!lastLine.endsWith(':')) {
+      continue;
+    }
+
+    const rangeStart = docStart;
+    let rangeEnd = docEnd;
+
+    // consume trailing whitespace and a single newline after the docstring
+    while (rangeEnd < code.length && /[ \t]/.test(code[rangeEnd])) {
+      rangeEnd++;
+    }
+    if (rangeEnd < code.length && code[rangeEnd] === '\r') {
+      rangeEnd++;
+      if (rangeEnd < code.length && code[rangeEnd] === '\n') {
+        rangeEnd++;
+      }
+    } else if (rangeEnd < code.length && code[rangeEnd] === '\n') {
+      rangeEnd++;
+    }
+
+    ranges.push({ start: rangeStart, end: rangeEnd });
+  }
+
+  return ranges;
+}
+
+function rangesOverlap(a: RemovalRange, b: RemovalRange): boolean {
+  return a.start < b.end && b.start < a.end;
 }
 
 /**
@@ -118,47 +291,74 @@ export async function stripComments(
   ctx: ExtensionContext
 ): Promise<string> {
   try {
+    const originalCode = code;
+    let workingCode = code;
+    let docstringRemovalCount = 0;
+
+    if (langId === 'python') {
+      const docstringRanges = collectPythonDocstringHeuristics(workingCode);
+      if (docstringRanges.length > 0) {
+        workingCode = applyRemovalRanges(workingCode, docstringRanges);
+        docstringRemovalCount = docstringRanges.length;
+      }
+    }
+
     const parser = await ParserManager.getInstance(ctx).getParser(langId);
     if (!parser) {
       logger.info(`Unsupported language for compression: ${langId}, applying basic whitespace minification`);
       // 対応言語でない場合は基本的な空白圧縮のみ実行
-      return basicWhitespaceMinify(code, langId);
+      return basicWhitespaceMinify(workingCode, langId);
     }
 
-    const tree = parser.parse(code);
+    const tree = parser.parse(workingCode);
     // parse に失敗した場合や、tree が null/undefined の場合は基本的な空白圧縮のみ実行
     if (!tree) {
         logger.warn(`Failed to parse ${langId} code, applying basic whitespace minification`);
-        return basicWhitespaceMinify(code, langId); 
+        return basicWhitespaceMinify(workingCode, langId); 
     }
 
     const commentNodes = tree.rootNode.descendantsOfType('comment');
+    const additionalRanges = collectAdditionalRemovalRanges(tree.rootNode, langId, workingCode);
     
     let result: string;
     
     // コメントがある場合は除去処理を実行
-    if (commentNodes && commentNodes.length > 0) {
-      // コメント範囲をソート (開始インデックス昇順) と null/undefined の除去
-      const commentRanges = commentNodes
-        .map(node => node ? { start: node.startIndex, end: node.endIndex } : null) // node が null なら null を返す
-        .filter((range): range is { start: number; end: number } => range !== null) // null を除去し、型ガードで型を保証
-        .sort((a, b) => a.start - b.start);
+    const rangesToRemove: RemovalRange[] = commentNodes
+      ? commentNodes
+          .map(node => node ? { start: node.startIndex, end: node.endIndex } : null)
+          .filter((range): range is RemovalRange => range !== null)
+      : [];
+
+    rangesToRemove.push(...additionalRanges);
+
+    if (rangesToRemove.length > 0) {
+      const sortedRanges = rangesToRemove
+        .sort((a, b) => a.start - b.start)
+        .reduce<RemovalRange[]>((acc, curr) => {
+          const last = acc[acc.length - 1];
+          if (last && curr.start <= last.end) {
+            last.end = Math.max(last.end, curr.end);
+          } else {
+            acc.push({ ...curr });
+          }
+          return acc;
+        }, []);
 
       const pieces: string[] = [];
       let lastIndex = 0;
-      for (const comment of commentRanges) {
-        // コメント開始位置までのコード片を追加
-        pieces.push(code.slice(lastIndex, comment.start));
-        // 次の開始位置をコメントの終了位置に設定
-        lastIndex = comment.end;
+      for (const range of sortedRanges) {
+        // 範囲開始位置までのコード片を追加
+        pieces.push(workingCode.slice(lastIndex, range.start));
+        // 次の開始位置を範囲の終了位置に設定
+        lastIndex = range.end;
       }
       // 最後のコメント以降のコード片を追加
-      pieces.push(code.slice(lastIndex));
+      pieces.push(workingCode.slice(lastIndex));
 
       result = pieces.join('');
     } else {
       // コメントがない場合はそのまま
-      result = code;
+      result = workingCode;
     }
     
     // コメント除去後（またはコメントがない場合）に空白・改行を最小化
@@ -166,7 +366,11 @@ export async function stripComments(
     
     // ログ出力
     const commentsRemoved = commentNodes ? commentNodes.length : 0;
-    logger.info(`Compressed ${langId} code: removed ${commentsRemoved} comments and minified whitespace (${code.length} → ${result.length} chars, ${Math.round((code.length - result.length) / code.length * 100)}% reduction)`);
+    const totalRemoved = commentsRemoved + docstringRemovalCount;
+    const reduction = originalCode.length === 0
+      ? 0
+      : Math.round((originalCode.length - result.length) / originalCode.length * 100);
+    logger.info(`Compressed ${langId} code: removed ${totalRemoved} comment/docstring blocks and minified whitespace (${originalCode.length} → ${result.length} chars, ${reduction}% reduction)`);
     
     return result;
 
@@ -179,4 +383,33 @@ export async function stripComments(
     }
     return code; // エラー時はオリジナルをそのまま返す
   }
-} 
+}
+
+function applyRemovalRanges(source: string, ranges: RemovalRange[]): string {
+  if (ranges.length === 0) {
+    return source;
+  }
+
+  const merged = ranges
+    .slice()
+    .sort((a, b) => a.start - b.start)
+    .reduce<RemovalRange[]>((acc, curr) => {
+      const last = acc[acc.length - 1];
+      if (last && curr.start <= last.end) {
+        last.end = Math.max(last.end, curr.end);
+      } else {
+        acc.push({ ...curr });
+      }
+      return acc;
+    }, []);
+
+  let result = '';
+  let lastIndex = 0;
+  for (const range of merged) {
+    result += source.slice(lastIndex, range.start);
+    lastIndex = Math.max(lastIndex, range.end);
+  }
+  result += source.slice(lastIndex);
+
+  return result;
+}

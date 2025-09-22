@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import { CommandRegistrar } from './commands';
 import { Logger } from './utils/logger';
 import { ParserManager } from './services/parserManager';
+import { ConfigService } from './services/configService';
 
 const logger = Logger.getInstance('Extension');
 let commandRegistrar: CommandRegistrar | undefined;
@@ -36,6 +37,10 @@ export function activate(context: vscode.ExtensionContext) {
     // 設定変更を監視
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('matomeru')) {
+                ConfigService.getInstance().reload();
+                logger.info('Matomeru configuration reloaded');
+            }
             if (e.affectsConfiguration('matomeru.chatGptIntegration')) {
                 const newConfig = vscode.workspace.getConfiguration('matomeru');
                 vscode.commands.executeCommand('setContext', 'matomeru.chatGptIntegration', newConfig.get('chatGptIntegration'));
