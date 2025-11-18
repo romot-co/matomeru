@@ -23,12 +23,24 @@ export class FileOperations {
     private vscodeignoreLoaded: Map<string, boolean> = new Map();
     private vscodeignoreWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
     private preloadCompleted: boolean = false;
+    private workspaceFolderWatcher: vscode.Disposable | undefined;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
         this.logger = Logger.getInstance('FileOperations');
         // 全ワークスペースフォルダーの設定ファイル監視をセットアップ
         this.setupAllWorkspaceWatchers();
+
+        this.workspaceFolderWatcher = vscode.workspace.onDidChangeWorkspaceFolders(event => {
+            event.added.forEach(folder => {
+                this.setupGitignoreWatcher(folder.uri.fsPath);
+                this.setupVscodeignoreWatcher(folder.uri.fsPath);
+            });
+            event.removed.forEach(folder => {
+                this.teardownGitignoreWatcher(folder.uri.fsPath);
+                this.teardownVscodeignoreWatcher(folder.uri.fsPath);
+            });
+        });
         
         // バックグラウンドで事前読み込みをスケジュール
         setTimeout(() => {
@@ -138,6 +150,15 @@ export class FileOperations {
         }
     }
 
+    private teardownGitignoreWatcher(workspaceRoot: string): void {
+        const watcher = this.gitignoreWatchers.get(workspaceRoot);
+        if (watcher) {
+            watcher.dispose();
+            this.gitignoreWatchers.delete(workspaceRoot);
+        }
+        this.resetGitignoreState(workspaceRoot);
+    }
+
     /**
      * gitignoreの状態をリセットし、次回スキャン時に再読み込みさせる
      */
@@ -191,6 +212,15 @@ export class FileOperations {
         }
     }
 
+    private teardownVscodeignoreWatcher(workspaceRoot: string): void {
+        const watcher = this.vscodeignoreWatchers.get(workspaceRoot);
+        if (watcher) {
+            watcher.dispose();
+            this.vscodeignoreWatchers.delete(workspaceRoot);
+        }
+        this.resetVscodeignoreState(workspaceRoot);
+    }
+
     /**
      * vscodeignoreの状態をリセットし、次回スキャン時に再読み込みさせる
      */
@@ -221,6 +251,11 @@ export class FileOperations {
             watcher.dispose();
         }
         this.vscodeignoreWatchers.clear();
+
+        if (this.workspaceFolderWatcher) {
+            this.workspaceFolderWatcher.dispose();
+            this.workspaceFolderWatcher = undefined;
+        }
     }
 
     setCurrentSelectedPath(path: string | undefined): void {
@@ -259,6 +294,11 @@ export class FileOperations {
 
             // ファイルの場合は、単一のファイルを含むディレクトリ情報として扱う
             if (stats.isFile()) {
+                if (await this.shouldExclude(relativePath, options, targetWorkspaceRoot)) {
+                    this.logger.info(`除外: ${relativePath}`);
+                    return this.createEmptyDirectoryInfo(targetWorkspaceRoot, absolutePath);
+                }
+
                 if (stats.size > options.maxFileSize) {
                     throw new FileSizeLimitError(relativePath, stats.size, options.maxFileSize);
                 }
@@ -479,6 +519,17 @@ export class FileOperations {
         }
         
         return false;
+    }
+
+    private createEmptyDirectoryInfo(workspaceRoot: string, absolutePath: string): DirectoryInfo {
+        const parentPath = path.dirname(absolutePath);
+        const parentRelative = path.relative(workspaceRoot, parentPath) || '.';
+        return {
+            uri: vscode.Uri.file(parentPath),
+            relativePath: parentRelative === '' ? '.' : parentRelative,
+            files: [],
+            directories: new Map()
+        };
     }
 
     /**

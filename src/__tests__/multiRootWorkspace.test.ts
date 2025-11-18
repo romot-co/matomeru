@@ -10,6 +10,8 @@ describe('MultiRoot Workspace Support', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+
+        (vscode.workspace as any).onDidChangeWorkspaceFolders = jest.fn().mockReturnValue({ dispose: jest.fn() });
         
         // マルチルートワークスペースの設定
         mockWorkspaceFolders = [

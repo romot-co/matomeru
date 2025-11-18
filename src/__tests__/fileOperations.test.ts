@@ -14,7 +14,7 @@ jest.mock('../utils/fileUtils', () => ({
   isBinaryFile: (buf: Buffer | string) => String(buf).includes('BIN')
 }));
 
-/* ---------- FileSystemWatcher モック ---------- */
+/* ---------- FileSystemWatcher / WorkspaceWatcher モック ---------- */
 (vscode.workspace.createFileSystemWatcher as unknown) = jest.fn().mockImplementation(() => {
   const watcher = {
     onDidChange: jest.fn(() => ({ dispose: jest.fn() })),
@@ -23,6 +23,10 @@ jest.mock('../utils/fileUtils', () => ({
     dispose: jest.fn()
   };
   return watcher;
+});
+const workspaceFolderWatcherDispose = jest.fn();
+(vscode.workspace.onDidChangeWorkspaceFolders as unknown) = jest.fn().mockReturnValue({
+  dispose: workspaceFolderWatcherDispose
 });
 
 const mockedFs = jest.mocked(fs);
@@ -47,12 +51,17 @@ const d = (name: string, dir = false): any => ({
 
 let fo: FileOperations;
 beforeEach(() => {
+  jest.clearAllMocks();
+  workspaceFolderWatcherDispose.mockClear();
+  (vscode.workspace.onDidChangeWorkspaceFolders as jest.Mock).mockReturnValue({
+    dispose: workspaceFolderWatcherDispose
+  });
+
   fo = new FileOperations(ROOT);
   mockedFs.stat.mockReset();
   mockedFs.readdir.mockReset();
   mockedFs.readFile.mockReset();
   mockedFsStream.createReadStream.mockReset();
-  jest.clearAllMocks();
 });
 
 /* ========== 基本機能 ========== */
@@ -133,6 +142,19 @@ describe('FileOperations: filters', () => {
     const res = await fo.scanDirectory('.', BASE_OPTS);
     expect(res.files.map(f => f.relativePath)).toEqual(['text.txt']);
   });
+
+  it('選択した単一ファイルが除外対象の場合は内容を返さない', async () => {
+    mockedFs.stat.mockResolvedValue({ isDirectory: () => false, isFile: () => true, size: 50 } as any);
+    mockedFsStream.createReadStream.mockImplementation(() => Readable.from(['SECRET']) as unknown as ReadStream);
+
+    const res = await fo.scanDirectory('secrets.env', {
+      ...BASE_OPTS,
+      excludePatterns: ['**/*.env']
+    });
+
+    expect(res.files).toHaveLength(0);
+    expect(res.directories.size).toBe(0);
+  });
 });
 
 /* ========== エラーパス ========== */
@@ -171,6 +193,9 @@ describe('dispose()', () => {
     fo.dispose();
     (vscode.workspace.createFileSystemWatcher as jest.Mock).mock.results
       .forEach(r => expect(r.value.dispose).toHaveBeenCalled());
+
+    const workspaceWatcher = (vscode.workspace.onDidChangeWorkspaceFolders as jest.Mock).mock.results[0]?.value;
+    expect(workspaceWatcher?.dispose).toHaveBeenCalled();
   });
 });
 

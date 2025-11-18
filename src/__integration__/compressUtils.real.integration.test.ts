@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { stripComments } from '../utils/compressUtils';
+import { extractChangedCodeByFunction } from '../utils/diffContextExtractor';
 import { ParserManager } from '../services/parserManager';
 import { getExtensionContext } from '../extension'; // stripComments が内部で呼ぶ可能性を考慮
 
@@ -19,39 +20,39 @@ if (typeof getExtensionContext === 'undefined' || jest.isMockFunction(getExtensi
     }), {virtual: true});
 }
 
+const projectRoot = path.resolve(__dirname, '../../');
+
+const mockCtx: vscode.ExtensionContext = {
+  extensionPath: projectRoot,
+  extensionUri: vscode.Uri.file(projectRoot),
+  storageUri: vscode.Uri.file(path.join(projectRoot, '.vscode-test', 'storage')),
+  globalStorageUri: vscode.Uri.file(path.join(projectRoot, '.vscode-test', 'globalStorage')),
+  logUri: vscode.Uri.file(path.join(projectRoot, '.vscode-test', 'logs')),
+  secrets: {
+      get: jest.fn(), store: jest.fn(), delete: jest.fn(),
+      onDidChange: jest.fn(() => ({ dispose: jest.fn() }))
+  } as vscode.SecretStorage,
+  globalState: { get: jest.fn(), update: jest.fn(), keys: jest.fn(() => []) } as any,
+  workspaceState: { get: jest.fn(), update: jest.fn(), keys: jest.fn(() => []) } as any,
+  subscriptions: [],
+  environmentVariableCollection: { persistent: false, replace: jest.fn(), append: jest.fn(), prepend: jest.fn(), get: jest.fn(), iterator: jest.fn(), delete: jest.fn(), clear: jest.fn(), description: '', forEach: jest.fn(), [Symbol.iterator]: jest.fn() } as any,
+  extensionMode: vscode.ExtensionMode.Test,
+  asAbsolutePath: (relativePath: string) => path.join(projectRoot, relativePath),
+  languageModelAccessInformation: {ostęp: jest.fn() } as any,
+  extension: {
+      id: 'test.extension', extensionPath: projectRoot, isActive: true,
+      packageJSON: { name: 'test-extension', version: '0.0.1' },
+      extensionKind: vscode.ExtensionKind.Workspace, exports: {},
+      activate: jest.fn().mockResolvedValue({}),
+      extensionUri: vscode.Uri.file(projectRoot),
+  } as vscode.Extension<any>,
+  globalStoragePath: path.join(projectRoot, '.vscode-test', 'globalStorage'),
+  logPath: path.join(projectRoot, '.vscode-test', 'logs'),
+  storagePath: path.join(projectRoot, '.vscode-test', 'storage'),
+};
 
 describe('stripComments – integration with REAL WASM', () => {
   let parserManager: ParserManager; // このスコープで宣言
-  const projectRoot = path.resolve(__dirname, '../../');
-
-  const mockCtx: vscode.ExtensionContext = {
-    extensionPath: projectRoot,
-    extensionUri: vscode.Uri.file(projectRoot),
-    storageUri: vscode.Uri.file(path.join(projectRoot, '.vscode-test', 'storage')),
-    globalStorageUri: vscode.Uri.file(path.join(projectRoot, '.vscode-test', 'globalStorage')),
-    logUri: vscode.Uri.file(path.join(projectRoot, '.vscode-test', 'logs')),
-    secrets: {
-        get: jest.fn(), store: jest.fn(), delete: jest.fn(),
-        onDidChange: jest.fn(() => ({ dispose: jest.fn() }))
-    } as vscode.SecretStorage,
-    globalState: { get: jest.fn(), update: jest.fn(), keys: jest.fn(() => []) } as any,
-    workspaceState: { get: jest.fn(), update: jest.fn(), keys: jest.fn(() => []) } as any,
-    subscriptions: [],
-    environmentVariableCollection: { persistent: false, replace: jest.fn(), append: jest.fn(), prepend: jest.fn(), get: jest.fn(), iterator: jest.fn(), delete: jest.fn(), clear: jest.fn(), description: '', forEach: jest.fn(), [Symbol.iterator]: jest.fn() } as any,
-    extensionMode: vscode.ExtensionMode.Test,
-    asAbsolutePath: (relativePath: string) => path.join(projectRoot, relativePath),
-    languageModelAccessInformation: {ostęp: jest.fn() } as any,
-    extension: {
-        id: 'test.extension', extensionPath: projectRoot, isActive: true,
-        packageJSON: { name: 'test-extension', version: '0.0.1' },
-        extensionKind: vscode.ExtensionKind.Workspace, exports: {},
-        activate: jest.fn().mockResolvedValue({}),
-        extensionUri: vscode.Uri.file(projectRoot),
-    } as vscode.Extension<any>,
-    globalStoragePath: path.join(projectRoot, '.vscode-test', 'globalStorage'),
-    logPath: path.join(projectRoot, '.vscode-test', 'logs'),
-    storagePath: path.join(projectRoot, '.vscode-test', 'storage'),
-  };
 
   beforeAll(async () => {
     try {
@@ -123,8 +124,8 @@ describe('stripComments – integration with REAL WASM', () => {
     `;
     
     const output = await stripComments(code, 'javascript', mockCtx); 
-    expect(output.replace(/\s+/g, ' ').trim())
-      .toBe(expected.replace(/\s+/g, ' ').trim());
+    expect(output.replace(/\s+/g, '').trim())
+      .toBe(expected.replace(/\s+/g, '').trim());
   }, 10000);
 
   test('Unsupported language with actual ParserManager returns original code', async () => {
@@ -132,4 +133,50 @@ describe('stripComments – integration with REAL WASM', () => {
     const output = await stripComments(code, 'unknownlang', mockCtx); 
     expect(output).toBe(code);
   });
+
+  test('TypeScript-only syntax is stripped when enabled', async () => {
+    const code = `
+      import type { Foo } from './foo';
+      type Alias = { bar: string };
+      interface Shape { width: number }
+      const greet = (name: string): string => {
+        return (name as string)!;
+      };
+    `;
+    const output = await stripComments(code, 'typescript', mockCtx, { stripTypes: true });
+    expect(output).not.toContain('import type');
+    expect(output).not.toContain('type Alias');
+    expect(output).not.toContain('interface Shape');
+    expect(output).not.toContain(': string');
+    expect(output).not.toContain(' as string');
+    expect(output).not.toContain('!');
+    expect(output).toContain('const greet=');
+  });
 }); 
+
+describe('diffContextExtractor – integration with REAL WASM', () => {
+  test('extracts function-level context for touched lines', async () => {
+    const code = `
+      function alpha() {
+        return 1;
+      }
+
+      function beta(value: string) {
+        const inner = () => value;
+        return inner();
+      }
+    `;
+
+    const snippet = await extractChangedCodeByFunction({
+      code,
+      languageId: 'typescript',
+      changedLineNumbers: new Set([8]),
+      contextLines: 1,
+      ctx: mockCtx
+    });
+
+    expect(snippet).toBeTruthy();
+    expect(snippet).toContain('function beta');
+    expect(snippet).not.toContain('function alpha');
+  });
+});

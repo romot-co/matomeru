@@ -1,20 +1,20 @@
 import * as vscode from 'vscode';
 
 export class Logger {
-    private static instance: Logger | undefined;
-    private readonly outputChannel: vscode.OutputChannel;
+    private static instances: Map<string, Logger> = new Map();
+    private static outputChannel: vscode.OutputChannel | undefined;
     private readonly context: string;
 
     private constructor(context: string) {
         this.context = context;
-        this.outputChannel = vscode.window.createOutputChannel('Matomeru');
+        Logger.ensureChannel();
     }
 
     static getInstance(context: string): Logger {
-        if (Logger.instance === undefined) {
-            Logger.instance = new Logger(context);
+        if (!Logger.instances.has(context)) {
+            Logger.instances.set(context, new Logger(context));
         }
-        return Logger.instance;
+        return Logger.instances.get(context)!;
     }
 
     debug(message: string): void {
@@ -45,7 +45,7 @@ export class Logger {
         const formattedMessage = `[${timestamp}] [${level}] [${this.context}] ${message}`;
         
         // 出力チャンネルにログを書き込む
-        this.outputChannel.appendLine(formattedMessage);
+        Logger.ensureChannel().appendLine(formattedMessage);
 
         // 開発時のデバッグ用にconsole.logを使用
         if (process.env.NODE_ENV === 'development') {
@@ -58,14 +58,14 @@ export class Logger {
      * 出力チャンネルを表示
      */
     show(): void {
-        this.outputChannel.show();
+        Logger.ensureChannel().show();
     }
 
     /**
      * 出力チャンネルをクリア
      */
     clear(): void {
-        this.outputChannel.clear();
+        Logger.ensureChannel().clear();
     }
 
     /**
@@ -81,7 +81,17 @@ export class Logger {
      * 出力チャンネルを破棄
      */
     dispose(): void {
-        this.outputChannel.dispose();
-        Logger.instance = undefined;
+        if (Logger.outputChannel) {
+            Logger.outputChannel.dispose();
+            Logger.outputChannel = undefined;
+        }
+        Logger.instances.clear();
     }
-} 
+
+    private static ensureChannel(): vscode.OutputChannel {
+        if (!Logger.outputChannel) {
+            Logger.outputChannel = vscode.window.createOutputChannel('Matomeru');
+        }
+        return Logger.outputChannel;
+    }
+}

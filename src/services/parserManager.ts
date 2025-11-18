@@ -151,7 +151,27 @@ export class ParserManager {
     
     // 初期化Promiseを作成・キャッシュ
     this.initPromise = (async () => {
-      await Parser.init();        // ← ここで WASM ランタイムを準備
+      const locateFile = (scriptName: string, scriptDirectory: string) => {
+        const candidates: string[] = [];
+        const runtimeDir = process.env.MATOMERU_TREESITTER_RUNTIME;
+        if (runtimeDir) {
+          candidates.push(path.join(runtimeDir, scriptName));
+        }
+
+        candidates.push(
+          path.join(this.ctx.extensionPath, 'node_modules', 'web-tree-sitter', scriptName),
+          path.join(process.cwd(), 'node_modules', 'web-tree-sitter', scriptName)
+        );
+
+        if (scriptDirectory) {
+          candidates.push(path.join(scriptDirectory, scriptName));
+        }
+
+        const hit = candidates.find(candidate => candidate && fs.existsSync(candidate));
+        return hit ?? path.join(scriptDirectory ?? '', scriptName);
+      };
+
+      await Parser.init({ locateFile });        // ← ここで WASM ランタイムを準備
       this.initialized = true;
     })();
     

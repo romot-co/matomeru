@@ -1,15 +1,19 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CommandRegistrar } from '../commands';
 import { FileOperations } from '../fileOperations';
-import { collectChangedFiles, GitNotRepositoryError } from '../utils/gitUtils';
+import { collectChangedFiles, collectChangedFilesWithLineInfo, GitNotRepositoryError } from '../utils/gitUtils';
 import { copyToClipboard } from '../ui';
 import { MarkdownGenerator } from '../generators/MarkdownGenerator';
 import { YamlGenerator } from '../generators/YamlGenerator';
 import { ConfigService } from '../services/configService';
+import { extractChangedCodeByFunction } from '../utils/diffContextExtractor';
+import { DirectoryInfo } from '../types/fileTypes';
 
 // モック
 jest.mock('../utils/gitUtils', () => ({
   collectChangedFiles: jest.fn(),
+  collectChangedFilesWithLineInfo: jest.fn(),
   GitNotRepositoryError: jest.requireActual('../utils/gitUtils').GitNotRepositoryError,
   GitCliNotFoundError: jest.requireActual('../utils/gitUtils').GitCliNotFoundError
 }));
@@ -18,6 +22,10 @@ jest.mock('../ui', () => ({
   copyToClipboard: jest.fn(),
   showInEditor: jest.fn(),
   openInChatGPT: jest.fn()
+}));
+
+jest.mock('../utils/diffContextExtractor', () => ({
+  extractChangedCodeByFunction: jest.fn().mockResolvedValue('trimmed snippet')
 }));
 
 jest.mock('vscode', () => {
@@ -34,7 +42,8 @@ jest.mock('vscode', () => {
       getConfiguration: jest.fn().mockReturnValue({
         get: jest.fn((_key: string, defaultValue?: any) => defaultValue)
       }),
-      workspaceFolders: [{ uri: { fsPath: '/test/workspace' } }]
+      workspaceFolders: [{ uri: { fsPath: '/test/workspace' } }],
+      onDidChangeWorkspaceFolders: jest.fn().mockReturnValue({ dispose: jest.fn() })
     },
     Uri: {
       file: jest.fn(path => ({ fsPath: path }))
@@ -54,12 +63,15 @@ describe('CommandRegistrar - Git Diff Commands', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    (vscode.workspace as any).onDidChangeWorkspaceFolders = jest.fn().mockReturnValue({ dispose: jest.fn() });
     
     (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
       get: jest.fn().mockImplementation((key: string) => {
-        // デフォルトでは markdown を返すようにしておく (各テストケースで上書き可能)
         if (key === 'gitDiff.range') return '';
         if (key === 'outputFormat') return 'markdown';
+        if (key === 'diff.mode') return 'file';
+        if (key === 'diff.localContextLines') return 2;
         return undefined; 
       })
     });
@@ -68,10 +80,10 @@ describe('CommandRegistrar - Git Diff Commands', () => {
 
     mockFileOps = {
       processFileList: jest.fn().mockResolvedValue([{
-        uri: { fsPath: 'dir1' } as vscode.Uri,
+        uri: { fsPath: '/test/workspace/dir1' } as vscode.Uri,
         relativePath: 'dir1',
         files: [{
-          uri: { fsPath: 'file1.ts' } as vscode.Uri,
+          uri: { fsPath: '/test/workspace/file1.ts' } as vscode.Uri,
           relativePath: 'file1.ts',
           content: 'test content',
           language: 'typescript',
@@ -148,6 +160,7 @@ describe('CommandRegistrar - Git Diff Commands', () => {
       (vscode.workspace.getConfiguration() as any).get = jest.fn().mockImplementation((key: string) => {
         if (key === 'gitDiff.range') return '';
         if (key === 'outputFormat') return 'yaml';
+        if (key === 'diff.mode') return 'file';
         return undefined;
       });
       ConfigService.resetInstance();
@@ -163,6 +176,33 @@ describe('CommandRegistrar - Git Diff Commands', () => {
       expect(collectChangedFiles).toHaveBeenCalled();
       expect(yamlGenerateSpy).toHaveBeenCalled();
       expect(copyToClipboard).toHaveBeenCalledWith(mockYamlContent);
+    });
+
+    test('function diff mode extracts snippets before generation', async () => {
+      const normalizedFilePath = path.normalize('/test/workspace/file1.ts');
+      (collectChangedFiles as jest.Mock).mockResolvedValue([{ fsPath: normalizedFilePath }]);
+      const diffMap = new Map();
+      diffMap.set(normalizedFilePath, {
+        uri: { fsPath: normalizedFilePath } as vscode.Uri,
+        changedLines: new Set([5, 6])
+      });
+      (collectChangedFilesWithLineInfo as jest.Mock).mockResolvedValue(diffMap);
+
+      (vscode.workspace.getConfiguration() as any).get = jest.fn().mockImplementation((key: string) => {
+        if (key === 'gitDiff.range') return '';
+        if (key === 'outputFormat') return 'markdown';
+        if (key === 'diff.mode') return 'function';
+        if (key === 'diff.localContextLines') return 1;
+        return undefined;
+      });
+      ConfigService.resetInstance();
+
+      await commandRegistrar.diffToClipboard();
+
+      expect(collectChangedFilesWithLineInfo).toHaveBeenCalled();
+      expect(extractChangedCodeByFunction).toHaveBeenCalled();
+      const generatedDirs = markdownGenerateSpy.mock.calls[0][0] as DirectoryInfo[];
+      expect(generatedDirs[0].files[0].content).toBe('trimmed snippet');
     });
   });
   

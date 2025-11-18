@@ -11,6 +11,8 @@ export interface MatomeruConfig {
     excludePatterns: string[];
     chatGptIntegration: boolean;
     directoryStructure: DirectoryStructureConfig;
+    enableMinifyIdentifiers: boolean;
+    enableStripTypes: boolean;
     useGitignore: boolean;    // .gitignoreファイルのパターンを使用するかどうか
     useVscodeignore: boolean; // .vscodeignoreファイルのパターンを使用するかどうか
     prefixText: string;
@@ -24,6 +26,10 @@ export interface MatomeruConfig {
     };
     gitDiff: {
         range: string;  // Gitの差分範囲
+    };
+    diff: {
+        mode: 'file' | 'function';
+        localContextLines: number;
     };
 }
 
@@ -58,6 +64,8 @@ export const defaultConfig: MatomeruConfig = {
         useEmoji: true
     },
     prefixText: "",
+    enableMinifyIdentifiers: true,
+    enableStripTypes: true,
     useGitignore: false,
     useVscodeignore: false,
     outputFormat: 'markdown',
@@ -70,5 +78,9 @@ export const defaultConfig: MatomeruConfig = {
     },
     gitDiff: {
         range: ''
+    },
+    diff: {
+        mode: 'function',
+        localContextLines: 3
     }
 }; 

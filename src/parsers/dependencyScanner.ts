@@ -13,6 +13,9 @@ const logger = {
     error: (message: string, ...optionalParams: any[]) => console.error(`[DependencyScanner] ${message}`, ...optionalParams),
 };
 
+type QueryMatch = { captures: { name: string; node: WebTreeSitterSyntaxNode }[] };
+const queryCache = new WeakMap<Language, Map<string, ReturnType<Language['query']>>>();
+
 export async function scanDependencies(
     filePath: string, 
     content: string, 
@@ -30,21 +33,20 @@ export async function scanDependencies(
     }
 
     // ファイルのワークスペースルートを動的に検出
-    let workspaceRoot = '';
-    if (vscode.workspace.workspaceFolders) {
-        for (const folder of vscode.workspace.workspaceFolders) {
-            if (filePath.startsWith(folder.uri.fsPath)) {
-                workspaceRoot = folder.uri.fsPath;
-                break;
-            }
+    let workspaceRoot: string | undefined;
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    for (const folder of folders) {
+        if (filePath.startsWith(folder.uri.fsPath)) {
+            workspaceRoot = folder.uri.fsPath;
+            break;
         }
-        if (!workspaceRoot && vscode.workspace.workspaceFolders.length > 0) {
-            workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        }
+    }
+    if (!workspaceRoot && folders.length > 0) {
+        workspaceRoot = folders[0].uri.fsPath;
     }
     
     if (!workspaceRoot) {
-        logger.warn('Workspace root not found, cannot resolve relative paths accurately.');
+        logger.warn('Workspace root not found, resolving paths relative to each file.');
     }
 
     let ast: WebTreeSitterTree | null;
@@ -69,11 +71,13 @@ export async function scanDependencies(
         importNodesQueryString = '[\n' + tsJsPatterns.join('\n') + '\n]';
     } else if (language === 'python') {
         const pythonPatterns = [
-            '(import_statement name: (dotted_name (identifier) @path) @import_stmt)', 
-            '(import_statement name: (aliased_import original_name:(dotted_name (identifier) @path)) @import_stmt)',
-            '(import_from_statement module_name: (dotted_name (identifier) @path) @import_from_stmt)',
-            '(import_from_statement module_name: (relative_import (import_prefix)* (identifier)? @path) @import_from_stmt)', 
-            '(import_from_statement module_name: (relative_import (import_prefix)+ @dots) (import_list (aliased_import (identifier) @item_name)))@import_from_relative_item'
+            '(import_statement name: (dotted_name) @module)',
+            '(import_statement name: (aliased_import original_name:(dotted_name) @module))',
+            '(import_from_statement module_name: (dotted_name) @module)',
+            '(import_from_statement module_name: (relative_import (import_prefix)+) @dots)',
+            '(import_from_statement module_name: (relative_import (import_prefix)+ (dotted_name) @module) @dots)',
+            '(import_from_statement module_name: (relative_import (import_prefix)+ (identifier) @module) @dots)',
+            '(import_from_statement module_name: (relative_import (import_prefix)+) @dots (import_list (aliased_import (identifier) @item_name)))'
         ];
         importNodesQueryString = '[\n' + pythonPatterns.join('\n') + '\n]';
     } else if (language === 'go') {
@@ -91,11 +95,17 @@ export async function scanDependencies(
             logger.error(`Parser for ${language} does not have a language properly set.`);
             return [];
         }
-        const query = currentLanguage.query(importNodesQueryString);
+        const query = getOrCreateQuery(currentLanguage, importNodesQueryString);
         const matches = query.matches(ast.rootNode);
 
         for (const match of matches) {
-            const pathNodeCapture = match.captures.find(c => c.name === 'path' || c.name === 'dots' || c.name ==='item_name');
+            if (language === 'python') {
+                if (handlePythonImportMatch(match as QueryMatch, baseDir, workspaceRoot, dependencies)) {
+                    continue;
+                }
+            }
+
+            const pathNodeCapture = match.captures.find(c => c.name === 'path');
             if (pathNodeCapture) {
                 const node: WebTreeSitterSyntaxNode = pathNodeCapture.node;
                 let importPath: string = node.text;
@@ -104,40 +114,10 @@ export async function scanDependencies(
                     importPath = importPath.slice(1, -1);
                 }
 
-                if (language === 'python') {
-                    const captureName = pathNodeCapture.name;
-                    if (captureName === 'dots') {
-                        const dotCount = node.text.length;
-                        const itemNameCapture = match.captures.find(c => c.name === 'item_name');
-                        const rest = itemNameCapture ? itemNameCapture.node.text : '';
-                        const resolvedPath = path.resolve(baseDir, '../'.repeat(dotCount), rest);
-                        const relativeImport = path.relative(workspaceRoot, resolvedPath);
-                        dependencies.add(relativeImport.replace(/\\/g, '/'));
-                        continue;
-                    } else if (node.parent && node.parent.type === 'relative_import') {
-                        const parent = node.parent;
-                        let dotCount = 0;
-                        for (const child of parent.children) {
-                            if (child && (child as any).type === 'import_prefix') dotCount++;
-                        }
-                        const resolvedPath = path.resolve(baseDir, '../'.repeat(dotCount), importPath);
-                        const relativeImport = path.relative(workspaceRoot, resolvedPath);
-                        dependencies.add(relativeImport.replace(/\\/g, '/'));
-                        continue;
-                    } else if (importPath.includes('.') && !importPath.startsWith('.')) {
-                        dependencies.add(`external:${importPath.split('.')[0]}`);
-                        continue;
-                    } else {
-                        dependencies.add(`external:${importPath}`);
-                        continue;
-                    }
-                }
-
                 if (importPath && importPath.trim() !== '') {
                     if (importPath.startsWith('.')) {
                         const resolvedPath = resolveImportPath(importPath, baseDir);
-                        let relativeImport = path.relative(workspaceRoot, resolvedPath);
-                        relativeImport = relativeImport.replace(/\\/g, '/');
+                        const relativeImport = formatRelativeImport(resolvedPath, workspaceRoot, baseDir);
                         dependencies.add(relativeImport);
                     } else {
                         dependencies.add(`external:${importPath}`);
@@ -165,4 +145,72 @@ function resolveImportPath(importPath: string, baseDir: string): string {
     }
 
     return path.resolve(baseDir, importPath);
+}
+
+function getOrCreateQuery(language: Language, source: string) {
+    let perLanguageCache = queryCache.get(language);
+    if (!perLanguageCache) {
+        perLanguageCache = new Map();
+        queryCache.set(language, perLanguageCache);
+    }
+    let query = perLanguageCache.get(source);
+    if (!query) {
+        query = language.query(source);
+        perLanguageCache.set(source, query);
+    }
+    return query;
+}
+
+function formatRelativeImport(targetPath: string, workspaceRoot: string | undefined, baseDir: string): string {
+    const base = workspaceRoot ?? baseDir;
+    const relative = path.relative(base, targetPath) || '.';
+    return relative.replace(/\\/g, '/');
+}
+
+function handlePythonImportMatch(
+    match: QueryMatch,
+    baseDir: string,
+    workspaceRoot: string | undefined,
+    dependencies: Set<string>
+): boolean {
+    const dotsCapture = match.captures.find(c => c.name === 'dots');
+    const moduleCapture = match.captures.find(c => c.name === 'module');
+    const itemCapture = match.captures.find(c => c.name === 'item_name');
+
+    if (dotsCapture) {
+        const dotCount = dotsCapture.node.text.length;
+        const tail = moduleCapture?.node.text ?? itemCapture?.node.text ?? '';
+        const segments = Array(dotCount).fill('..');
+        if (tail) {
+            segments.push(tail);
+        }
+        const resolvedPath = path.resolve(baseDir, ...segments);
+        dependencies.add(formatRelativeImport(resolvedPath, workspaceRoot, baseDir));
+        return true;
+    }
+
+    if (moduleCapture) {
+        const moduleName = moduleCapture.node.text;
+        if (!moduleName) {
+            return true;
+        }
+        if (moduleName.startsWith('.')) {
+            const resolvedPath = resolveImportPath(moduleName, baseDir);
+            dependencies.add(formatRelativeImport(resolvedPath, workspaceRoot, baseDir));
+            return true;
+        }
+        const topLevel = moduleName.split('.')[0];
+        dependencies.add(`external:${topLevel}`);
+        return true;
+    }
+
+    if (itemCapture) {
+        const name = itemCapture.node.text;
+        if (name) {
+            dependencies.add(`external:${name.split('.')[0]}`);
+            return true;
+        }
+    }
+
+    return false;
 }

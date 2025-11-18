@@ -1,5 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import { stripComments } from '../utils/compressUtils';
+import { stripComments, minifyJsTsRuntimeEquivalent } from '../utils/compressUtils';
 import * as vscode from 'vscode';
 import { ParserManager } from '../services/parserManager';
 
@@ -174,5 +174,23 @@ describe('compressUtils', () => {
     const result = await stripComments(pythonCode, 'python', mockContext);
 
     expect(result).toBe('def foo():\n    return 1');
+  });
+
+  test('minifyJsTsRuntimeEquivalent should shrink JavaScript code', async () => {
+    const source = `
+      function greet(name) {
+        const words = ['Hello', name];
+        console.log(words.join(' '));
+      }
+    `;
+    const result = await minifyJsTsRuntimeEquivalent(source, 'javascript');
+    expect(result.length).toBeLessThan(source.length);
+    expect(result.includes('\n')).toBe(false);
+  });
+
+  test('minifyJsTsRuntimeEquivalent should return original code for unsupported languages', async () => {
+    const pythonSource = 'def add(a, b):\n    return a + b\n';
+    const result = await minifyJsTsRuntimeEquivalent(pythonSource, 'python');
+    expect(result).toBe(pythonSource);
   });
 });

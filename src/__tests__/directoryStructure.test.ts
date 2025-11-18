@@ -2,16 +2,19 @@ import * as vscode from 'vscode';
 import { DirectoryStructure } from '../directoryStructure';
 import { DirectoryInfo, FileInfo } from '../types/fileTypes';
 import { ConfigService } from '../services/configService';
-import { describe, expect, beforeEach } from '@jest/globals';
-
-jest.mock('../services/configService');
+import { describe, expect, beforeEach, jest } from '@jest/globals';
 
 // VSCode APIのモック
 jest.mock('vscode', () => ({
   Uri: {
     file: jest.fn((path: string) => ({ fsPath: path }))
-  }
+  },
+  workspace: {}
 }));
+
+const workspaceFolderMock = jest.fn();
+(vscode.workspace as any).getWorkspaceFolder = workspaceFolderMock;
+
 
 // ConfigServiceのモック
 jest.mock('../services/configService', () => ({
@@ -34,7 +37,12 @@ describe('DirectoryStructure', () => {
     let directoryStructure: DirectoryStructure;
 
     beforeEach(() => {
-        jest.resetAllMocks();
+        jest.clearAllMocks();
+        workspaceFolderMock.mockReset();
+        workspaceFolderMock.mockImplementation(() => ({
+            name: 'DefaultWorkspace',
+            uri: { fsPath: '/workspace' }
+        }));
         // ConfigServiceのモックを設定
         (ConfigService.getInstance as jest.Mock).mockReturnValue({
             getConfig: jest.fn().mockReturnValue({
@@ -725,6 +733,55 @@ describe('DirectoryStructure', () => {
             expect(result).toContain('📄 types.ts');
             expect(result).toContain('📄 utils.ts');
             expect(result).toContain('📁 common');
+        });
+
+        it('マルチルートでは各ワークスペースが独立したセクションになる', () => {
+            workspaceFolderMock.mockImplementation((uri: any) => {
+                if (uri.fsPath.startsWith('/wsA')) {
+                    return { name: 'WorkspaceA', uri: { fsPath: '/wsA' } } as any;
+                }
+                if (uri.fsPath.startsWith('/wsB')) {
+                    return { name: 'WorkspaceB', uri: { fsPath: '/wsB' } } as any;
+                }
+                return undefined;
+            });
+
+            const dirA = createDirectoryInfo('', [
+                {
+                    ...createFileInfo('appA.ts'),
+                    uri: vscode.Uri.file('/wsA/appA.ts'),
+                    relativePath: 'appA.ts'
+                }
+            ]);
+            dirA.uri = vscode.Uri.file('/wsA');
+
+            const dirB = createDirectoryInfo('', [
+                {
+                    ...createFileInfo('appB.ts'),
+                    uri: vscode.Uri.file('/wsB/appB.ts'),
+                    relativePath: 'appB.ts'
+                }
+            ]);
+            dirB.uri = vscode.Uri.file('/wsB');
+
+            const result = directoryStructure.generate([dirA, dirB]);
+
+            expect(result).toContain('## WorkspaceA');
+            expect(result).toContain('## WorkspaceB');
+            const [workspaceASection] = result.split('## WorkspaceB');
+            expect(workspaceASection).toContain('appA.ts');
+            expect(workspaceASection).not.toContain('appB.ts');
+        });
+
+        it('ワークスペースが無い場合はパスベースのラベルを使う', () => {
+            workspaceFolderMock.mockReturnValue(undefined);
+            const dir = createDirectoryInfo('', [createFileInfo('standalone/file.ts')]);
+            dir.uri = vscode.Uri.file('/standalone');
+
+            const result = directoryStructure.generate([dir]);
+
+            expect(result).toContain('# Directory Structure');
+            expect(result).toContain('📁 .');
         });
     });
 });

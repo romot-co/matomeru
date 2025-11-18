@@ -3,14 +3,14 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { Logger } from './logger';
 import { MatomeruError } from '../errors/errors';
+import { parseUnifiedDiff } from './gitDiffParser';
 
 const logger = Logger.getInstance('GitUtils');
-const DANGEROUS_TOKEN_PATTERN = /[^-\w./@^~:]/;
+const UNSAFE_RANGE_TOKEN_PATTERN = /[^-\w./@^~:{}[*]/;
 
-function buildGitDiffArgs(range?: string): string[] {
-  const args = ['diff', '--name-only'];
+function appendRangeTokens(args: string[], range?: string): void {
   if (!range) {
-    return args;
+    return;
   }
 
   const tokens = range
@@ -19,12 +19,22 @@ function buildGitDiffArgs(range?: string): string[] {
     .filter(token => token.length > 0);
 
   for (const token of tokens) {
-    if (DANGEROUS_TOKEN_PATTERN.test(token)) {
+    if (UNSAFE_RANGE_TOKEN_PATTERN.test(token)) {
       throw new Error(`Invalid git diff range token: ${token}`);
     }
     args.push(token);
   }
+}
 
+export function buildGitDiffArgs(range?: string): string[] {
+  const args = ['diff', '--name-only'];
+  appendRangeTokens(args, range);
+  return args;
+}
+
+export function buildGitDiffPatchArgs(range?: string): string[] {
+  const args = ['diff', '--unified=0', '--no-color'];
+  appendRangeTokens(args, range);
   return args;
 }
 
@@ -62,33 +72,7 @@ export async function collectChangedFiles(
     const args = buildGitDiffArgs(range?.trim());
     logger.info(`実行: git ${args.join(' ')} in ${cwd}`);
 
-    const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-      const child = spawn('git', args, { cwd });
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', data => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', data => {
-        stderr += data.toString();
-      });
-
-      child.on('error', error => {
-        reject(error);
-      });
-
-      child.on('close', code => {
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          const error = new Error(stderr || `git exited with code ${code}`);
-          (error as any).code = code;
-          reject(error);
-        }
-      });
-    });
+    const { stdout, stderr } = await runGitCommand(args, cwd);
 
     if (stderr && stderr.toLowerCase().includes('not a git repository')) {
       throw new GitNotRepositoryError();
@@ -133,3 +117,90 @@ export async function collectChangedFiles(
     throw error;
   }
 } 
+
+export interface FileChangedLines {
+  uri: vscode.Uri;
+  changedLines: Set<number>;
+}
+
+export async function collectChangedFilesWithLineInfo(
+  cwd: string,
+  range?: string
+): Promise<Map<string, FileChangedLines>> {
+  try {
+    const args = buildGitDiffPatchArgs(range?.trim());
+    logger.info(`実行: git ${args.join(' ')} in ${cwd}`);
+
+    const { stdout, stderr } = await runGitCommand(args, cwd);
+
+    if (stderr && stderr.toLowerCase().includes('not a git repository')) {
+      throw new GitNotRepositoryError();
+    }
+
+    if (stderr) {
+      logger.warn(`Git警告: ${stderr}`, { silent: true });
+    }
+
+    const parsed = parseUnifiedDiff(stdout);
+    const results = new Map<string, FileChangedLines>();
+    for (const [relativePath, lines] of parsed) {
+      const absolutePath = path.normalize(path.join(cwd, relativePath));
+      results.set(absolutePath, {
+        uri: vscode.Uri.file(absolutePath),
+        changedLines: new Set(lines)
+      });
+    }
+    return results;
+  } catch (error) {
+    if (error instanceof GitNotRepositoryError) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('command not found') ||
+        errorMessage.includes('not recognized') ||
+        errorMessage.includes('no such file') ||
+        (error as any).code === 'ENOENT') {
+        throw new GitCliNotFoundError();
+      }
+
+      if (errorMessage.includes('not a git repository')) {
+        throw new GitNotRepositoryError();
+      }
+    }
+
+    logger.error(`Git差分行取得中にエラー: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
+}
+
+async function runGitCommand(args: string[], cwd: string): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', data => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', data => {
+      stderr += data.toString();
+    });
+
+    child.on('error', error => {
+      reject(error);
+    });
+
+    child.on('close', code => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+      } else {
+        const error = new Error(stderr || `git exited with code ${code}`);
+        (error as any).code = code;
+        reject(error);
+      }
+    });
+  });
+}

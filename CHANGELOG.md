@@ -4,21 +4,35 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.5] - 2025-11-18
+### Added
+- **LLM-focused compression pipeline**: After Tree-sitter removes TypeScript-only syntax, esbuild now performs runtime-equivalent minification for JS/TS. Both `matomeru.enableStripTypes` and `matomeru.enableMinifyIdentifiers` default to true so running the compressed commands automatically applies every stage.
+- **Function-scoped Git diff mode**: Introduced `matomeru.diff.mode = "function"` (default) plus `matomeru.diff.localContextLines`. `copyGitDiff` now AST-matches the functions/classes that touch the diff and falls back to entire files only when extraction fails.
+- **Test coverage**: Added dedicated Jest suites for the git diff parser, function extractor, TypeScript type stripping, and the real WASM parser path.
+
+### Changed
+- The compressed clipboard workflow (Markdown/YAML/Git diff) now runs comment stripping → type stripping → whitespace tightening → esbuild minify in sequence, honoring the new settings everywhere.
+- `collectChangedFilesWithLineInfo` parses `git diff --unified=0` and feeds AST extraction with safe fallbacks so the function mode remains robust.
+- README/README.ja now document the new settings and updated VSIX install version.
+
 ## [0.1.4] - 2025-11-18
 ### Security
 - Locked down `matomeru.copyGitDiff` by validating each revision-range token and invoking `git diff` via `spawn`, eliminating command injection vectors originating from `matomeru.gitDiff.range`.
+- Hardened the validation to keep accepting safe Git syntax (reflog/upstream/peel) while still rejecting shell metacharacters, and ensured explorer-selected secrets (e.g. `.env`, `*.key`) stay excluded even when commands run on a single file.
 
 ### Changed
 - Unified every scan/estimate path around `ConfigService`, ensuring default secret/lockfile exclusions stay active even when users override `excludePatterns`.
+- File scanning now attaches/detaches `.gitignore` / `.vscodeignore` watchers dynamically as workspaces are added or removed, so exclusions remain up to date across multi-root sessions without reloading.
 - Git diff command now asks which workspace folder to inspect in multi-root windows and runs entirely on the selected repo; all progress/warning messages are logged silently instead of flooding VS Code toasts.
 - Extension activation waits for a workspace to open before constructing `CommandRegistrar`, preventing startup failures when VS Code launches with an empty window.
-- README compression section now reflects the actual “Copy to Clipboard (Compressed)” command rather than the removed `matomeru.enableCompression` setting.
-- Jest configurations delegate `isolatedModules` to `tsconfig.json`, and Tree-sitter integration tests silence `console` output via an inline ESLint disable comment.
+- Directory structure output groups files per workspace (with fallback labels for standalone paths) so identically named files from different folders no longer collide, and `commands.processDirectories` now drops empty results produced solely by exclusions.
 
 ### Fixed
 - YAML generator now nests directory keys according to the real relative path so the structure mirrors the Markdown output, and Mermaid graphs gracefully truncate while still rendering available edges when the node cap is exceeded.
 - `logError`/logger changes stop bulk scans from spawning dozens of warning dialogs while keeping telemetry intact.
 - Git diff clipboard flow correctly switches between Markdown/YAML generators under test, and integration tests clean up by calling `deactivate()` to avoid cross-test leakage.
+- Multi-root Git diff/command tests, workspace detection cases, and new Git-range unit tests cover the updated watcher lifecycle to keep `npm test` stable.
+- Markdown/YAML generation tests now cover the new directory-grouping behavior, preventing regressions when workspace APIs or structure merging changes.
 
 
 ## [0.1.3] - 2025-09-21

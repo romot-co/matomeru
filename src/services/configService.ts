@@ -50,6 +50,8 @@ export class ConfigService {
                     showFileExtensions: this.validateBoolean(this.safeGet(config, 'directoryStructure.showFileExtensions'), defaultConfig.directoryStructure.showFileExtensions),
                     useEmoji: this.validateBoolean(this.safeGet(config, 'directoryStructure.useEmoji'), defaultConfig.directoryStructure.useEmoji)
                 },
+                enableMinifyIdentifiers: this.validateBoolean(this.safeGet(config, 'enableMinifyIdentifiers'), defaultConfig.enableMinifyIdentifiers),
+                enableStripTypes: this.validateBoolean(this.safeGet(config, 'enableStripTypes'), defaultConfig.enableStripTypes),
                 useGitignore: this.validateBoolean(this.safeGet(config, 'useGitignore'), defaultConfig.useGitignore),
                 useVscodeignore: this.validateBoolean(this.safeGet(config, 'useVscodeignore'), defaultConfig.useVscodeignore),
                 prefixText: this.validateString(this.safeGet(config, 'prefixText'), defaultConfig.prefixText),
@@ -63,6 +65,14 @@ export class ConfigService {
                 },
                 gitDiff: {
                     range: this.validateString(this.safeGet(config, 'gitDiff.range'), defaultConfig.gitDiff.range)
+                },
+                diff: {
+                    mode: this.validateDiffMode(this.safeGet(config, 'diff.mode')),
+                    localContextLines: this.validateNumber(
+                        this.safeGet(config, 'diff.localContextLines'),
+                        defaultConfig.diff.localContextLines,
+                        0
+                    )
                 }
             };
         } catch (error) {
@@ -149,4 +159,11 @@ export class ConfigService {
         }
         return defaultValue;
     }
-} 
+
+    private validateDiffMode(value: unknown): 'file' | 'function' {
+        if (value === 'file' || value === 'function') {
+            return value;
+        }
+        return defaultConfig.diff.mode;
+    }
+}

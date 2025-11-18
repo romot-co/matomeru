@@ -16,7 +16,7 @@ describe('stripComments – integration (mocked parser)', () => {
       code: `// line comment
 /* block */ const a = 1; // tail`,
       expected: `
- const a = 1; `
+const a=1;`
     },
     {
       lang: 'typescript',
@@ -25,7 +25,7 @@ describe('stripComments – integration (mocked parser)', () => {
       */
       export const x = 42;`,
       expected: `
-      export const x = 42;`
+      export const x=42;`
     }
   ];
 

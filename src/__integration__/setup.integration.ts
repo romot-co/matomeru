@@ -42,7 +42,14 @@ jest.mock('vscode', () => {
       }),
       workspaceFolders: [
         { uri: { fsPath: resolvedProjectRootInFactory, scheme: 'file' } } // ファクトリ関数内で解決したパスを使用
-      ]
+      ],
+      onDidChangeWorkspaceFolders: jest.fn().mockReturnValue({ dispose: jest.fn() }),
+      createFileSystemWatcher: jest.fn().mockReturnValue({
+        onDidCreate: jest.fn(),
+        onDidChange: jest.fn(),
+        onDidDelete: jest.fn(),
+        dispose: jest.fn()
+      })
     },
     ExtensionMode: {
       Production: 1,

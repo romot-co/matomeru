@@ -44,7 +44,7 @@ Combine and copy your entire codes into one LLM-ready Markdown / YAML.
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.1.0.vsix
+   code --install-extension matomeru-0.1.5.vsix
    ```
 
 ## Usage
@@ -118,8 +118,12 @@ This will display the total file count, size, and estimated token count.
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
+  "matomeru.enableMinifyIdentifiers": false,
+  "matomeru.enableStripTypes": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
+  "matomeru.diff.mode": "function",
+  "matomeru.diff.localContextLines": 3,
   "matomeru.gitDiff.range": "",
   "matomeru.yaml.includeContent": false
 }
@@ -138,7 +142,20 @@ This will display the total file count, size, and estimated token count.
 
 **Code Compression**: Use the “Matomeru: Copy to Clipboard (Compressed)” command (`Ctrl+Alt+Shift+C` / `Cmd+Alt+Shift+C`) when you want Tree-sitter to strip comments and redundant whitespace before copying content for LLMs. If parsing fails for a file, the original text is used as a fallback.
 
+When you run the compressed command (`compression: true`), Matomeru automatically:
+
+- strips TypeScript-only syntax (`matomeru.enableStripTypes`, default `true`)
+- minifies JavaScript/TypeScript via esbuild (`matomeru.enableMinifyIdentifiers`, default `true`)
+
+Disable either setting if you prefer to retain original formatting.
+
 **YAML Memory Optimization**: The `matomeru.yaml.includeContent` setting (default: `false`) controls whether file content is included in YAML output. For large projects, keeping this disabled prevents memory issues while still providing project structure and metadata.
+
+**Git Diff Modes**: 
+
+- `matomeru.diff.mode = "function"` (default): When using “Matomeru: Git差分をコピー”, only the functions/classes that touch the diffed lines (plus a few context lines) are copied.
+- `matomeru.diff.mode = "file"`: Reverts to the previous behavior of copying entire files.
+- `matomeru.diff.localContextLines`: Adjust how many surrounding lines are kept on each side of a function/class.
 
 **Note on Security**: By default, Matomeru automatically excludes sensitive files like secret keys, 
 credentials, certificates, and environment files (`*.key`, `*.pem`, `*.env`, etc.) to prevent accidental 

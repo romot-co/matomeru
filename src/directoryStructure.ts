@@ -1,3 +1,5 @@
+import * as path from 'path';
+import * as vscode from 'vscode';
 import { DirectoryInfo } from './types/fileTypes';
 import { DirectoryStructureConfig } from './types/configTypes';
 import { ConfigService } from './services/configService';
@@ -101,13 +103,48 @@ export class DirectoryStructure {
             return '';
         }
 
-        // すべての DirectoryInfo を統合
-        const mergedRoot = this.mergeDirectoryInfos(directories);
+        const workspaceGroups = this.groupDirectoriesByWorkspace(directories);
+        const multipleGroups = workspaceGroups.length > 1;
+        const sections: string[] = [];
 
-        const lines: string[] = ['# Directory Structure\n'];
-        lines.push(this.generateDirectoryTree(mergedRoot));
+        for (const group of workspaceGroups) {
+            if (!group.dirs.length) {
+                continue;
+            }
+            const mergedRoot = this.mergeDirectoryInfos(group.dirs);
+            const tree = this.generateDirectoryTree(mergedRoot);
+            sections.push(multipleGroups ? `## ${group.label}\n${tree}` : tree);
+        }
 
-        return lines.join('\n');
+        return ['# Directory Structure', ...sections].join('\n\n');
+    }
+
+    private groupDirectoriesByWorkspace(directories: DirectoryInfo[]): Array<{ label: string; dirs: DirectoryInfo[] }> {
+        const groups = new Map<string, { label: string; dirs: DirectoryInfo[] }>();
+        for (const dir of directories) {
+            const workspaceFolder = this.getWorkspaceFolder(dir.uri);
+            const key = workspaceFolder ? workspaceFolder.uri.fsPath : `standalone:${dir.uri.fsPath}`;
+            const label = workspaceFolder ? workspaceFolder.name : this.buildStandaloneLabel(dir);
+            if (!groups.has(key)) {
+                groups.set(key, { label, dirs: [] });
+            }
+            groups.get(key)!.dirs.push(dir);
+        }
+        return Array.from(groups.values());
+    }
+
+    private getWorkspaceFolder(uri: vscode.Uri): vscode.WorkspaceFolder | undefined {
+        if (vscode.workspace && typeof vscode.workspace.getWorkspaceFolder === 'function') {
+            return vscode.workspace.getWorkspaceFolder(uri);
+        }
+        return undefined;
+    }
+
+    private buildStandaloneLabel(dir: DirectoryInfo): string {
+        const fsPath = dir.uri.fsPath;
+        const normalized = fsPath.endsWith(path.sep) ? fsPath.slice(0, -1) : fsPath;
+        const base = path.basename(normalized);
+        return base || normalized;
     }
 
     private generateDirectoryTree(dir: DirectoryInfo, prefix: string = ''): string {

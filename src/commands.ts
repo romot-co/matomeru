@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { FileOperations } from './fileOperations';
 import { DirectoryInfo, ScanOptions } from './types/fileTypes';
 import { MarkdownGenerator } from './generators/MarkdownGenerator';
@@ -8,10 +9,11 @@ import { showInEditor, copyToClipboard, openInChatGPT } from './ui';
 import { Logger } from './utils/logger';
 import { formatFileSize, formatTokenCount } from './utils/fileUtils';
 import { TOKENS_PER_BYTE } from './utils/constants';
-import { collectChangedFiles, GitNotRepositoryError, GitCliNotFoundError } from './utils/gitUtils';
+import { collectChangedFiles, collectChangedFilesWithLineInfo, GitNotRepositoryError, GitCliNotFoundError, FileChangedLines } from './utils/gitUtils';
 import { getExtensionContext } from './extension';
 import { ParserManager } from './services/parserManager';
 import { ConfigService } from './services/configService';
+import { extractChangedCodeByFunction } from './utils/diffContextExtractor';
 
 export class CommandRegistrar {
     private readonly fileOps: FileOperations;
@@ -88,7 +90,11 @@ export class CommandRegistrar {
             }
 
             const generator = await this.getGenerator();
-            const content = await generator.generate(allDirInfos, options);
+            const filteredDirInfos = allDirInfos.filter(dir => this.hasVisibleContent(dir));
+            if (!filteredDirInfos.length) {
+                this.logger.info('No files remain after applying exclusion patterns or filters.');
+            }
+            const content = await generator.generate(filteredDirInfos, options);
             return { content, format: config.outputFormat };
         } catch (error) {
             this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
@@ -302,6 +308,13 @@ export class CommandRegistrar {
         }
         
         const config = ConfigService.getInstance().getConfig();
+        const diffMode = config.diff.mode;
+        let changedLineMap: Map<string, FileChangedLines> | undefined;
+
+        if (diffMode === 'function') {
+            changedLineMap = await collectChangedFilesWithLineInfo(workspaceRoot, range);
+        }
+
         const scanOptions: ScanOptions = {
             maxFileSize: config.maxFileSize,
             excludePatterns: config.excludePatterns,
@@ -311,10 +324,54 @@ export class CommandRegistrar {
         };
         
         const dirInfos = await this.fileOps.processFileList(fileUris, scanOptions);
+
+        if (diffMode === 'function' && changedLineMap && changedLineMap.size > 0) {
+            const ctx = getExtensionContext();
+            await this.applyFunctionScopedDiff(dirInfos, changedLineMap, config.diff.localContextLines, ctx);
+        }
         
         const generator = await this.getGenerator();
         const content = await generator.generate(dirInfos.filter(Boolean) as DirectoryInfo[]);
         return { content, format: config.outputFormat };
+    }
+
+    private async applyFunctionScopedDiff(
+        directories: DirectoryInfo[],
+        changedLineMap: Map<string, FileChangedLines>,
+        contextLines: number,
+        ctx: vscode.ExtensionContext
+    ): Promise<void> {
+        const normalizedContext = Math.max(0, contextLines);
+
+        const visitDirectory = async (dir: DirectoryInfo) => {
+            for (const file of dir.files) {
+                const key = path.normalize(file.uri.fsPath);
+                const changed = changedLineMap.get(key);
+                if (!changed || changed.changedLines.size === 0) {
+                    continue;
+                }
+
+                const snippet = await extractChangedCodeByFunction({
+                    code: file.content,
+                    languageId: file.language,
+                    changedLineNumbers: changed.changedLines,
+                    contextLines: normalizedContext,
+                    ctx
+                });
+
+                if (snippet) {
+                    file.content = snippet;
+                }
+            }
+
+            for (const subDir of dir.directories.values()) {
+                await visitDirectory(subDir);
+            }
+        };
+
+        for (const dir of directories) {
+            await visitDirectory(dir);
+        }
     }
 
     /**
@@ -380,5 +437,20 @@ export class CommandRegistrar {
 
         // フォールバックとして最初のワークスペースを返す
         return folders[0].uri.fsPath;
+    }
+
+    private hasVisibleContent(dir: DirectoryInfo | undefined): boolean {
+        if (!dir) {
+            return false;
+        }
+        if (dir.files.length > 0) {
+            return true;
+        }
+        for (const subDir of dir.directories.values()) {
+            if (this.hasVisibleContent(subDir)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

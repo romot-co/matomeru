@@ -106,8 +106,12 @@
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
+  "matomeru.enableMinifyIdentifiers": false,
+  "matomeru.enableStripTypes": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
+  "matomeru.diff.mode": "function",
+  "matomeru.diff.localContextLines": 3,
   "matomeru.gitDiff.range": "",
   "matomeru.yaml.includeContent": false
 }
@@ -121,7 +125,18 @@
 
 **コード圧縮機能**: 「Matomeru: クリップボード（圧縮）」コマンド（`Ctrl+Alt+Shift+C` / `Cmd+Alt+Shift+C`）を使用すると、Tree-sitterでコメントと不要な空白を削除したコンテンツを得られます。LLM へ貼り付ける際にトークン数を抑えたい場合に活用してください。（Tree-sitterの解析に失敗した場合は元のコードが使用されます。）
 
+圧縮コマンドを実行すると、以下の処理が自動的に適用されます（どちらもデフォルト有効で、設定から無効化可能です）:
+
+- `matomeru.enableStripTypes` (既定: `true`): TypeScript専用構文（型注釈、`import type`、`as`、interfaceなど）を実行同値のまま削除します。
+- `matomeru.enableMinifyIdentifiers` (既定: `true`): esbuildのミニファイで JavaScript/TypeScript の識別子や空白を極力削減します。
+
 **YAMLメモリ最適化**: `matomeru.yaml.includeContent`設定（デフォルト: `false`）は、YAML出力にファイル内容を含めるかどうかを制御します。大規模プロジェクトでは、これを無効にしておくことでメモリの問題を防ぎながら、プロジェクト構造とメタデータを提供できます。
+
+**Git Diffモード**:
+
+- `matomeru.diff.mode = "function"`（デフォルト）: 「Git差分をコピー」実行時、差分に触れた関数/クラス本体だけ（＋指定行数の文脈）を抽出します。
+- `matomeru.diff.mode = "file"`: 以前と同じくファイル全体をコピーします。
+- `matomeru.diff.localContextLines`: 関数/クラス抽出時に付与する前後の文脈行数を調整できます。
 
 **セキュリティに関する注記**: Matomeruはデフォルトで、シークレットキー、認証情報、証明書、環境設定ファイル
 (`*.key`、`*.pem`、`*.env`など) のような機密ファイルを自動的に除外します。さらに、ロックファイル、キャッシュディレクトリ、ビルド成果物、一時ファイルなど、多くの一般的な非ソースファイルもデフォルトで除外されます。
