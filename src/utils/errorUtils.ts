@@ -43,8 +43,8 @@ export function logError(
 ): void {
     const message = extractErrorMessage(error);
     if (isWarning) {
-        logger.warn(message);
+        (logger as any).warn(message, { silent: true });
     } else {
-        logger.error(message);
+        (logger as any).error(message, { silent: true });
     }
-} 
+}

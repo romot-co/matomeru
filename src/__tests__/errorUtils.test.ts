@@ -49,28 +49,28 @@ describe('errorUtils', () => {
         it('警告としてエラーをログ出力する', () => {
             const error = new Error('Test warning');
             logError(mockLogger, error, true);
-            expect(mockLogger.warn).toHaveBeenCalledWith('Test warning');
+            expect(mockLogger.warn).toHaveBeenCalledWith('Test warning', { silent: true });
             expect(mockLogger.error).not.toHaveBeenCalled();
         });
 
         it('エラーとしてエラーをログ出力する', () => {
             const error = new Error('Test error');
             logError(mockLogger, error);
-            expect(mockLogger.error).toHaveBeenCalledWith('Test error');
+            expect(mockLogger.error).toHaveBeenCalledWith('Test error', { silent: true });
             expect(mockLogger.warn).not.toHaveBeenCalled();
         });
 
         it('MatomeruErrorをローカライズして出力する', () => {
             const error = new FileSizeLimitError('test.txt', 200, 100);
             logError(mockLogger, error);
-            expect(mockLogger.error).toHaveBeenCalledWith(error.getLocalizedMessage());
+            expect(mockLogger.error).toHaveBeenCalledWith(error.getLocalizedMessage(), { silent: true });
         });
 
         it('カスタムパラメータを持つエラーを適切に処理する', () => {
             const error = new Error('Base error');
             (error as any).params = ['Custom error message'];
             logError(mockLogger, error);
-            expect(mockLogger.error).toHaveBeenCalledWith('Custom error message');
+            expect(mockLogger.error).toHaveBeenCalledWith('Custom error message', { silent: true });
         });
     });
 }); 

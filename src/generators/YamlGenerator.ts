@@ -56,35 +56,36 @@ export class YamlGenerator implements IGenerator {
   private buildTree(dirs: DirectoryInfo[], _cfg: vscode.WorkspaceConfiguration): any {
     const root: any = {};
 
-    // Helper function to recursively build the directory structure.
-    // In YAML, files under a directory can be represented as keys with null values (or other markers).
-    // Directories are keys pesquisas to nested objects.
-    function mapDirectory(dirInfo: DirectoryInfo, currentLevel: any) {
-        // Add files to the current directory level
+    const mapDirectory = (dirInfo: DirectoryInfo, currentLevel: any) => {
         for (const file of dirInfo.files) {
-            const fileName = file.relativePath.split('/').pop() || file.relativePath; // Get base name
-            currentLevel[fileName] = null; // Represent file as a key with null value
+            const fileName = file.relativePath.split('/').pop() || file.relativePath;
+            currentLevel[fileName] = null;
         }
 
-        // Recursively add subdirectories
         for (const [name, subDir] of dirInfo.directories) {
-            currentLevel[name] = {}; // Create a new object for the subdirectory
+            if (!currentLevel[name]) {
+                currentLevel[name] = {};
+            }
             mapDirectory(subDir, currentLevel[name]);
         }
-    }
+    };
 
-    // Handle multiple root directories or a single root directory
-    if (dirs.length === 1 && (dirs[0].relativePath === '.' || dirs[0].relativePath === '')) {
-        // If there's one root dir, and it's the current workspace root, expand its contents directly.
-        mapDirectory(dirs[0], root);
-    } else {
-        // If multiple dirs, or a single dir not at root, nest them under their relativePaths.
-        for (const dir of dirs) {
-            const dirName = dir.relativePath || 'unknown_directory'; // Fallback name
-            root[dirName] = {};
-            mapDirectory(dir, root[dirName]);
+    const insertDirectory = (dir: DirectoryInfo) => {
+        const relativePath = dir.relativePath;
+        const parts = relativePath && relativePath !== '.' ? relativePath.split('/').filter(Boolean) : [];
+        let currentLevel = root;
+
+        for (const part of parts) {
+            if (!currentLevel[part]) {
+                currentLevel[part] = {};
+            }
+            currentLevel = currentLevel[part];
         }
-    }
+
+        mapDirectory(dir, currentLevel);
+    };
+
+    dirs.forEach(insertDirectory);
     return root;
   }
 

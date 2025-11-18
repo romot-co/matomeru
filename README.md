@@ -118,7 +118,6 @@ This will display the total file count, size, and estimated token count.
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
-  "matomeru.enableCompression": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
   "matomeru.gitDiff.range": "",
@@ -137,12 +136,7 @@ This will display the total file count, size, and estimated token count.
 - `"HEAD~3..HEAD"`: Shows changes in last 3 commits
 - `"origin/main..HEAD"`: Shows changes between main branch and current HEAD
 
-**Code Compression**: When `matomeru.enableCompression` is set to `true`, Matomeru removes comments, unnecessary whitespace, and newlines using Tree-sitter for the following languages, making the code more compact for LLMs while preserving syntax and functionality. (If parsing fails, the original code will be used.)
-
-```txt
-javascript, typescript, tsx, python, css, ruby, 
-csharp, c, cpp, go, rust, java, ini, regex
-```
+**Code Compression**: Use the “Matomeru: Copy to Clipboard (Compressed)” command (`Ctrl+Alt+Shift+C` / `Cmd+Alt+Shift+C`) when you want Tree-sitter to strip comments and redundant whitespace before copying content for LLMs. If parsing fails for a file, the original text is used as a fallback.
 
 **YAML Memory Optimization**: The `matomeru.yaml.includeContent` setting (default: `false`) controls whether file content is included in YAML output. For large projects, keeping this disabled prevents memory issues while still providing project structure and metadata.
 

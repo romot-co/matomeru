@@ -4,6 +4,23 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.4] - 2025-11-18
+### Security
+- Locked down `matomeru.copyGitDiff` by validating each revision-range token and invoking `git diff` via `spawn`, eliminating command injection vectors originating from `matomeru.gitDiff.range`.
+
+### Changed
+- Unified every scan/estimate path around `ConfigService`, ensuring default secret/lockfile exclusions stay active even when users override `excludePatterns`.
+- Git diff command now asks which workspace folder to inspect in multi-root windows and runs entirely on the selected repo; all progress/warning messages are logged silently instead of flooding VS Code toasts.
+- Extension activation waits for a workspace to open before constructing `CommandRegistrar`, preventing startup failures when VS Code launches with an empty window.
+- README compression section now reflects the actual “Copy to Clipboard (Compressed)” command rather than the removed `matomeru.enableCompression` setting.
+- Jest configurations delegate `isolatedModules` to `tsconfig.json`, and Tree-sitter integration tests silence `console` output via an inline ESLint disable comment.
+
+### Fixed
+- YAML generator now nests directory keys according to the real relative path so the structure mirrors the Markdown output, and Mermaid graphs gracefully truncate while still rendering available edges when the node cap is exceeded.
+- `logError`/logger changes stop bulk scans from spawning dozens of warning dialogs while keeping telemetry intact.
+- Git diff clipboard flow correctly switches between Markdown/YAML generators under test, and integration tests clean up by calling `deactivate()` to avoid cross-test leakage.
+
+
 ## [0.1.3] - 2025-09-21
 ### Changed
 - **Compression algorithm enhancements**: Tightened Tree-sitter based whitespace trimming around operators and now remove Python docstrings / JSDoc-style comments by default for leaner outputs.

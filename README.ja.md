@@ -106,7 +106,6 @@
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
-  "matomeru.enableCompression": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
   "matomeru.gitDiff.range": "",
@@ -120,12 +119,7 @@
 - `"HEAD~3..HEAD"`: 最新3コミットの変更を表示
 - `"origin/main..HEAD"`: mainブランチと現在のHEADの差分を表示
 
-**コード圧縮機能**: `matomeru.enableCompression`を`true`に設定すると、以下の主要言語について、Tree-sitterを使用してコードからコメント、不要な空白、改行を除去します。これにより、LLMに送るコードをより簡潔にし、コンテキストを効率化できます。（Tree-sitterによるパースに失敗した場合は元のコードが出力されます。）
-
-```txt
-javascript, typescript, tsx, python, css, ruby, 
-csharp, c, cpp, go, rust, java, ini, regex
-```
+**コード圧縮機能**: 「Matomeru: クリップボード（圧縮）」コマンド（`Ctrl+Alt+Shift+C` / `Cmd+Alt+Shift+C`）を使用すると、Tree-sitterでコメントと不要な空白を削除したコンテンツを得られます。LLM へ貼り付ける際にトークン数を抑えたい場合に活用してください。（Tree-sitterの解析に失敗した場合は元のコードが使用されます。）
 
 **YAMLメモリ最適化**: `matomeru.yaml.includeContent`設定（デフォルト: `false`）は、YAML出力にファイル内容を含めるかどうかを制御します。大規模プロジェクトでは、これを無効にしておくことでメモリの問題を防ぎながら、プロジェクト構造とメタデータを提供できます。
 

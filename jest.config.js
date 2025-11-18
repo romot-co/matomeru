@@ -12,7 +12,7 @@ module.exports = {
     '!**/node_modules/**',
   ],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', { isolatedModules: true }],
+    '^.+\\.tsx?$': 'ts-jest',
   },
   setupFilesAfterEnv: ['./src/__tests__/setup.ts'],
   moduleNameMapper: {

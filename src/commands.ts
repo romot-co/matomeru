@@ -16,7 +16,6 @@ import { ConfigService } from './services/configService';
 export class CommandRegistrar {
     private readonly fileOps: FileOperations;
     private readonly logger: Logger;
-    private readonly workspaceRoot: string;
     private firstRunCompleted: boolean = false;
 
     constructor() {
@@ -24,7 +23,6 @@ export class CommandRegistrar {
         if (!workspaceRoot) {
             throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
         }
-        this.workspaceRoot = workspaceRoot;
         this.fileOps = new FileOperations(workspaceRoot);
         this.logger = Logger.getInstance('CommandRegistrar');
     }
@@ -39,8 +37,8 @@ export class CommandRegistrar {
     }
 
     private async getGenerator(): Promise<IGenerator> {
-        const config = vscode.workspace.getConfiguration('matomeru');
-        const format = config.get<'markdown' | 'yaml'>('outputFormat', 'markdown');
+        const config = ConfigService.getInstance().getConfig();
+        const format = config.outputFormat;
         if (format === 'yaml') {
             return new YamlGenerator();
         }
@@ -54,7 +52,14 @@ export class CommandRegistrar {
                 this.logger.info(vscode.l10n.t('msg.scanningUri', index + 1, uri.fsPath, uri.scheme));
             });
 
-            const config = vscode.workspace.getConfiguration('matomeru');
+            const config = ConfigService.getInstance().getConfig();
+            const scanOptions: ScanOptions = {
+                maxFileSize: config.maxFileSize,
+                excludePatterns: config.excludePatterns,
+                useGitignore: config.useGitignore,
+                useVscodeignore: config.useVscodeignore,
+                includeDependencies: config.includeDependencies
+            };
             
             // ファイルをワークスペース別にグループ化
             const workspaceGroups = this.fileOps.groupFilesByWorkspace(uris);
@@ -69,17 +74,11 @@ export class CommandRegistrar {
                         this.logger.info(vscode.l10n.t('msg.scanningDirectory', index + 1, uri.fsPath));
                         try {
                             this.fileOps.setCurrentSelectedPath(uri.fsPath);
-                            const result = await this.fileOps.scanDirectory(uri.fsPath, {
-                                maxFileSize: config.get('maxFileSize', 1048576),
-                                excludePatterns: config.get('excludePatterns', []),
-                                useGitignore: config.get('useGitignore', false),
-                                useVscodeignore: config.get('useVscodeignore', false),
-                                includeDependencies: config.get('includeDependencies', false)
-                            } as ScanOptions, workspaceRoot);
-                            this.fileOps.setCurrentSelectedPath(undefined);
-                            return result;
-                        } catch (error) {
-                            this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
+                                const result = await this.fileOps.scanDirectory(uri.fsPath, scanOptions, workspaceRoot);
+                                this.fileOps.setCurrentSelectedPath(undefined);
+                                return result;
+                            } catch (error) {
+                                this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
                             throw error;
                         }
                     })
@@ -90,7 +89,7 @@ export class CommandRegistrar {
 
             const generator = await this.getGenerator();
             const content = await generator.generate(allDirInfos, options);
-            return { content, format: config.get('outputFormat', 'markdown') };
+            return { content, format: config.outputFormat };
         } catch (error) {
             this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
             throw error;
@@ -194,17 +193,17 @@ export class CommandRegistrar {
 
             let totalFiles = 0;
             let totalSize = 0;
-            const config = vscode.workspace.getConfiguration('matomeru');
+            const config = ConfigService.getInstance().getConfig();
 
             // 各URIごとに見積りを行い、合計を計算
             for (const [index, uri] of selectedUris.entries()) {
                 this.logger.info(`見積り中: ${index + 1}/${selectedUris.length} ${uri.fsPath}`);
                 this.fileOps.setCurrentSelectedPath(uri.fsPath);
                 const result = await this.fileOps.estimateDirectorySize(uri.fsPath, {
-                    maxFileSize: config.get('maxFileSize', 1048576),
-                    excludePatterns: config.get('excludePatterns', []),
-                    useGitignore: config.get('useGitignore', false),
-                    useVscodeignore: config.get('useVscodeignore', false)
+                    maxFileSize: config.maxFileSize,
+                    excludePatterns: config.excludePatterns,
+                    useGitignore: config.useGitignore,
+                    useVscodeignore: config.useVscodeignore
                 });
                 
                 totalFiles += result.totalFiles;
@@ -276,8 +275,9 @@ export class CommandRegistrar {
         try {
             const config = ConfigService.getInstance().getConfig();
             const range = config.gitDiff.range;
+            const workspaceRoot = await this.resolveWorkspaceRootForGit();
             
-            const result = await this.processGitDiff(range);
+            const result = await this.processGitDiff(range, workspaceRoot);
             if (result) {
                 await copyToClipboard(result.content);
                 this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
@@ -293,8 +293,8 @@ export class CommandRegistrar {
      * @param range オプションのリビジョン範囲
      * @returns 生成されたMarkdown、または変更がない場合はundefined
      */
-    private async processGitDiff(range?: string): Promise<{content: string, format: 'markdown' | 'yaml'} | undefined> {
-        const fileUris = await collectChangedFiles(this.workspaceRoot, range);
+    private async processGitDiff(range: string | undefined, workspaceRoot: string): Promise<{content: string, format: 'markdown' | 'yaml'} | undefined> {
+        const fileUris = await collectChangedFiles(workspaceRoot, range);
         
         if (fileUris.length === 0) {
             vscode.window.showInformationMessage(vscode.l10n.t('msg.noChanges'));
@@ -361,4 +361,24 @@ export class CommandRegistrar {
         
         this.logger.debug('Initialization wait timed out, proceeding anyway');
     }
-} 
+
+    private async resolveWorkspaceRootForGit(): Promise<string> {
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders || folders.length === 0) {
+            throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
+        }
+
+        if (folders.length === 1) {
+            return folders[0].uri.fsPath;
+        }
+
+        const picked = await vscode.window.showWorkspaceFolderPick();
+
+        if (picked) {
+            return picked.uri.fsPath;
+        }
+
+        // フォールバックとして最初のワークスペースを返す
+        return folders[0].uri.fsPath;
+    }
+}

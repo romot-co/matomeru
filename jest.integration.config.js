@@ -20,11 +20,6 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/__integration__/setup.integration.ts'],
   testTimeout: 60000,
   // CI環境では統合テストをスキップ
-  globals: {
-    'ts-jest': {
-      isolatedModules: true,
-    },
-  },
   // 環境変数でスキップ制御
   testEnvironmentOptions: {
     SKIP_INTEGRATION_TESTS: process.env.CI === 'true' ? 'true' : 'false'

@@ -18,23 +18,48 @@ export function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
     logger.info(vscode.l10n.t('msg.extensionActivated'));
     
-    // OSがmacOS（darwin）なら isOSX を true に設定する
     vscode.commands.executeCommand('setContext', 'isOSX', process.platform === 'darwin');
-    
-    commandRegistrar = new CommandRegistrar();
-    
-    // バックグラウンド初期化を開始（2秒後）
+
+    if (hasWorkspaceFolder()) {
+        initializeExtension(context);
+    } else {
+        logger.info('No workspace folders detected. Waiting for a folder to open before initializing Matomeru.');
+        const disposable = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            if (hasWorkspaceFolder()) {
+                initializeExtension(context);
+                disposable.dispose();
+            }
+        });
+        context.subscriptions.push(disposable);
+    }
+}
+
+function hasWorkspaceFolder(): boolean {
+    return Array.isArray(vscode.workspace.workspaceFolders) && vscode.workspace.workspaceFolders.length > 0;
+}
+
+function initializeExtension(context: vscode.ExtensionContext): void {
+    if (commandRegistrar) {
+        return;
+    }
+
+    try {
+        commandRegistrar = new CommandRegistrar();
+    } catch (error) {
+        logger.error(`Failed to initialize Matomeru: ${error instanceof Error ? error.message : String(error)}`);
+        vscode.window.showErrorMessage(vscode.l10n.t('msg.workspaceNotFound'));
+        return;
+    }
+
     setTimeout(() => {
         runBackgroundInitialization(context).catch(error => {
             logger.error(`Background initialization failed: ${error}`);
         });
     }, 2000);
-    
-    // 設定の初期状態を反映
+
     const config = vscode.workspace.getConfiguration('matomeru');
     vscode.commands.executeCommand('setContext', 'matomeru.chatGptIntegration', config.get('chatGptIntegration'));
 
-    // 設定変更を監視
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('matomeru')) {
@@ -49,22 +74,18 @@ export function activate(context: vscode.ExtensionContext) {
             if (e.affectsConfiguration('matomeru.includeDependencies')) {
                 const newConfig = vscode.workspace.getConfiguration('matomeru');
                 logger.info(`Configuration changed: matomeru.includeDependencies = ${newConfig.get('includeDependencies')}`);
-                // ジェネレータは都度生成されるため、キャッシュ無効化は不要
             }
             if (e.affectsConfiguration('matomeru.mermaid.maxNodes')) {
                 const newConfig = vscode.workspace.getConfiguration('matomeru');
                 logger.info(`Configuration changed: matomeru.mermaid.maxNodes = ${newConfig.get('mermaid.maxNodes')}`);
-                // ジェネレータは都度生成されるため、キャッシュ無効化は不要
             }
-            // outputFormat の変更もロギングしておくと良いでしょう
             if (e.affectsConfiguration('matomeru.outputFormat')) {
                 const newConfig = vscode.workspace.getConfiguration('matomeru');
                 logger.info(`Configuration changed: matomeru.outputFormat = ${newConfig.get('outputFormat')}`);
             }
         })
     );
-    
-    // コマンドの登録
+
     const registerCommand = (commandId: string, handler: (uri?: vscode.Uri, uris?: vscode.Uri[]) => Promise<void>) => {
         return vscode.commands.registerCommand(commandId, async (arg1: unknown, arg2: unknown) => {
             logger.info(vscode.l10n.t('msg.commandExecuted', commandId, JSON.stringify({
@@ -72,11 +93,9 @@ export function activate(context: vscode.ExtensionContext) {
                 arg2: arg2 instanceof vscode.Uri ? arg2.fsPath : Array.isArray(arg2) ? arg2.map(a => a instanceof vscode.Uri ? a.fsPath : typeof a) : typeof arg2
             })));
             
-            // 引数の解析とURIの一意化
             const uriSet = new Set<string>();
             const selectedUris: vscode.Uri[] = [];
 
-            // arg1の処理
             if (arg1 instanceof vscode.Uri && !uriSet.has(arg1.fsPath)) {
                 uriSet.add(arg1.fsPath);
                 selectedUris.push(arg1);
@@ -89,7 +108,6 @@ export function activate(context: vscode.ExtensionContext) {
                 });
             }
 
-            // arg2の処理
             if (arg2 instanceof vscode.Uri && !uriSet.has(arg2.fsPath)) {
                 uriSet.add(arg2.fsPath);
                 selectedUris.push(arg2);
@@ -116,15 +134,13 @@ export function activate(context: vscode.ExtensionContext) {
         });
     };
 
-    // 各コマンドの登録
     context.subscriptions.push(
-        registerCommand('matomeru.quickProcessToEditor', commandRegistrar.processToEditor.bind(commandRegistrar)),
-        registerCommand('matomeru.quickProcessToClipboard', commandRegistrar.processToClipboard.bind(commandRegistrar)),
-        registerCommand('matomeru.quickProcessToClipboardCompressed', commandRegistrar.processToClipboardCompressed.bind(commandRegistrar)),
-        registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar.processToChatGPT.bind(commandRegistrar)),
-        registerCommand('matomeru.estimateSize', commandRegistrar.estimateSize.bind(commandRegistrar)),
-        // Git Diff関連コマンドの追加
-        registerCommand('matomeru.copyGitDiff', commandRegistrar.diffToClipboard.bind(commandRegistrar))
+        registerCommand('matomeru.quickProcessToEditor', commandRegistrar!.processToEditor.bind(commandRegistrar)),
+        registerCommand('matomeru.quickProcessToClipboard', commandRegistrar!.processToClipboard.bind(commandRegistrar)),
+        registerCommand('matomeru.quickProcessToClipboardCompressed', commandRegistrar!.processToClipboardCompressed.bind(commandRegistrar)),
+        registerCommand('matomeru.quickProcessToChatGPT', commandRegistrar!.processToChatGPT.bind(commandRegistrar)),
+        registerCommand('matomeru.estimateSize', commandRegistrar!.estimateSize.bind(commandRegistrar)),
+        registerCommand('matomeru.copyGitDiff', commandRegistrar!.diffToClipboard.bind(commandRegistrar))
     );
 }
 

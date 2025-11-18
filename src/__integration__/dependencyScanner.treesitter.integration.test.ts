@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Tree-sitter統合テスト
  * 

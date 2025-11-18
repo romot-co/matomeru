@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ExtensionContext } from 'vscode';
-import { activate } from '../extension';
+import { activate, deactivate } from '../extension';
 
 // VSCodeモジュールからモック関数を取得
 const mockExecuteCommand = vscode.commands.executeCommand as jest.Mock;
@@ -119,6 +119,7 @@ describe('Extension Activation', () => {
         (vscode as any).env.clipboard.writeText = originalClipboardWriteText;
         (vscode as any).env.openExternal = originalOpenExternal;
         Object.defineProperty(process, 'platform', { value: originalPlatform });
+        deactivate();
     });
 
     describe('OS判定とコンテキスト設定', () => {

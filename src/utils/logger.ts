@@ -25,15 +25,19 @@ export class Logger {
         this.log('INFO', message);
     }
 
-    warn(message: string): void {
+    warn(message: string, options?: { silent?: boolean }): void {
         this.log('WARN', message);
-        vscode.window.showWarningMessage(message);
+        if (!options?.silent) {
+            vscode.window.showWarningMessage(message);
+        }
     }
 
-    error(message: string | Error): void {
+    error(message: string | Error, options?: { silent?: boolean }): void {
         const errorMessage = message instanceof Error ? message.message : message;
         this.log('ERROR', errorMessage);
-        vscode.window.showErrorMessage(errorMessage);
+        if (!options?.silent) {
+            vscode.window.showErrorMessage(errorMessage);
+        }
     }
 
     private log(level: string, message: string): void {

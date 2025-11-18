@@ -18,6 +18,7 @@
 		},
 		"skipLibCheck": true,  // 外部ライブラリの型チェックをスキップ
 		"noImplicitAny": false,  // 暗黙的なany型を許可
+		"isolatedModules": true,
 		"types": [
 			"node",
 			"vscode",

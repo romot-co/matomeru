@@ -217,11 +217,7 @@ export class MarkdownGenerator implements IGenerator {
         // eslint-disable-next-line no-console
         // logger.debug(`Mermaid: Calculated ${nodes.size} nodes, ${edges.length} edges. Max nodes: ${maxNodes}`);
 
-        let truncated = false;
-        if (nodes.size > maxNodes) {
-            truncated = true;
-        }
-
+        let truncated = nodes.size > maxNodes;
         if (truncated) {
             graphLines.push(`    subgraph Warning [Warning: Mermaid graph truncated.]\n    direction LR\n    truncated_message["The number of nodes (${nodes.size}) exceeds the configured limit (${maxNodes})."]
     end`);
@@ -239,15 +235,29 @@ export class MarkdownGenerator implements IGenerator {
             }
         }
         
+        const emittedNodes = new Set<string>();
         for (const edge of edges) {
-            // ノード数が上限に達した場合の処理を明確化
-            if (truncated && nodes.size > maxNodes) {
-                if (!graphLines.some(line => line.includes('more dependencies linked here...'))) {
-                    graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
+            if (maxNodes > 0) {
+                if (!emittedNodes.has(edge.from)) {
+                    if (emittedNodes.size >= maxNodes) {
+                        truncated = true;
+                        break;
+                    }
+                    emittedNodes.add(edge.from);
                 }
-                break; // これ以上エッジを追加しない
+                if (!emittedNodes.has(edge.to)) {
+                    if (emittedNodes.size >= maxNodes) {
+                        truncated = true;
+                        break;
+                    }
+                    emittedNodes.add(edge.to);
+                }
             }
             graphLines.push(`    "${edge.from}" --> "${edge.to}"`);
+        }
+
+        if (truncated && !graphLines.some(line => line.includes('Truncated due to node limit'))) {
+            graphLines.push(`    "..."["Truncated due to node limit (${maxNodes})...\n...more dependencies linked here..."]`);
         }
         
         if (graphLines.length === 1 && Object.keys(dependencies).length === 0 && nodes.size === 0) {

@@ -5,6 +5,7 @@ import { collectChangedFiles, GitNotRepositoryError } from '../utils/gitUtils';
 import { copyToClipboard } from '../ui';
 import { MarkdownGenerator } from '../generators/MarkdownGenerator';
 import { YamlGenerator } from '../generators/YamlGenerator';
+import { ConfigService } from '../services/configService';
 
 // モック
 jest.mock('../utils/gitUtils', () => ({
@@ -62,6 +63,8 @@ describe('CommandRegistrar - Git Diff Commands', () => {
         return undefined; 
       })
     });
+
+    ConfigService.resetInstance();
 
     mockFileOps = {
       processFileList: jest.fn().mockResolvedValue([{
@@ -147,6 +150,7 @@ describe('CommandRegistrar - Git Diff Commands', () => {
         if (key === 'outputFormat') return 'yaml';
         return undefined;
       });
+      ConfigService.resetInstance();
 
       const mockYamlContent = 'project_overview: Test YAML\nfiles:\n  - path: file1.ts\n    content: test content';
       yamlGenerateSpy.mockResolvedValue(mockYamlContent);
