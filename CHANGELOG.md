@@ -4,6 +4,15 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.6] - 2025-01-21
+### Removed
+- **esbuild dependency**: Removed esbuild package to resolve packaging issues with native binaries in VS Code extensions.
+- **Runtime minification**: Removed `matomeru.enableMinifyIdentifiers` setting and the `minifyJsTsRuntimeEquivalent` function that performed JavaScript/TypeScript minification.
+
+### Changed
+- Compression pipeline now uses only Tree-sitter based features: comment removal and TypeScript type stripping via `matomeru.enableStripTypes`.
+- Extension package size reduced by removing esbuild and its native dependencies.
+
 ## [0.1.5] - 2025-11-18
 ### Added
 - **LLM-focused compression pipeline**: After Tree-sitter removes TypeScript-only syntax, esbuild now performs runtime-equivalent minification for JS/TS. Both `matomeru.enableStripTypes` and `matomeru.enableMinifyIdentifiers` default to true so running the compressed commands automatically applies every stage.

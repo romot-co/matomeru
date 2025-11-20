@@ -2,23 +2,12 @@ import { ParserManager } from '../services/parserManager';
 import { ExtensionContext } from 'vscode';
 import { Logger } from './logger';
 import type { Tree as WebTreeSitterTree } from 'web-tree-sitter';
-import { transform } from 'esbuild';
 
 const logger = Logger.getInstance('CompressUtils');
 
 type WebTreeSitterSyntaxNode = WebTreeSitterTree['rootNode'];
 
 type RemovalRange = { start: number; end: number };
-type JsLikeLoader = 'js' | 'ts' | 'jsx' | 'tsx';
-
-const JS_LIKE_LANG_TO_LOADER: Record<string, JsLikeLoader> = {
-  javascript: 'js',
-  typescript: 'ts',
-  tsx: 'tsx',
-  jsx: 'jsx',
-  javascriptreact: 'jsx',
-  typescriptreact: 'tsx'
-};
 
 /**
  * インデント依存言語かどうかを判定
@@ -30,35 +19,6 @@ function isIndentDependentLanguage(langId: string): boolean {
 function isTypeScriptLikeLanguage(langId: string): boolean {
   const normalized = langId.toLowerCase();
   return normalized === 'typescript' || normalized === 'tsx' || normalized === 'typescriptreact';
-}
-
-function resolveJsLikeLoader(langId: string): JsLikeLoader | undefined {
-  return JS_LIKE_LANG_TO_LOADER[langId.toLowerCase()];
-}
-
-export async function minifyJsTsRuntimeEquivalent(code: string, langId: string): Promise<string> {
-  const loader = resolveJsLikeLoader(langId);
-  if (!loader || !code.trim()) {
-    return code;
-  }
-
-  try {
-    const output = await transform(code, {
-      loader,
-      format: 'esm',
-      minify: true,
-      legalComments: 'none',
-      charset: 'utf8',
-      target: 'es2018',
-      logLevel: 'silent',
-      drop: ['console', 'debugger'],
-      pure: ['console.log', 'console.info', 'console.debug']
-    });
-    return output.code.trim();
-  } catch (error) {
-    logger.warn(`Failed to minify ${langId} via esbuild: ${error instanceof Error ? error.message : String(error)}`);
-    return code;
-  }
 }
 
 /**

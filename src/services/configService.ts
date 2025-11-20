@@ -50,7 +50,6 @@ export class ConfigService {
                     showFileExtensions: this.validateBoolean(this.safeGet(config, 'directoryStructure.showFileExtensions'), defaultConfig.directoryStructure.showFileExtensions),
                     useEmoji: this.validateBoolean(this.safeGet(config, 'directoryStructure.useEmoji'), defaultConfig.directoryStructure.useEmoji)
                 },
-                enableMinifyIdentifiers: this.validateBoolean(this.safeGet(config, 'enableMinifyIdentifiers'), defaultConfig.enableMinifyIdentifiers),
                 enableStripTypes: this.validateBoolean(this.safeGet(config, 'enableStripTypes'), defaultConfig.enableStripTypes),
                 useGitignore: this.validateBoolean(this.safeGet(config, 'useGitignore'), defaultConfig.useGitignore),
                 useVscodeignore: this.validateBoolean(this.safeGet(config, 'useVscodeignore'), defaultConfig.useVscodeignore),

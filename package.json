@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -222,11 +222,6 @@
           "default": "",
           "description": "%config.gitDiff.range.description%"
         },
-        "matomeru.enableMinifyIdentifiers": {
-          "type": "boolean",
-          "default": true,
-          "description": "%config.enableMinifyIdentifiers.description%"
-        },
         "matomeru.enableStripTypes": {
           "type": "boolean",
           "default": true,
@@ -318,7 +313,6 @@
     "@types/minimatch": "^5.1.2",
     "@vscode/l10n": "^0.0.16",
     "@vscode/tree-sitter-wasm": "^0.1.4",
-    "esbuild": "^0.24.2",
     "isbinaryfile": "^5.0.4",
     "js-yaml": "^4.1.0",
     "minimatch": "^10.0.1",
@@ -327,7 +321,10 @@
   "bundledDependencies": [
     "web-tree-sitter",
     "@vscode/tree-sitter-wasm",
-    "js-yaml"
+    "js-yaml",
+    "isbinaryfile",
+    "minimatch",
+    "@vscode/l10n"
   ],
   "icon": "images/icon.png",
   "galleryBanner": {

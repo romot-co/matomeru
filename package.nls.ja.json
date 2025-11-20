@@ -18,7 +18,6 @@
     "config.useGitignore.description": ".gitignoreファイルのパターンを使用してファイルを除外する",
     "config.prefixText.description": "生成されるMarkdownの先頭に追加するテキスト",
     "config.useVscodeignore.description": ".vscodeignoreファイルのパターンを使用してファイルを除外する",
-    "config.enableMinifyIdentifiers.description": "JavaScript/TypeScriptの識別子や構文をミニファイして実行同値の圧縮を行います。",
     "config.enableStripTypes.description": "TypeScript専用構文（型・interface・import type・as など）を出力前に削除します。",
     "config.diff.mode.description": "Git差分コピーで、ファイル全体を出力するか変更を含む関数/クラスのみ抽出するかを選択します。",
     "config.diff.localContextLines.description": "関数モードで抜き出す際に付与する前後の文脈行数。",

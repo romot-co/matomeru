@@ -1,7 +1,7 @@
 import { DirectoryInfo, FileInfo } from '../types/fileTypes';
 import { DirectoryStructure } from '../directoryStructure';
 import * as vscode from 'vscode';
-import { stripComments, minifyJsTsRuntimeEquivalent } from '../utils/compressUtils';
+import { stripComments } from '../utils/compressUtils';
 import { getExtensionContext } from '../extension';
 import { Logger } from '../utils/logger';
 import { IGenerator } from './IGenerator';
@@ -122,20 +122,9 @@ export class MarkdownGenerator implements IGenerator {
                 content = await stripComments(file.content, file.language, ctx, {
                     stripTypes: enableStripTypes
                 });
-                
+
                 if (content !== file.content) {
                     logger.info(`Compressed content for ${file.relativePath}`);
-                }
-
-                const enableMinifyIdentifiers = config?.get<boolean>('enableMinifyIdentifiers', false) ?? false;
-                if (enableMinifyIdentifiers) {
-                    const minified = await minifyJsTsRuntimeEquivalent(content, file.language);
-                    if (minified && minified.length <= content.length) {
-                        if (minified !== content) {
-                            logger.info(`Minified identifiers for ${file.relativePath}`);
-                        }
-                        content = minified;
-                    }
                 }
             } catch (error) {
                 logger.error(`Failed to compress content: ${error}`);

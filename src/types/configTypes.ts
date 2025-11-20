@@ -11,7 +11,6 @@ export interface MatomeruConfig {
     excludePatterns: string[];
     chatGptIntegration: boolean;
     directoryStructure: DirectoryStructureConfig;
-    enableMinifyIdentifiers: boolean;
     enableStripTypes: boolean;
     useGitignore: boolean;    // .gitignoreファイルのパターンを使用するかどうか
     useVscodeignore: boolean; // .vscodeignoreファイルのパターンを使用するかどうか
@@ -64,7 +63,6 @@ export const defaultConfig: MatomeruConfig = {
         useEmoji: true
     },
     prefixText: "",
-    enableMinifyIdentifiers: true,
     enableStripTypes: true,
     useGitignore: false,
     useVscodeignore: false,

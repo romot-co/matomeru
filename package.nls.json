@@ -18,7 +18,6 @@
     "config.prefixText.description": "Text to be added at the beginning of the generated Markdown.",
     "config.useGitignore.description": "Use patterns from .gitignore file to exclude files",
     "config.useVscodeignore.description": "Use patterns from .vscodeignore file to exclude files",
-    "config.enableMinifyIdentifiers.description": "Minify JavaScript/TypeScript identifiers and syntax for runtime-equivalent compression.",
     "config.enableStripTypes.description": "Strip TypeScript-only syntax (types, interfaces, import type, as) before emitting content.",
     "config.diff.mode.description": "Select whether Git diff exports entire files or only functions/classes touching the diff.",
     "config.diff.localContextLines.description": "Number of lines of surrounding context to keep when extracting diff-aware snippets (function mode).",

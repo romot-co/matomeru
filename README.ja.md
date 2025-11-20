@@ -106,7 +106,6 @@
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
-  "matomeru.enableMinifyIdentifiers": false,
   "matomeru.enableStripTypes": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
@@ -125,10 +124,10 @@
 
 **コード圧縮機能**: 「Matomeru: クリップボード（圧縮）」コマンド（`Ctrl+Alt+Shift+C` / `Cmd+Alt+Shift+C`）を使用すると、Tree-sitterでコメントと不要な空白を削除したコンテンツを得られます。LLM へ貼り付ける際にトークン数を抑えたい場合に活用してください。（Tree-sitterの解析に失敗した場合は元のコードが使用されます。）
 
-圧縮コマンドを実行すると、以下の処理が自動的に適用されます（どちらもデフォルト有効で、設定から無効化可能です）:
+圧縮コマンドを実行すると、以下の処理が自動的に適用されます（設定から無効化可能です）:
 
 - `matomeru.enableStripTypes` (既定: `true`): TypeScript専用構文（型注釈、`import type`、`as`、interfaceなど）を実行同値のまま削除します。
-- `matomeru.enableMinifyIdentifiers` (既定: `true`): esbuildのミニファイで JavaScript/TypeScript の識別子や空白を極力削減します。
+- コメントと不要な空白を削除します。
 
 **YAMLメモリ最適化**: `matomeru.yaml.includeContent`設定（デフォルト: `false`）は、YAML出力にファイル内容を含めるかどうかを制御します。大規模プロジェクトでは、これを無効にしておくことでメモリの問題を防ぎながら、プロジェクト構造とメタデータを提供できます。
 

@@ -44,7 +44,7 @@ Combine and copy your entire codes into one LLM-ready Markdown / YAML.
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.1.5.vsix
+   code --install-extension matomeru-0.1.6.vsix
    ```
 
 ## Usage
@@ -118,7 +118,6 @@ This will display the total file count, size, and estimated token count.
   "matomeru.prefixText": "",
   "matomeru.useGitignore": false,
   "matomeru.useVscodeignore": false,
-  "matomeru.enableMinifyIdentifiers": false,
   "matomeru.enableStripTypes": false,
   "matomeru.includeDependencies": false,
   "matomeru.mermaid.maxNodes": 300,
@@ -145,9 +144,9 @@ This will display the total file count, size, and estimated token count.
 When you run the compressed command (`compression: true`), Matomeru automatically:
 
 - strips TypeScript-only syntax (`matomeru.enableStripTypes`, default `true`)
-- minifies JavaScript/TypeScript via esbuild (`matomeru.enableMinifyIdentifiers`, default `true`)
+- removes comments and unnecessary whitespace
 
-Disable either setting if you prefer to retain original formatting.
+Disable the setting if you prefer to retain original formatting.
 
 **YAML Memory Optimization**: The `matomeru.yaml.includeContent` setting (default: `false`) controls whether file content is included in YAML output. For large projects, keeping this disabled prevents memory issues while still providing project structure and metadata.
 
