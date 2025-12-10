@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -293,7 +293,7 @@
     "l10n": "vscode-l10n-dev nls-extract src && vscode-l10n-dev nls-bundle l10n",
     "convert-icon": "npx svgexport images/icon.svg images/icon.png 128:128",
     "postinstall": "npm run copy-wasm",
-    "copy-wasm": "mkdir -p out/grammars && copyfiles -u 3 \"node_modules/@vscode/tree-sitter-wasm/wasm/*.wasm\" out/grammars"
+    "copy-wasm": "node -e \"require('fs').mkdirSync('out/grammars', { recursive: true })\" && copyfiles -u 3 \"node_modules/@vscode/tree-sitter-wasm/wasm/*.wasm\" out/grammars"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

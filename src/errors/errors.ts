@@ -34,63 +34,63 @@ export class FileOperationError extends MatomeruError {
 
 export class DirectoryNotFoundError extends FileOperationError {
     constructor(path: string) {
-        super('msg.directoryNotFound', [path]);
+        super('Directory not found: {0}', [path]);
     }
 }
 
 export class FileNotFoundError extends FileOperationError {
     constructor(path: string) {
-        super('msg.fileNotFound', [path]);
+        super('File not found: {0}', [path]);
     }
 }
 
 export class FileSizeLimitError extends FileOperationError {
     constructor(path: string, size: number, limit: number) {
-        super('msg.fileSizeLimit', [path, size, limit]);
+        super('File size exceeds limit: {0} ({1} > {2} bytes)', [path, size, limit]);
     }
 }
 
 export class ScanError extends FileOperationError {
     constructor(message: string) {
-        super('msg.scanError', [message]);
+        super('Scan error: {0}', [message]);
     }
 }
 
 export class WorkspaceNotFoundError extends FileOperationError {
     constructor() {
-        super('msg.workspaceNotFound');
+        super('No workspace is open', []);
     }
 }
 
 export class FileReadError extends FileOperationError {
     constructor(path: string, message: string) {
-        super('msg.fileReadError', [path, message]);
+        super('File read error: {0} - {1}', [path, message]);
     }
 }
 
 export class DirectoryScanError extends FileOperationError {
     constructor(path: string, message: string) {
-        super('msg.directoryScanError', [path, message]);
+        super('Directory scan error: {0} - {1}', [path, message]);
     }
 }
 
 export class ChatGPTError extends MatomeruError {
     constructor(message: string) {
-        super('msg.chatGPTError', message, [message]);
+        super('ChatGPT error: {0}', message, [message]);
         this.name = 'ChatGPTError';
     }
 }
 
 export class ClipboardError extends MatomeruError {
     constructor(message: string) {
-        super('msg.clipboardError', message, [message]);
+        super('Clipboard error: {0}', message, [message]);
         this.name = 'ClipboardError';
     }
 }
 
 export class EditorError extends MatomeruError {
     constructor(message: string) {
-        super('msg.editorError', message, [message]);
+        super('Editor error: {0}', message, [message]);
         this.name = 'EditorError';
     }
-} 
+}

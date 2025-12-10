@@ -23,7 +23,7 @@ export class CommandRegistrar {
     constructor() {
         const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         if (!workspaceRoot) {
-            throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
+            throw new Error(vscode.l10n.t('No workspace is open'));
         }
         this.fileOps = new FileOperations(workspaceRoot);
         this.logger = Logger.getInstance('CommandRegistrar');
@@ -49,9 +49,9 @@ export class CommandRegistrar {
 
     private async processDirectories(uris: vscode.Uri[], options?: { compression?: boolean }): Promise<{content: string, format: 'markdown' | 'yaml'}> {
         try {
-            this.logger.info(vscode.l10n.t('msg.processingUris', uris.length));
+            this.logger.info(vscode.l10n.t('Processing URIs ({0} items):', uris.length));
             uris.forEach((uri, index) => {
-                this.logger.info(vscode.l10n.t('msg.scanningUri', index + 1, uri.fsPath, uri.scheme));
+                this.logger.info(vscode.l10n.t('  {0}. {1} ({2})', index + 1, uri.fsPath, uri.scheme));
             });
 
             const config = ConfigService.getInstance().getConfig();
@@ -73,14 +73,14 @@ export class CommandRegistrar {
                 
                 const dirInfos = await Promise.all(
                     groupUris.map(async (uri, index) => {
-                        this.logger.info(vscode.l10n.t('msg.scanningDirectory', index + 1, uri.fsPath));
+                        this.logger.info(vscode.l10n.t('Scanning directory/file ({0}/{1}): {2}', index + 1, groupUris.length, uri.fsPath));
                         try {
                             this.fileOps.setCurrentSelectedPath(uri.fsPath);
                                 const result = await this.fileOps.scanDirectory(uri.fsPath, scanOptions, workspaceRoot);
                                 this.fileOps.setCurrentSelectedPath(undefined);
                                 return result;
                             } catch (error) {
-                                this.logger.error(vscode.l10n.t('msg.scanError', index + 1, uri.fsPath, error instanceof Error ? error.message : String(error)));
+                                this.logger.error(vscode.l10n.t('Scan error: {0}', error instanceof Error ? error.message : String(error)));
                             throw error;
                         }
                     })
@@ -97,7 +97,7 @@ export class CommandRegistrar {
             const content = await generator.generate(filteredDirInfos, options);
             return { content, format: config.outputFormat };
         } catch (error) {
-            this.logger.error(vscode.l10n.t('msg.directoryProcessingError') + (error instanceof Error ? error.message : String(error)));
+            this.logger.error(vscode.l10n.t('Directory processing error: ') + (error instanceof Error ? error.message : String(error)));
             throw error;
         }
     }
@@ -106,23 +106,23 @@ export class CommandRegistrar {
         try {
             const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
             if (!selectedUris || selectedUris.length === 0) {
-                this.logger.warn(vscode.l10n.t('msg.noSelection'));
+                this.logger.warn(vscode.l10n.t('No directory or file selected'));
                 return;
             }
 
-            this.logger.info(vscode.l10n.t('msg.selectedUris', selectedUris.length));
+            this.logger.info(vscode.l10n.t('Selected URIs ({0} items):', selectedUris.length));
             for (const [index, uri] of selectedUris.entries()) {
                 try {
                     const stats = await vscode.workspace.fs.stat(uri);
-                    this.logger.info(vscode.l10n.t('msg.selectedUriInfo', index + 1, uri.fsPath, stats.type === vscode.FileType.Directory ? 'directory' : 'file'));
+                    this.logger.info(vscode.l10n.t('  {0}. {1} ({2})', index + 1, uri.fsPath, stats.type === vscode.FileType.Directory ? 'directory' : 'file'));
                 } catch (error) {
-                    this.logger.info(vscode.l10n.t('msg.selectedUriInfo', index + 1, uri.fsPath, 'unknown'));
+                    this.logger.info(vscode.l10n.t('  {0}. {1} ({2})', index + 1, uri.fsPath, 'unknown'));
                 }
             }
 
             const { content, format } = await this.processDirectories(selectedUris);
             await showInEditor(content, format);
-            this.logger.info(vscode.l10n.t('msg.outputToEditor'));
+            this.logger.info(vscode.l10n.t('Output to editor'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
@@ -132,7 +132,7 @@ export class CommandRegistrar {
         try {
             const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
             if (!selectedUris.length) {
-                throw new Error(vscode.l10n.t('msg.noSelection'));
+                throw new Error(vscode.l10n.t('No directory or file selected'));
             }
 
             // 初回実行時のみ簡単な初期化待機
@@ -143,7 +143,7 @@ export class CommandRegistrar {
 
             const { content } = await this.processDirectories(selectedUris);
             await copyToClipboard(content);
-            this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
+            this.logger.info(vscode.l10n.t('Copied to clipboard'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
@@ -153,7 +153,7 @@ export class CommandRegistrar {
         try {
             const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
             if (!selectedUris.length) {
-                throw new Error(vscode.l10n.t('msg.noSelection'));
+                throw new Error(vscode.l10n.t('No directory or file selected'));
             }
 
             // 初回実行時のみ簡単な初期化待機
@@ -164,7 +164,7 @@ export class CommandRegistrar {
 
             const { content } = await this.processDirectories(selectedUris, { compression: true });
             await copyToClipboard(content);
-            this.logger.info(vscode.l10n.t('msg.copiedToClipboardCompressed'));
+            this.logger.info(vscode.l10n.t('Copied to clipboard (compressed)'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
@@ -174,12 +174,12 @@ export class CommandRegistrar {
         try {
             const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
             if (!selectedUris.length) {
-                throw new Error(vscode.l10n.t('msg.noSelection'));
+                throw new Error(vscode.l10n.t('No directory or file selected'));
             }
 
             const { content } = await this.processDirectories(selectedUris);
             await openInChatGPT(content);
-            this.logger.info(vscode.l10n.t('msg.sentToChatGPT'));
+            this.logger.info(vscode.l10n.t('Sent to ChatGPT'));
         } catch (error) {
             this.logger.error(error instanceof Error ? error.message : String(error));
         }
@@ -194,7 +194,7 @@ export class CommandRegistrar {
         try {
             const selectedUris = uris || (uri ? [uri] : await this.getSelectedUris());
             if (!selectedUris.length) {
-                throw new Error(vscode.l10n.t('msg.noSelection'));
+                throw new Error(vscode.l10n.t('No directory or file selected'));
             }
 
             let totalFiles = 0;
@@ -232,7 +232,7 @@ export class CommandRegistrar {
 
             vscode.window.showInformationMessage(
                 vscode.l10n.t(
-                    'msg.sizeEstimation',
+                    'Estimated: {0} files, {1} (~{2} tokens), with Markdown formatting: {3} (~{4} tokens)',
                     totalFiles.toString(),
                     formattedSize,
                     formattedTokens,
@@ -251,14 +251,14 @@ export class CommandRegistrar {
 
     private async getSelectedUris(): Promise<vscode.Uri[]> {
         if (!vscode.workspace.workspaceFolders) {
-            throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
+            throw new Error(vscode.l10n.t('No workspace is open'));
         }
 
         const uris = await vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectFolders: true,
             canSelectMany: true,
-            openLabel: vscode.l10n.t('msg.selectButton'),
+            openLabel: vscode.l10n.t('Select'),
             defaultUri: vscode.workspace.workspaceFolders[0].uri
         }) || [];
 
@@ -286,7 +286,7 @@ export class CommandRegistrar {
             const result = await this.processGitDiff(range, workspaceRoot);
             if (result) {
                 await copyToClipboard(result.content);
-                this.logger.info(vscode.l10n.t('msg.copiedToClipboard'));
+                this.logger.info(vscode.l10n.t('Copied to clipboard'));
             }
         } catch (error) {
             this.handleGitError(error);
@@ -303,7 +303,7 @@ export class CommandRegistrar {
         const fileUris = await collectChangedFiles(workspaceRoot, range);
         
         if (fileUris.length === 0) {
-            vscode.window.showInformationMessage(vscode.l10n.t('msg.noChanges'));
+            vscode.window.showInformationMessage(vscode.l10n.t('No changes detected'));
             return undefined;
         }
         
@@ -379,9 +379,9 @@ export class CommandRegistrar {
      */
     private handleGitError(error: unknown): void {
         if (error instanceof GitNotRepositoryError) {
-            vscode.window.showErrorMessage(vscode.l10n.t('msg.noGitRepo'));
+            vscode.window.showErrorMessage(vscode.l10n.t('Not a Git repository'));
         } else if (error instanceof GitCliNotFoundError) {
-            vscode.window.showErrorMessage(vscode.l10n.t('msg.gitCliNotFound'));
+            vscode.window.showErrorMessage(vscode.l10n.t('Git CLI not found'));
         } else {
             this.logger.error(`エラー: ${error instanceof Error ? error.message : String(error)}`);
             vscode.window.showErrorMessage(`${error instanceof Error ? error.message : String(error)}`);
@@ -422,7 +422,7 @@ export class CommandRegistrar {
     private async resolveWorkspaceRootForGit(): Promise<string> {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders || folders.length === 0) {
-            throw new Error(vscode.l10n.t('msg.workspaceNotFound'));
+            throw new Error(vscode.l10n.t('No workspace is open'));
         }
 
         if (folders.length === 1) {

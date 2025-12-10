@@ -34,6 +34,7 @@ node_modules/**
 !node_modules/web-tree-sitter/**
 !node_modules/tree-sitter-wasm-prebuilt/**
 !node_modules/js-yaml/**
+!node_modules/@vscode/l10n/**
 
 # Other development files
 .eslintrc.json

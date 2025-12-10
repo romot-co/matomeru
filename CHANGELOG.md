@@ -4,6 +4,16 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.7] - 2025-12-10
+### Fixed
+- **Windows compatibility**: Fixed `copy-wasm` script failing on Windows by replacing `mkdir -p` (Unix-only) with cross-platform Node.js `fs.mkdirSync`. This prevented the extension from working on Windows when installed via VSIX.
+- **Windows localization**: Fixed l10n (localization) not working on Windows. The VS Code l10n API requires English message strings as keys, not custom identifiers like `msg.clipboardCopySuccessWithSize`.
+
+### Changed
+- Refactored all `vscode.l10n.t()` calls to use English messages as keys (e.g., `'Copied to clipboard (Size: {0}, ~{1} tokens)'`).
+- Updated l10n bundle files (`l10n/bundle.l10n.json`, `l10n/bundle.l10n.ja.json`) to use the correct key format.
+- Added `@vscode/l10n` to `.vscodeignore` allowlist for proper VSIX packaging.
+
 ## [0.1.6] - 2025-01-21
 ### Removed
 - **esbuild dependency**: Removed esbuild package to resolve packaging issues with native binaries in VS Code extensions.

@@ -16,7 +16,7 @@ export function getExtensionContext(): vscode.ExtensionContext {
 
 export function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
-    logger.info(vscode.l10n.t('msg.extensionActivated'));
+    logger.info(vscode.l10n.t('Extension activated'));
     
     vscode.commands.executeCommand('setContext', 'isOSX', process.platform === 'darwin');
 
@@ -47,7 +47,7 @@ function initializeExtension(context: vscode.ExtensionContext): void {
         commandRegistrar = new CommandRegistrar();
     } catch (error) {
         logger.error(`Failed to initialize Matomeru: ${error instanceof Error ? error.message : String(error)}`);
-        vscode.window.showErrorMessage(vscode.l10n.t('msg.workspaceNotFound'));
+        vscode.window.showErrorMessage(vscode.l10n.t('No workspace is open'));
         return;
     }
 
@@ -88,7 +88,7 @@ function initializeExtension(context: vscode.ExtensionContext): void {
 
     const registerCommand = (commandId: string, handler: (uri?: vscode.Uri, uris?: vscode.Uri[]) => Promise<void>) => {
         return vscode.commands.registerCommand(commandId, async (arg1: unknown, arg2: unknown) => {
-            logger.info(vscode.l10n.t('msg.commandExecuted', commandId, JSON.stringify({
+            logger.info(vscode.l10n.t('Command executed: {0}, args: {1}', commandId, JSON.stringify({
                 arg1: arg1 instanceof vscode.Uri ? arg1.fsPath : Array.isArray(arg1) ? arg1.map(a => a instanceof vscode.Uri ? a.fsPath : typeof a) : typeof arg1,
                 arg2: arg2 instanceof vscode.Uri ? arg2.fsPath : Array.isArray(arg2) ? arg2.map(a => a instanceof vscode.Uri ? a.fsPath : typeof a) : typeof arg2
             })));
@@ -120,13 +120,13 @@ function initializeExtension(context: vscode.ExtensionContext): void {
                 });
             }
             
-            logger.info(vscode.l10n.t('msg.targetUris', selectedUris.length));
+            logger.info(vscode.l10n.t('Target URIs ({0} items):', selectedUris.length));
             await Promise.all(selectedUris.map(async (uri, index) => {
                 try {
                     const stats = await fs.stat(uri.fsPath);
-                    logger.info(vscode.l10n.t('msg.targetUriInfo', index + 1, uri.fsPath, stats.isDirectory() ? 'directory' : 'file'));
+                    logger.info(vscode.l10n.t('  {0}. {1} ({2})', index + 1, uri.fsPath, stats.isDirectory() ? 'directory' : 'file'));
                 } catch (error) {
-                    logger.info(vscode.l10n.t('msg.targetUriInfo', index + 1, uri.fsPath, 'unknown'));
+                    logger.info(vscode.l10n.t('  {0}. {1} ({2})', index + 1, uri.fsPath, 'unknown'));
                 }
             }));
 
@@ -145,7 +145,7 @@ function initializeExtension(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate() {
-    logger.info(vscode.l10n.t('msg.extensionDeactivated'));
+    logger.info(vscode.l10n.t('Extension deactivated'));
     
     // CommandRegistrarインスタンスを通じてFileOperationsを破棄
     if (commandRegistrar) {
