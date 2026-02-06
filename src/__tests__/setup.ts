@@ -8,6 +8,17 @@ jest.mock('vscode', () => {
   // L10nメッセージの定義
   const l10nMessages = {
     'ja': {
+      'Opened in editor': 'エディタで開きました',
+      'Copied to clipboard': 'クリップボードにコピーしました',
+      'Extension activated': '拡張機能が有効になりました',
+      'Extension deactivated': '拡張機能が無効になりました',
+      'Directory not found: {0}': 'ディレクトリが見つかりません: {0}',
+      'File not found: {0}': 'ファイルが見つかりません: {0}',
+      'File size exceeds limit: {0} ({1} > {2} bytes)': 'ファイルサイズが制限を超えています: {0} ({1} > {2} バイト)',
+      'No workspace is open': 'ワークスペースが開かれていません',
+      'File read error: {0} - {1}': 'ファイル読み込みエラー: {0} - {1}',
+      'Directory scan error: {0} - {1}': 'ディレクトリスキャンエラー: {0} - {1}',
+      'Estimated: {0} files, {1} (~{2} tokens), with Markdown formatting: {3} (~{4} tokens)': '見積り結果: {0}ファイル / {1}（約{2}トークン）/ フォーマット後: {3}（約{4}トークン）',
       'msg.editorOpenSuccess': 'エディタで開きました',
       'msg.clipboardCopySuccess': 'クリップボードにコピーしました',
       'msg.chatGPTSendSuccess': 'ChatGPTに送信しました',
@@ -43,6 +54,17 @@ jest.mock('vscode', () => {
       'msg.selectButton': '選択'
     },
     'en': {
+      'Opened in editor': 'Opened in editor',
+      'Copied to clipboard': 'Copied to clipboard',
+      'Extension activated': 'Extension activated',
+      'Extension deactivated': 'Extension deactivated',
+      'Directory not found: {0}': 'Directory not found: {0}',
+      'File not found: {0}': 'File not found: {0}',
+      'File size exceeds limit: {0} ({1} > {2} bytes)': 'File size exceeds limit: {0} ({1} > {2} bytes)',
+      'No workspace is open': 'No workspace is open',
+      'File read error: {0} - {1}': 'File read error: {0} - {1}',
+      'Directory scan error: {0} - {1}': 'Directory scan error: {0} - {1}',
+      'Estimated: {0} files, {1} (~{2} tokens), with Markdown formatting: {3} (~{4} tokens)': 'Estimated: {0} files, {1} (~{2} tokens), with Markdown formatting: {3} (~{4} tokens)',
       'msg.editorOpenSuccess': 'Opened in editor',
       'msg.clipboardCopySuccess': 'Copied to clipboard',
       'msg.chatGPTSendSuccess': 'Sent to ChatGPT',

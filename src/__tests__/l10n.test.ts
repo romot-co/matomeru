@@ -15,28 +15,28 @@ describe('Localization', () => {
   describe('vscode.l10n.t', () => {
     it('should return Japanese messages when language is ja', () => {
       Object.defineProperty(vscode.l10n.bundle, 'language', { value: 'ja' });
-      expect(vscode.l10n.t('msg.editorOpenSuccess')).toBe('エディタで開きました');
-      expect(vscode.l10n.t('msg.clipboardCopySuccess')).toBe('クリップボードにコピーしました');
-      expect(vscode.l10n.t('msg.extensionActivated')).toBe('拡張機能が有効化されました');
-      expect(vscode.l10n.t('msg.extensionDeactivated')).toBe('拡張機能が無効化されました');
+      expect(vscode.l10n.t('Opened in editor')).toBe('エディタで開きました');
+      expect(vscode.l10n.t('Copied to clipboard')).toBe('クリップボードにコピーしました');
+      expect(vscode.l10n.t('Extension activated')).toBe('拡張機能が有効になりました');
+      expect(vscode.l10n.t('Extension deactivated')).toBe('拡張機能が無効になりました');
     });
 
     it('should return English messages when language is not ja', () => {
       Object.defineProperty(vscode.l10n.bundle, 'language', { value: 'en' });
-      expect(vscode.l10n.t('msg.editorOpenSuccess')).toBe('Opened in editor');
-      expect(vscode.l10n.t('msg.clipboardCopySuccess')).toBe('Copied to clipboard');
-      expect(vscode.l10n.t('msg.extensionActivated')).toBe('Extension activated');
-      expect(vscode.l10n.t('msg.extensionDeactivated')).toBe('Extension deactivated');
+      expect(vscode.l10n.t('Opened in editor')).toBe('Opened in editor');
+      expect(vscode.l10n.t('Copied to clipboard')).toBe('Copied to clipboard');
+      expect(vscode.l10n.t('Extension activated')).toBe('Extension activated');
+      expect(vscode.l10n.t('Extension deactivated')).toBe('Extension deactivated');
     });
 
     it('should replace placeholders correctly', () => {
       Object.defineProperty(vscode.l10n.bundle, 'language', { value: 'en' });
-      expect(vscode.l10n.t('msg.fileSizeLimit', 'test.txt', 200, 100))
+      expect(vscode.l10n.t('File size exceeds limit: {0} ({1} > {2} bytes)', 'test.txt', 200, 100))
         .toBe('File size exceeds limit: test.txt (200 > 100 bytes)');
       
       Object.defineProperty(vscode.l10n.bundle, 'language', { value: 'ja' });
-      expect(vscode.l10n.t('msg.fileSizeLimit', 'test.txt', 200, 100))
-        .toBe('ファイルサイズが制限を超えています: test.txt (200 > 100バイト)');
+      expect(vscode.l10n.t('File size exceeds limit: {0} ({1} > {2} bytes)', 'test.txt', 200, 100))
+        .toBe('ファイルサイズが制限を超えています: test.txt (200 > 100 バイト)');
     });
   });
 
@@ -48,37 +48,37 @@ describe('Localization', () => {
     it('should localize DirectoryNotFoundError', () => {
       const error = new DirectoryNotFoundError('/test/dir');
       expect(error.getLocalizedMessage()).toBe('Directory not found: /test/dir');
-      expect(error.getLogMessage()).toBe('FileOperationError: Directory not found: /test/dir (msg.directoryNotFound)');
+      expect(error.getLogMessage()).toBe('FileOperationError: Directory not found: /test/dir (Directory not found: {0})');
     });
 
     it('should localize FileNotFoundError', () => {
       const error = new FileNotFoundError('/test/file.txt');
       expect(error.getLocalizedMessage()).toBe('File not found: /test/file.txt');
-      expect(error.getLogMessage()).toBe('FileOperationError: File not found: /test/file.txt (msg.fileNotFound)');
+      expect(error.getLogMessage()).toBe('FileOperationError: File not found: /test/file.txt (File not found: {0})');
     });
 
     it('should localize FileSizeLimitError', () => {
       const error = new FileSizeLimitError('test.txt', 200, 100);
       expect(error.getLocalizedMessage()).toBe('File size exceeds limit: test.txt (200 > 100 bytes)');
-      expect(error.getLogMessage()).toBe('FileOperationError: File size exceeds limit: test.txt (200 > 100 bytes) (msg.fileSizeLimit)');
+      expect(error.getLogMessage()).toBe('FileOperationError: File size exceeds limit: test.txt (200 > 100 bytes) (File size exceeds limit: {0} ({1} > {2} bytes))');
     });
 
     it('should localize WorkspaceNotFoundError', () => {
       const error = new WorkspaceNotFoundError();
       expect(error.getLocalizedMessage()).toBe('No workspace is open');
-      expect(error.getLogMessage()).toBe('FileOperationError: No workspace is open (msg.workspaceNotFound)');
+      expect(error.getLogMessage()).toBe('FileOperationError: No workspace is open (No workspace is open)');
     });
 
     it('should localize FileReadError', () => {
       const error = new FileReadError('/test/file.txt', 'Permission denied');
       expect(error.getLocalizedMessage()).toBe('File read error: /test/file.txt - Permission denied');
-      expect(error.getLogMessage()).toBe('FileOperationError: File read error: /test/file.txt - Permission denied (msg.fileReadError)');
+      expect(error.getLogMessage()).toBe('FileOperationError: File read error: /test/file.txt - Permission denied (File read error: {0} - {1})');
     });
 
     it('should localize DirectoryScanError', () => {
       const error = new DirectoryScanError('/test/dir', 'Access denied');
       expect(error.getLocalizedMessage()).toBe('Directory scan error: /test/dir - Access denied');
-      expect(error.getLogMessage()).toBe('FileOperationError: Directory scan error: /test/dir - Access denied (msg.directoryScanError)');
+      expect(error.getLogMessage()).toBe('FileOperationError: Directory scan error: /test/dir - Access denied (Directory scan error: {0} - {1})');
     });
 
     it('should handle MatomeruError with custom params', () => {
@@ -96,7 +96,7 @@ describe('Localization', () => {
       expect(fileError.getLocalizedMessage()).toBe('ファイルが見つかりません: /test/file.txt');
 
       const sizeError = new FileSizeLimitError('test.txt', 200, 100);
-      expect(sizeError.getLocalizedMessage()).toBe('ファイルサイズが制限を超えています: test.txt (200 > 100バイト)');
+      expect(sizeError.getLocalizedMessage()).toBe('ファイルサイズが制限を超えています: test.txt (200 > 100 バイト)');
 
       const workspaceError = new WorkspaceNotFoundError();
       expect(workspaceError.getLocalizedMessage()).toBe('ワークスペースが開かれていません');

@@ -445,7 +445,7 @@ describe('CommandRegistrar', () => {
       expect(formatTokenCount).toHaveBeenCalledWith(Math.ceil(1524 / TOKENS_PER_BYTE));
       
       expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
-        expect.stringContaining('msg.sizeEstimation')
+        expect.stringMatching(/(見積り結果:|Estimated:)/)
       );
     });
 
