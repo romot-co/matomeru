@@ -44,7 +44,7 @@ Combine and copy your entire codes into one LLM-ready Markdown / YAML.
 1. Install from VSCode Marketplace
 2. Or download the `.vsix` file and install manually:
    ```bash
-   code --install-extension matomeru-0.1.6.vsix
+   code --install-extension matomeru-0.1.8.vsix
    ```
 
 ## Usage

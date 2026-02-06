@@ -14,6 +14,7 @@ describe('parseUnifiedDiff', () => {
       '+++ b/src/bar.ts',
       '@@ -20,5 +30,1 @@',
       '@@ -50,0 +60,4 @@',
+      '@@ -70,2 +80,0 @@',
       'diff --git a/src/removed.ts b/src/removed.ts',
       '--- a/src/removed.ts',
       '+++ /dev/null',
@@ -27,6 +28,6 @@ describe('parseUnifiedDiff', () => {
     expect(fooLines).toEqual(expect.arrayContaining([1, 2, 3, 10, 11]));
 
     const barLines = Array.from(result.get('src/bar.ts') ?? []).sort((a, b) => a - b);
-    expect(barLines).toEqual([30, 60, 61, 62, 63]);
+    expect(barLines).toEqual([30, 60, 61, 62, 63, 80]);
   });
 });

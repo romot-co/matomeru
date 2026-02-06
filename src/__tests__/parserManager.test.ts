@@ -88,6 +88,20 @@ describe('ParserManager', () => {
       
       expect(parserManager.isInitialized()).toBe(true);
     });
+
+    it('初期化失敗後に再試行できること', async () => {
+      const treeSitter = jest.requireMock('web-tree-sitter');
+      const parserInitMock = treeSitter.Parser.init as jest.Mock;
+      parserInitMock
+        .mockRejectedValueOnce(new Error('init failed'))
+        .mockResolvedValueOnce(undefined);
+
+      await expect(parserManager.ensureInit()).rejects.toThrow('init failed');
+      expect(parserManager.isInitialized()).toBe(false);
+
+      await expect(parserManager.ensureInit()).resolves.toBeUndefined();
+      expect(parserManager.isInitialized()).toBe(true);
+    });
   });
 
   describe('getParser', () => {

@@ -24,6 +24,8 @@ export class FileOperations {
     private vscodeignoreWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
     private preloadCompleted: boolean = false;
     private workspaceFolderWatcher: vscode.Disposable | undefined;
+    private preloadTimer: ReturnType<typeof setTimeout> | undefined;
+    private isDisposed: boolean = false;
 
     constructor(workspaceRoot: string) {
         this.workspaceRoot = workspaceRoot;
@@ -43,11 +45,18 @@ export class FileOperations {
         });
         
         // バックグラウンドで事前読み込みをスケジュール
-        setTimeout(() => {
+        this.preloadTimer = setTimeout(() => {
+            this.preloadTimer = undefined;
+            if (this.isDisposed) {
+                return;
+            }
             this.preloadConfigFiles().catch(error => {
                 this.logger.error(`Preload failed: ${error}`);
             });
         }, 1000);
+        if (this.preloadTimer && typeof (this.preloadTimer as NodeJS.Timeout).unref === 'function') {
+            (this.preloadTimer as NodeJS.Timeout).unref();
+        }
     }
 
     /**
@@ -240,6 +249,12 @@ export class FileOperations {
      * FileOperationsインスタンスのリソースを解放する
      */
     dispose(): void {
+        this.isDisposed = true;
+        if (this.preloadTimer) {
+            clearTimeout(this.preloadTimer);
+            this.preloadTimer = undefined;
+        }
+
         // 全てのgitignoreWatcherを解放
         for (const watcher of this.gitignoreWatchers.values()) {
             watcher.dispose();

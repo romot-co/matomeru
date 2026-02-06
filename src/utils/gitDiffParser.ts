@@ -30,11 +30,17 @@ export function parseUnifiedDiff(diffText: string): Map<string, Set<number>> {
 
     const startLine = parseInt(match[1], 10);
     const length = match[2] ? parseInt(match[2], 10) : 1;
-    if (Number.isNaN(startLine) || Number.isNaN(length) || length === 0) {
+    if (Number.isNaN(startLine) || Number.isNaN(length)) {
       continue;
     }
 
     const existing = ensureFileEntry(fileMap, currentFile);
+    if (length === 0) {
+      // deletion-only hunk. keep one anchor line so function-mode diff can still extract nearby context.
+      existing.add(Math.max(1, startLine));
+      continue;
+    }
+
     for (let i = 0; i < length; i++) {
       existing.add(startLine + i);
     }

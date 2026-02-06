@@ -16,6 +16,20 @@ function isIndentDependentLanguage(langId: string): boolean {
   return ['python', 'yaml', 'yml', 'makefile', 'make'].includes(langId.toLowerCase());
 }
 
+function normalizeIndentDependentWhitespace(text: string, langId: string): string {
+  const normalized = text
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n');
+
+  if (langId.toLowerCase() === 'python') {
+    // Python では空行は意味を持たないため、連続空行を詰めて圧縮率を高める
+    return normalized.replace(/\n[ \t]*\n+/g, '\n');
+  }
+
+  return normalized.replace(/\n\s*\n\s*\n/g, '\n\n');
+}
+
 function isTypeScriptLikeLanguage(langId: string): boolean {
   const normalized = langId.toLowerCase();
   return normalized === 'typescript' || normalized === 'tsx' || normalized === 'typescriptreact';
@@ -80,13 +94,8 @@ async function minifyWhitespace(code: string, langId: string, ctx: ExtensionCont
  */
 function basicWhitespaceMinify(code: string, langId: string): string {
   if (isIndentDependentLanguage(langId)) {
-    // インデント依存言語: 余分な空行のみ削除、インデントは保持
-    return code
-      .split('\n')
-      .map(line => line.trimEnd()) // 行末の余分な空白のみ削除
-      .join('\n')
-      .replace(/\n\s*\n\s*\n/g, '\n\n') // 3つ以上の連続改行を2つに
-      .trim();
+    // インデント依存言語: インデントを保ちながら空白を圧縮
+    return normalizeIndentDependentWhitespace(code, langId).trim();
   } else {
     // その他の言語: 連続空白を1文字に、改行を空白に変換
     return code
@@ -101,12 +110,8 @@ function basicWhitespaceMinify(code: string, langId: string): string {
  */
 function minifyCodeSegment(segment: string, langId: string): string {
   if (isIndentDependentLanguage(langId)) {
-    // インデント依存言語: 余分な空行のみ削除、インデントは保持
-    return segment
-      .split('\n')
-      .map(line => line.trimEnd()) // 行末の余分な空白のみ削除
-      .join('\n')
-      .replace(/\n\s*\n\s*\n/g, '\n\n'); // 3つ以上の連続改行を2つに
+    // インデント依存言語: インデントを保ちながら空白を圧縮
+    return normalizeIndentDependentWhitespace(segment, langId);
   } else {
     // その他の言語: 連続空白を1文字に、改行を空白に変換し、句読点まわりをタイトにする
     let result = segment
@@ -367,6 +372,56 @@ function rangesOverlap(a: RemovalRange, b: RemovalRange): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
+function getLeadingWhitespace(line: string): string {
+  return line.match(/^[ \t]*/)?.[0] ?? '';
+}
+
+function inferPythonIndentUnit(lines: string[], headerIndex: number, headerIndent: string): string {
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line || line.trim() === '') {
+      continue;
+    }
+    const indent = getLeadingWhitespace(line);
+    if (indent.length > headerIndent.length && indent.startsWith(headerIndent)) {
+      return indent.slice(headerIndent.length);
+    }
+    break;
+  }
+  return headerIndent.includes('\t') ? '\t' : '    ';
+}
+
+function ensurePythonSuitesNotEmpty(code: string): string {
+  const lines = code.split('\n');
+  const suiteHeaderPattern = /^([ \t]*)(?:async\s+def|def|class|if|elif|else|for|while|try|except|finally|with|match|case)\b[^#]*:\s*(?:#.*)?$/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = suiteHeaderPattern.exec(line);
+    if (!match) {
+      continue;
+    }
+
+    const headerIndent = match[1] ?? '';
+    let nextContentIndex = i + 1;
+    while (nextContentIndex < lines.length && lines[nextContentIndex].trim() === '') {
+      nextContentIndex++;
+    }
+
+    const nextContent = nextContentIndex < lines.length ? lines[nextContentIndex] : undefined;
+    const nextIndentLength = nextContent ? getLeadingWhitespace(nextContent).length : -1;
+    if (nextIndentLength > headerIndent.length) {
+      continue;
+    }
+
+    const indentUnit = inferPythonIndentUnit(lines, i, headerIndent);
+    lines.splice(nextContentIndex, 0, `${headerIndent}${indentUnit}pass`);
+    i++;
+  }
+
+  return lines.join('\n');
+}
+
 /**
  * Tree-sitterを使用してコードからコメントを除去し、不要な空白・改行を最小化する
  * @param code 元のコード
@@ -397,14 +452,16 @@ export async function stripComments(
     if (!parser) {
       logger.info(`Unsupported language for compression: ${langId}, applying basic whitespace minification`);
       // 対応言語でない場合は基本的な空白圧縮のみ実行
-      return basicWhitespaceMinify(workingCode, langId);
+      const stabilizedCode = langId === 'python' ? ensurePythonSuitesNotEmpty(workingCode) : workingCode;
+      return basicWhitespaceMinify(stabilizedCode, langId);
     }
 
     const tree = parser.parse(workingCode);
     // parse に失敗した場合や、tree が null/undefined の場合は基本的な空白圧縮のみ実行
     if (!tree) {
         logger.warn(`Failed to parse ${langId} code, applying basic whitespace minification`);
-        return basicWhitespaceMinify(workingCode, langId); 
+        const stabilizedCode = langId === 'python' ? ensurePythonSuitesNotEmpty(workingCode) : workingCode;
+        return basicWhitespaceMinify(stabilizedCode, langId); 
     }
 
     const commentNodes = tree.rootNode.descendantsOfType('comment');
@@ -452,6 +509,10 @@ export async function stripComments(
     } else {
       // コメントがない場合はそのまま
       result = workingCode;
+    }
+
+    if (langId === 'python') {
+      result = ensurePythonSuitesNotEmpty(result);
     }
     
     // コメント除去後（またはコメントがない場合）に空白・改行を最小化

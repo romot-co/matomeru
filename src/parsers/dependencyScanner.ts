@@ -36,7 +36,8 @@ export async function scanDependencies(
     let workspaceRoot: string | undefined;
     const folders = vscode.workspace.workspaceFolders ?? [];
     for (const folder of folders) {
-        if (filePath.startsWith(folder.uri.fsPath)) {
+        const relativeToFolder = path.relative(folder.uri.fsPath, filePath);
+        if (!relativeToFolder.startsWith('..') && !path.isAbsolute(relativeToFolder)) {
             workspaceRoot = folder.uri.fsPath;
             break;
         }
@@ -178,13 +179,15 @@ function handlePythonImportMatch(
     const itemCapture = match.captures.find(c => c.name === 'item_name');
 
     if (dotsCapture) {
-        const dotCount = dotsCapture.node.text.length;
+        const dotPrefix = dotsCapture.node.text.match(/^\.+/)?.[0] ?? '';
+        const dotCount = dotPrefix.length;
+        const levelsUp = Math.max(0, dotCount - 1);
         const tail = moduleCapture?.node.text ?? itemCapture?.node.text ?? '';
-        const segments = Array(dotCount).fill('..');
-        if (tail) {
-            segments.push(tail);
-        }
-        const resolvedPath = path.resolve(baseDir, ...segments);
+        const relativeSegments = Array(levelsUp).fill('..');
+        const tailSegments = tail
+            ? tail.split('.').filter(Boolean)
+            : [];
+        const resolvedPath = path.resolve(baseDir, ...relativeSegments, ...tailSegments);
         dependencies.add(formatRelativeImport(resolvedPath, workspaceRoot, baseDir));
         return true;
     }

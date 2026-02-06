@@ -4,6 +4,20 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.8] - 2026-02-06
+### Fixed
+- Cleared background timers in both file preload and extension startup paths to avoid lingering handles and improve shutdown stability.
+- Ensured command selection state is reset even when scan/estimate operations fail, preventing stale path behavior on subsequent runs.
+- Made parser initialization retry-safe by resetting cached init promises after failures and on dispose.
+- Improved function-scoped Git diff extraction to handle deletion-only hunks (`+N,0`) without losing surrounding function context.
+- Corrected workspace-root checks and Python relative import resolution in dependency scanning so graph output remains accurate.
+
+### Changed
+- Improved Python compression by normalizing redundant blank lines while preserving valid suite blocks by inserting `pass` when needed after stripping.
+
+### Added
+- Added regression tests for parser init retries, deletion-only git hunks, and Python compression/dependency edge cases.
+
 ## [0.1.7] - 2025-12-10
 ### Fixed
 - **Windows compatibility**: Fixed `copy-wasm` script failing on Windows by replacing `mkdir -p` (Unix-only) with cross-platform Node.js `fs.mkdirSync`. This prevented the extension from working on Windows when installed via VSIX.

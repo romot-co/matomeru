@@ -74,14 +74,15 @@ export class CommandRegistrar {
                 const dirInfos = await Promise.all(
                     groupUris.map(async (uri, index) => {
                         this.logger.info(vscode.l10n.t('Scanning directory/file ({0}/{1}): {2}', index + 1, groupUris.length, uri.fsPath));
+                        this.fileOps.setCurrentSelectedPath(uri.fsPath);
                         try {
-                            this.fileOps.setCurrentSelectedPath(uri.fsPath);
-                                const result = await this.fileOps.scanDirectory(uri.fsPath, scanOptions, workspaceRoot);
-                                this.fileOps.setCurrentSelectedPath(undefined);
-                                return result;
-                            } catch (error) {
-                                this.logger.error(vscode.l10n.t('Scan error: {0}', error instanceof Error ? error.message : String(error)));
+                            const result = await this.fileOps.scanDirectory(uri.fsPath, scanOptions, workspaceRoot);
+                            return result;
+                        } catch (error) {
+                            this.logger.error(vscode.l10n.t('Scan error: {0}', error instanceof Error ? error.message : String(error)));
                             throw error;
+                        } finally {
+                            this.fileOps.setCurrentSelectedPath(undefined);
                         }
                     })
                 );
@@ -205,17 +206,19 @@ export class CommandRegistrar {
             for (const [index, uri] of selectedUris.entries()) {
                 this.logger.info(`見積り中: ${index + 1}/${selectedUris.length} ${uri.fsPath}`);
                 this.fileOps.setCurrentSelectedPath(uri.fsPath);
-                const result = await this.fileOps.estimateDirectorySize(uri.fsPath, {
-                    maxFileSize: config.maxFileSize,
-                    excludePatterns: config.excludePatterns,
-                    useGitignore: config.useGitignore,
-                    useVscodeignore: config.useVscodeignore
-                });
-                
-                totalFiles += result.totalFiles;
-                totalSize += result.totalSize;
-                
-                this.fileOps.setCurrentSelectedPath(undefined);
+                try {
+                    const result = await this.fileOps.estimateDirectorySize(uri.fsPath, {
+                        maxFileSize: config.maxFileSize,
+                        excludePatterns: config.excludePatterns,
+                        useGitignore: config.useGitignore,
+                        useVscodeignore: config.useVscodeignore
+                    });
+                    
+                    totalFiles += result.totalFiles;
+                    totalSize += result.totalSize;
+                } finally {
+                    this.fileOps.setCurrentSelectedPath(undefined);
+                }
             }
 
             // トークン数を概算（文字バイト数をTOKENS_PER_BYTEで割った値を使用し、精度を少し向上）

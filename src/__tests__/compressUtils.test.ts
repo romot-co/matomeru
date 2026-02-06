@@ -176,4 +176,24 @@ describe('compressUtils', () => {
     expect(result).toBe('def foo():\n    return 1');
   });
 
+  test('stripComments should insert pass when Python suite becomes empty after docstring removal', async () => {
+    const parserManager = ParserManager.getInstance(mockContext) as unknown as { getParser: jest.Mock };
+    parserManager.getParser.mockImplementationOnce(() => Promise.resolve(null));
+
+    const pythonCode = 'def foo():\n    """Function doc"""\n';
+    const result = await stripComments(pythonCode, 'python', mockContext);
+
+    expect(result).toBe('def foo():\n    pass');
+  });
+
+  test('stripComments should collapse extra blank lines in Python', async () => {
+    const parserManager = ParserManager.getInstance(mockContext) as unknown as { getParser: jest.Mock };
+    parserManager.getParser.mockImplementationOnce(() => Promise.resolve(null));
+
+    const pythonCode = 'x = 1\n\n\n\nprint(x)\n';
+    const result = await stripComments(pythonCode, 'python', mockContext);
+
+    expect(result).toBe('x = 1\nprint(x)');
+  });
+
 });

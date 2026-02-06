@@ -85,6 +85,7 @@ export class ParserManager {
     });
     this.cache.clear();
     this.initialized = false;
+    this.initPromise = undefined;
     this.logger.info('ParserManager disposed');
     // シングルトンインスタンスをnullに設定
     ParserManager.instance = null as any;
@@ -150,7 +151,7 @@ export class ParserManager {
     }
     
     // 初期化Promiseを作成・キャッシュ
-    this.initPromise = (async () => {
+    const initTask = (async () => {
       const locateFile = (scriptName: string, scriptDirectory: string) => {
         const candidates: string[] = [];
         const runtimeDir = process.env.MATOMERU_TREESITTER_RUNTIME;
@@ -174,6 +175,11 @@ export class ParserManager {
       await Parser.init({ locateFile });        // ← ここで WASM ランタイムを準備
       this.initialized = true;
     })();
+    this.initPromise = initTask.catch(error => {
+      this.initialized = false;
+      this.initPromise = undefined;
+      throw error;
+    });
     
     return this.initPromise;
   }

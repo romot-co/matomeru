@@ -41,7 +41,7 @@
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.1.0.vsix
+   code --install-extension matomeru-0.1.8.vsix
    ```
 
 ## 使い方

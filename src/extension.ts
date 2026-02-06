@@ -8,6 +8,7 @@ import { ConfigService } from './services/configService';
 const logger = Logger.getInstance('Extension');
 let commandRegistrar: CommandRegistrar | undefined;
 let extensionContext: vscode.ExtensionContext;
+let backgroundInitTimer: ReturnType<typeof setTimeout> | undefined;
 
 // グローバルにコンテキストを取得するための関数
 export function getExtensionContext(): vscode.ExtensionContext {
@@ -51,11 +52,15 @@ function initializeExtension(context: vscode.ExtensionContext): void {
         return;
     }
 
-    setTimeout(() => {
+    backgroundInitTimer = setTimeout(() => {
+        backgroundInitTimer = undefined;
         runBackgroundInitialization(context).catch(error => {
             logger.error(`Background initialization failed: ${error}`);
         });
     }, 2000);
+    if (backgroundInitTimer && typeof (backgroundInitTimer as NodeJS.Timeout).unref === 'function') {
+        (backgroundInitTimer as NodeJS.Timeout).unref();
+    }
 
     const config = vscode.workspace.getConfiguration('matomeru');
     vscode.commands.executeCommand('setContext', 'matomeru.chatGptIntegration', config.get('chatGptIntegration'));
@@ -146,6 +151,11 @@ function initializeExtension(context: vscode.ExtensionContext): void {
 
 export function deactivate() {
     logger.info(vscode.l10n.t('Extension deactivated'));
+
+    if (backgroundInitTimer) {
+        clearTimeout(backgroundInitTimer);
+        backgroundInitTimer = undefined;
+    }
     
     // CommandRegistrarインスタンスを通じてFileOperationsを破棄
     if (commandRegistrar) {
