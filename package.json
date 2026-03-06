@@ -2,7 +2,7 @@
   "name": "matomeru",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "repository": {
     "type": "git",
     "url": "https://github.com/romot-co/matomeru.git"
@@ -281,14 +281,17 @@
     "test:int": "jest -c jest.integration.config.js",
     "test:int:local": "SKIP_INTEGRATION_TESTS=false jest -c jest.integration.config.js",
     "test:int:skip": "SKIP_INTEGRATION_TESTS=true jest -c jest.integration.config.js",
+    "test:int:real": "SKIP_INTEGRATION_TESTS=false jest -c jest.integration.real.config.js",
     "test:all": "npm run test && npm run test:int:skip",
-    "test:all:local": "npm run test && npm run test:int:local",
+    "test:all:local": "npm run test && npm run test:int:local && npm run test:int:real",
     "test:ci": "npm run test && npm run test:coverage && npm run test:int:skip",
-    "package": "vsce package",
+    "package": "npx @vscode/vsce package",
     "prepackage": "npm run clean && npm run l10n && npm run compile && npm run copy-wasm",
     "postpackage": "echo 'Package generated: ' && ls *.vsix",
+    "release:check": "npm run test:all:local && npm run package",
+    "publish:extension": "npx @vscode/vsce publish",
     "install-extension": "npm run package && code --install-extension *.vsix --force && echo 'インストールが完了しました。VSCodeを再起動してください。'",
-    "uninstall-extension": "code --uninstall-extension romot-co.matomeru",
+    "uninstall-extension": "code --uninstall-extension romot.matomeru",
     "clean": "rimraf out dist *.vsix coverage",
     "l10n": "vscode-l10n-dev nls-extract src && vscode-l10n-dev nls-bundle l10n",
     "convert-icon": "npx svgexport images/icon.svg images/icon.png 128:128",
@@ -296,13 +299,15 @@
     "copy-wasm": "node -e \"require('fs').mkdirSync('out/grammars', { recursive: true })\" && copyfiles -u 3 \"node_modules/@vscode/tree-sitter-wasm/wasm/*.wasm\" out/grammars"
   },
   "devDependencies": {
+    "@types/minimatch": "^5.1.2",
     "@types/jest": "^29.5.11",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "20.x",
     "@types/vscode": "^1.96.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "@vscode/l10n-dev": "^0.0.33",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vscode/l10n-dev": "^0.0.35",
+    "@vscode/vsce": "^3.7.1",
     "@vscode/test-electron": "^2.3.8",
     "copyfiles": "^2.4.1",
     "eslint": "^8.56.0",
@@ -310,12 +315,11 @@
     "ts-jest": "^29.3.2"
   },
   "dependencies": {
-    "@types/minimatch": "^5.1.2",
     "@vscode/l10n": "^0.0.16",
     "@vscode/tree-sitter-wasm": "^0.1.4",
     "isbinaryfile": "^5.0.4",
     "js-yaml": "^4.1.0",
-    "minimatch": "^10.0.1",
+    "minimatch": "^10.2.4",
     "web-tree-sitter": "^0.25.3"
   },
   "bundledDependencies": [

@@ -5,6 +5,8 @@
 # Development files
 .vscode/**
 .vscode-test/**
+.claude/**
+.github/**
 src/**
 .gitignore
 .yarnrc
@@ -15,7 +17,10 @@ vsc-extension-quickstart.md
 **/*.ts
 coverage/**
 jest.config.js
+jest.integration.config.js
+jest.integration.real.config.js
 .eslintrc.js
+RELEASE.md
 
 # Source files
 src/**/*.ts
@@ -27,7 +32,6 @@ src/**/*.ts
 # Node modules
 node_modules/**
 !node_modules/minimatch/**
-!node_modules/@types/minimatch/**
 !node_modules/brace-expansion/**
 !node_modules/balanced-match/**
 !node_modules/isbinaryfile/**
@@ -40,3 +44,8 @@ node_modules/**
 .eslintrc.json
 webpack.config.js
 *.vsix
+
+# Trim development-only artifacts from bundled runtime dependencies
+node_modules/**/.github/**
+node_modules/**/*.d.ts
+node_modules/**/*.map

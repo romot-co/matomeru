@@ -4,7 +4,7 @@
 
 <img src="images/icon.png" width="128" height="128" alt="Matomeru Icon">
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/romot-co.matomeru)](https://marketplace.visualstudio.com/items?itemName=romot.matomeru)
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/romot.matomeru)](https://marketplace.visualstudio.com/items?itemName=romot.matomeru)
 
 ## 機能
 
@@ -41,7 +41,7 @@
 1. VSCode マーケットプレイスからインストール
 2. または、`.vsix`ファイルをダウンロードして手動でインストール：
    ```bash
-   code --install-extension matomeru-0.1.8.vsix
+   code --install-extension matomeru-0.1.9.vsix
    ```
 
 ## 使い方

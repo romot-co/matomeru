@@ -4,6 +4,18 @@ All notable changes to the "matomeru" extension will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.9] - 2026-03-06
+### Fixed
+- Corrected `.gitignore` / `.vscodeignore` handling so ordered rules, root-anchored patterns, and directory-name patterns behave like Git in actual scans.
+- Restored real dependency-scanner coverage by separating mocked and real integration suites and aligning Tree-sitter queries with the current grammars.
+- Cleared the remaining `npm audit` findings in the release toolchain by updating patched dependency ranges for linting, localization, and glob matching packages.
+
+### Changed
+- Updated extension packaging and publish scripts to use `@vscode/vsce`, corrected the local uninstall command to the actual extension ID `romot.matomeru`, and trimmed type-only/dev-only files from the VSIX payload.
+
+### Added
+- Added a maintainer-facing release checklist covering version bump, local verification, VSIX packaging, and Marketplace publish flow.
+
 ## [0.1.8] - 2026-02-06
 ### Fixed
 - Cleared background timers in both file preload and extension startup paths to avoid lingering handles and improve shutdown stability.

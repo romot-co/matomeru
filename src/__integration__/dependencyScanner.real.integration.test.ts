@@ -1,34 +1,58 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { afterAll, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { scanDependencies } from '../parsers/dependencyScanner';
+import { ParserManager } from '../services/parserManager';
+import * as path from 'path';
+import * as vscode from 'vscode';
 
-// VSCode APIのモック
-jest.mock('vscode', () => ({
-  workspace: {
-    workspaceFolders: [{
-      uri: { fsPath: '/test/workspace' },
-      name: 'test',
-      index: 0
-    }]
-  }
-}));
+const projectRoot = path.resolve(__dirname, '../..');
 
 // extension.tsのモック
 jest.mock('../extension', () => ({
   getExtensionContext: () => ({
-    extensionPath: '/test/extension/path'
+    extensionPath: projectRoot
   })
 }));
 
-// 実際のParserManagerを使用するため、モックしない
-// jest.mock('../services/parserManager');
-
 describe('依存関係解析統合テスト（実際のパーサー使用）', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+  let parserManager: ParserManager;
+
+  beforeAll(async () => {
+    const mockContext = {
+      extensionPath: projectRoot,
+      extensionUri: { scheme: 'file', fsPath: projectRoot }
+    } as any;
+
+    parserManager = ParserManager.getInstance(mockContext);
+
+    for (const languageId of ['javascript', 'typescript', 'python', 'go']) {
+      const parser = await parserManager.getParser(languageId);
+      expect(parser).not.toBeNull();
+      expect(parser?.language).toBeTruthy();
+    }
   });
 
-  // 注意: これらのテストは実際のTree-sitterパーサーが利用可能な場合のみ実行される
-  // パーサーが利用できない環境では空配列が返される
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (vscode.workspace as any).workspaceFolders = [{
+      uri: { fsPath: '/test/workspace' },
+      name: 'test',
+      index: 0
+    }];
+  });
+
+  afterAll(() => {
+    parserManager?.dispose();
+  });
+
+  const expectDependencies = (result: string[], expectedPatterns: string[]) => {
+    expect(result.length).toBeGreaterThan(0);
+    expectedPatterns.forEach(pattern => {
+      const hasPattern = result.some(dep =>
+        dep.includes(pattern) || dep.includes(`external:${pattern}`)
+      );
+      expect(hasPattern).toBe(true);
+    });
+  };
 
   describe('JavaScript/TypeScript import文の解析', () => {
     const jsTestCases = [
@@ -48,7 +72,7 @@ describe('依存関係解析統合テスト（実際のパーサー使用）', (
         name: '相対パスimport',
         code: `import utils from './utils';`,
         language: 'javascript',
-        expectedPatterns: ['./utils']
+        expectedPatterns: ['src/utils']
       },
       {
         name: '絶対パスimport',
@@ -72,13 +96,13 @@ describe('依存関係解析統合テスト（実際のパーサー使用）', (
         name: '動的import',
         code: `const module = await import('./dynamic');`,
         language: 'javascript',
-        expectedPatterns: ['./dynamic']
+        expectedPatterns: ['src/dynamic']
       },
       {
         name: 'CSS import',
         code: `import './styles.css';`,
         language: 'javascript',
-        expectedPatterns: ['./styles.css']
+        expectedPatterns: ['src/styles.css']
       },
       {
         name: '複数のimport',
@@ -89,7 +113,7 @@ describe('依存関係解析統合テスト（実際のパーサー使用）', (
           import { api } from '../services/api';
         `,
         language: 'javascript',
-        expectedPatterns: ['react', './styles.css', './utils', '../services/api']
+        expectedPatterns: ['react', 'src/styles.css', 'src/utils', 'services/api']
       }
     ];
 
@@ -104,7 +128,7 @@ describe('依存関係解析統合テスト（実際のパーサー使用）', (
         name: 'Type-only import',
         code: `import type { User } from './types';`,
         language: 'typescript',
-        expectedPatterns: ['./types']
+        expectedPatterns: ['src/types']
       },
       {
         name: 'Namespace import',
@@ -122,19 +146,7 @@ describe('依存関係解析統合テスト（実際のパーサー使用）', (
           language
         );
 
-        // パーサーが利用可能な場合は期待される依存関係が見つかる
-        // パーサーが利用できない場合は空配列
-        if (result.length > 0) {
-          expectedPatterns.forEach(pattern => {
-            const hasPattern = result.some(dep => 
-              dep.includes(pattern) || dep.includes(`external:${pattern}`)
-            );
-            expect(hasPattern).toBe(true);
-          });
-        } else {
-          // パーサーが利用できない場合はテストをスキップ
-          console.warn(`Skipping test "${name}" - Parser not available`);
-        }
+        expectDependencies(result, expectedPatterns);
       });
     });
   });
@@ -154,12 +166,12 @@ describe('依存関係解析統合テスト（実際のパーサー使用）', (
       {
         name: '複数のfrom import',
         code: 'from os.path import join, dirname',
-        expectedPatterns: ['os.path']
+        expectedPatterns: ['os']
       },
       {
         name: '相対import',
         code: 'from .utils import helper',
-        expectedPatterns: ['./utils']
+        expectedPatterns: ['utils']
       },
       {
         name: '親ディレクトリからのimport',
@@ -180,7 +192,7 @@ from .utils import helper
 from pathlib import Path
 from ..config import settings
         `,
-        expectedPatterns: ['os', 'sys', './utils', 'pathlib', '../config']
+        expectedPatterns: ['os', 'sys', 'utils', 'pathlib', '../config']
       }
     ];
 
@@ -192,16 +204,7 @@ from ..config import settings
           'python'
         );
 
-        if (result.length > 0) {
-          expectedPatterns.forEach(pattern => {
-            const hasPattern = result.some(dep => 
-              dep.includes(pattern) || dep.includes(`external:${pattern}`)
-            );
-            expect(hasPattern).toBe(true);
-          });
-        } else {
-          console.warn(`Skipping test "${name}" - Python parser not available`);
-        }
+        expectDependencies(result, expectedPatterns);
       });
     });
   });
@@ -227,7 +230,7 @@ import (
       {
         name: '相対パスimport',
         code: 'import "./utils"',
-        expectedPatterns: ['./utils']
+        expectedPatterns: ['utils']
       },
       {
         name: 'エイリアス付きimport',
@@ -249,16 +252,7 @@ import (
           'go'
         );
 
-        if (result.length > 0) {
-          expectedPatterns.forEach(pattern => {
-            const hasPattern = result.some(dep => 
-              dep.includes(pattern) || dep.includes(`external:${pattern}`)
-            );
-            expect(hasPattern).toBe(true);
-          });
-        } else {
-          console.warn(`Skipping test "${name}" - Go parser not available`);
-        }
+        expectDependencies(result, expectedPatterns);
       });
     });
   });
@@ -271,11 +265,8 @@ import (
         code,
         'javascript'
       );
-
-      if (result.length > 0) {
-        // 相対パスが含まれることを確認
-        expect(result.some(dep => dep.includes('./utils'))).toBe(true);
-      }
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.some(dep => dep.includes('src/utils'))).toBe(true);
     });
 
     test('親ディレクトリの相対パス', async () => {
@@ -285,10 +276,8 @@ import (
         code,
         'javascript'
       );
-
-      if (result.length > 0) {
-        expect(result.some(dep => dep.includes('../config'))).toBe(true);
-      }
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.some(dep => dep.includes('config'))).toBe(true);
     });
 
     test('深いネストの相対パス', async () => {
@@ -298,10 +287,8 @@ import (
         code,
         'typescript'
       );
-
-      if (result.length > 0) {
-        expect(result.some(dep => dep.includes('../../utils/helpers'))).toBe(true);
-      }
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.some(dep => dep.includes('src/utils/helpers'))).toBe(true);
     });
   });
 
@@ -322,13 +309,10 @@ import (
           code,
           'javascript'
         );
-
-        if (result.length > 0) {
-          // 外部モジュールの識別方法は実装に依存
-          expect(result.some(dep => 
-            dep.includes(module) || dep.includes(`external:${module}`)
-          )).toBe(true);
-        }
+        expect(result.length).toBeGreaterThan(0);
+        expect(result.some(dep =>
+          dep.includes(module) || dep.includes(`external:${module}`)
+        )).toBe(true);
       }
     });
 
@@ -345,16 +329,11 @@ import (
         code,
         'javascript'
       );
-
-      if (result.length > 0) {
-        // 外部モジュール
-        expect(result.some(dep => dep.includes('react'))).toBe(true);
-        expect(result.some(dep => dep.includes('lodash'))).toBe(true);
-        
-        // 相対パス
-        expect(result.some(dep => dep.includes('./utils'))).toBe(true);
-        expect(result.some(dep => dep.includes('../services/api'))).toBe(true);
-      }
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.some(dep => dep.includes('react'))).toBe(true);
+      expect(result.some(dep => dep.includes('lodash'))).toBe(true);
+      expect(result.some(dep => dep.includes('src/components/utils'))).toBe(true);
+      expect(result.some(dep => dep.includes('src/services/api'))).toBe(true);
     });
   });
 
@@ -504,12 +483,10 @@ import (
       expect(Array.isArray(result)).toBe(true);
       expect(endTime - startTime).toBeLessThan(2000); // 2秒以内
 
-      if (result.length > 0) {
-        // 主要なimportが検出されることを確認
-        expect(result.some(dep => dep.includes('react'))).toBe(true);
-        expect(result.some(dep => dep.includes('./components/Header'))).toBe(true);
-        expect(result.some(dep => dep.includes('../services/api'))).toBe(true);
-      }
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.some(dep => dep.includes('react'))).toBe(true);
+      expect(result.some(dep => dep.includes('src/components/Header'))).toBe(true);
+      expect(result.some(dep => dep.includes('services/api'))).toBe(true);
     });
   });
 }); 

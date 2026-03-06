@@ -4,11 +4,8 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: [
-    '<rootDir>/src/**/__integration__/**/*.test.ts',
-    '<rootDir>/src/**/*.integration.test.ts'
-  ],
-  testPathIgnorePatterns: [
-    '\\.real\\.integration\\.test\\.ts$'
+    '<rootDir>/src/**/__integration__/**/*.real.integration.test.ts',
+    '<rootDir>/src/**/*.real.integration.test.ts'
   ],
   transform: {
     '^.+\\.ts$': 'ts-jest',
@@ -20,11 +17,9 @@ module.exports = {
     '!src/**/__tests__/**',
     '!src/**/__integration__/**',
   ],
-  setupFilesAfterEnv: ['<rootDir>/src/__integration__/setup.integration.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/__integration__/setup.integration.real.ts'],
   testTimeout: 60000,
-  // CI環境では統合テストをスキップ
-  // 環境変数でスキップ制御
   testEnvironmentOptions: {
     SKIP_INTEGRATION_TESTS: process.env.CI === 'true' ? 'true' : 'false'
   }
-}; 
+};

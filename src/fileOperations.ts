@@ -10,16 +10,19 @@ import { extractErrorMessage, logError } from './utils/errorUtils';
 import { isBinaryFile } from './utils/fileUtils';
 import { scanDependencies } from './parsers/dependencyScanner';
 
+interface IgnoreRule {
+    pattern: string;
+    negate: boolean;
+}
+
 export class FileOperations {
     private readonly logger: Logger;
     private readonly workspaceRoot: string;
     private currentSelectedPath: string | undefined;
-    private gitignorePatterns: Map<string, string[]> = new Map();
-    private gitignoreNegatedPatterns: Map<string, string[]> = new Map();
+    private gitignoreRules: Map<string, IgnoreRule[]> = new Map();
     private gitignoreLoaded: Map<string, boolean> = new Map();
     private gitignoreWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
-    private vscodeignorePatterns: Map<string, string[]> = new Map();
-    private vscodeignoreNegatedPatterns: Map<string, string[]> = new Map();
+    private vscodeignoreRules: Map<string, IgnoreRule[]> = new Map();
     private vscodeignoreLoaded: Map<string, boolean> = new Map();
     private vscodeignoreWatchers: Map<string, vscode.FileSystemWatcher> = new Map();
     private preloadCompleted: boolean = false;
@@ -174,12 +177,10 @@ export class FileOperations {
     private resetGitignoreState(workspaceRoot?: string): void {
         if (workspaceRoot) {
             this.gitignoreLoaded.set(workspaceRoot, false);
-            this.gitignorePatterns.delete(workspaceRoot);
-            this.gitignoreNegatedPatterns.delete(workspaceRoot);
+            this.gitignoreRules.delete(workspaceRoot);
         } else {
             this.gitignoreLoaded.clear();
-            this.gitignorePatterns.clear();
-            this.gitignoreNegatedPatterns.clear();
+            this.gitignoreRules.clear();
         }
     }
 
@@ -236,12 +237,10 @@ export class FileOperations {
     private resetVscodeignoreState(workspaceRoot?: string): void {
         if (workspaceRoot) {
             this.vscodeignoreLoaded.set(workspaceRoot, false);
-            this.vscodeignorePatterns.delete(workspaceRoot);
-            this.vscodeignoreNegatedPatterns.delete(workspaceRoot);
+            this.vscodeignoreRules.delete(workspaceRoot);
         } else {
             this.vscodeignoreLoaded.clear();
-            this.vscodeignorePatterns.clear();
-            this.vscodeignoreNegatedPatterns.clear();
+            this.vscodeignoreRules.clear();
         }
     }
 
@@ -450,47 +449,25 @@ export class FileOperations {
             return false;
         }
 
-        // 否定パターンのチェック - .gitignore
         if (options.useGitignore) {
-            const gitignoreNegated = this.gitignoreNegatedPatterns.get(targetWorkspaceRoot) || [];
-            for (const pattern of gitignoreNegated) {
-                if (this.matchPattern(posixRelativePath, pattern)) {
-                    // 否定パターンにマッチした場合は強制的に除外しない
-                    this.logger.info(`否定パターン一致(gitignore): ${posixRelativePath} -> !${pattern}`);
-                    return false;
-                }
-            }
-        }
-
-        // 否定パターンのチェック - .vscodeignore
-        if (options.useVscodeignore) {
-            const vscodeignoreNegated = this.vscodeignoreNegatedPatterns.get(targetWorkspaceRoot) || [];
-            for (const pattern of vscodeignoreNegated) {
-                if (this.matchPattern(posixRelativePath, pattern)) {
-                    // 否定パターンにマッチした場合は強制的に除外しない
-                    this.logger.info(`否定パターン一致(vscodeignore): ${posixRelativePath} -> !${pattern}`);
-                    return false;
-                }
-            }
-        }
-
-        // 通常パターンのチェック - .gitignore
-        if (options.useGitignore) {
-            const gitignorePatterns = this.gitignorePatterns.get(targetWorkspaceRoot) || [];
-            for (const pattern of gitignorePatterns) {
-                if (this.matchPattern(posixRelativePath, pattern)) {
-                    this.logger.info(`通常パターン一致(gitignore): ${posixRelativePath} -> ${pattern}`);
+            const gitignoreMatch = this.findLastMatchingRule(posixRelativePath, this.gitignoreRules.get(targetWorkspaceRoot) || []);
+            if (gitignoreMatch) {
+                this.logger.info(
+                    `${gitignoreMatch.negate ? '否定' : '通常'}パターン一致(gitignore): ${posixRelativePath} -> ${gitignoreMatch.negate ? '!' : ''}${gitignoreMatch.pattern}`
+                );
+                if (!gitignoreMatch.negate) {
                     return true;
                 }
             }
         }
 
-        // 通常パターンのチェック - .vscodeignore
         if (options.useVscodeignore) {
-            const vscodeignorePatterns = this.vscodeignorePatterns.get(targetWorkspaceRoot) || [];
-            for (const pattern of vscodeignorePatterns) {
-                if (this.matchPattern(posixRelativePath, pattern)) {
-                    this.logger.info(`通常パターン一致(vscodeignore): ${posixRelativePath} -> ${pattern}`);
+            const vscodeignoreMatch = this.findLastMatchingRule(posixRelativePath, this.vscodeignoreRules.get(targetWorkspaceRoot) || []);
+            if (vscodeignoreMatch) {
+                this.logger.info(
+                    `${vscodeignoreMatch.negate ? '否定' : '通常'}パターン一致(vscodeignore): ${posixRelativePath} -> ${vscodeignoreMatch.negate ? '!' : ''}${vscodeignoreMatch.pattern}`
+                );
+                if (!vscodeignoreMatch.negate) {
                     return true;
                 }
             }
@@ -510,30 +487,82 @@ export class FileOperations {
     }
 
     private matchPattern(filePath: string, pattern: string): boolean {
-        const posixPattern = pattern.replace(/\\/g, '/');
-
-        if (posixPattern.endsWith('/')) {
-            const dirPattern = posixPattern.slice(0, -1);
-            if (filePath === dirPattern || filePath.startsWith(dirPattern + '/')) {
-                 return true;
-            }
-        } else if (posixPattern.endsWith('/**')) {
-            const basePattern = posixPattern.slice(0, -3);
-            if (filePath === basePattern || filePath.startsWith(basePattern + '/')) {
-                 return true;
-            }
+        const posixFilePath = filePath.replace(/\\/g, '/');
+        let posixPattern = pattern.replace(/\\/g, '/').trim();
+        if (!posixPattern) {
+            return false;
         }
-        
+
+        const anchoredToRoot = posixPattern.startsWith('/');
+        if (anchoredToRoot) {
+            posixPattern = posixPattern.slice(1);
+        }
+
+        const isRecursiveDirPattern = posixPattern.endsWith('/**');
+        const isDirectoryPattern = isRecursiveDirPattern || posixPattern.endsWith('/');
+        let corePattern = posixPattern;
+
+        if (isRecursiveDirPattern) {
+            corePattern = corePattern.slice(0, -3);
+        }
+        if (corePattern.endsWith('/')) {
+            corePattern = corePattern.slice(0, -1);
+        }
+        if (!corePattern) {
+            return false;
+        }
+
+        const hasSlash = corePattern.includes('/');
+        const hasGlob = /[*?[\]{}]/.test(corePattern);
+        const segments = posixFilePath.split('/').filter(Boolean);
+        const basename = segments[segments.length - 1] ?? posixFilePath;
         const options = {
             dot: true,
             nocase: true,
             matchBase: false
         };
-        if (minimatch(filePath, posixPattern, options)) {
+
+        if (!hasSlash) {
+            if (!hasGlob) {
+                return segments.includes(corePattern);
+            }
+
+            if (isDirectoryPattern) {
+                return segments.some(segment => minimatch(segment, corePattern, options));
+            }
+
+            return minimatch(basename, corePattern, options);
+        }
+
+        if (!hasGlob && (posixFilePath === corePattern || posixFilePath.startsWith(corePattern + '/'))) {
             return true;
         }
-        
-        return false;
+
+        return minimatch(posixFilePath, corePattern, options);
+    }
+
+    private findLastMatchingRule(filePath: string, rules: IgnoreRule[]): IgnoreRule | undefined {
+        let matchedRule: IgnoreRule | undefined;
+
+        for (const rule of rules) {
+            if (this.matchPattern(filePath, rule.pattern)) {
+                matchedRule = rule;
+            }
+        }
+
+        return matchedRule;
+    }
+
+    private parseIgnoreRules(content: string): IgnoreRule[] {
+        return content
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.startsWith('#'))
+            .map(line => ({
+                negate: line.startsWith('!'),
+                pattern: line.startsWith('!') ? line.substring(1) : line
+            }))
+            .filter(rule => rule.pattern.length > 0);
     }
 
     private createEmptyDirectoryInfo(workspaceRoot: string, absolutePath: string): DirectoryInfo {
@@ -577,25 +606,15 @@ export class FileOperations {
             const gitignorePath = path.join(targetWorkspaceRoot, '.gitignore');
             try {
                 const content = await fs.readFile(gitignorePath, 'utf-8');
-                const lines = content
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line && !line.startsWith('#'));
-                
-                // 通常パターンと否定パターンに分ける
-                const patterns = lines.filter(line => !line.startsWith('!'));
-                const negatedPatterns = lines
-                    .filter(line => line.startsWith('!'))
-                    .map(line => line.substring(1)); // 先頭の「!」を除去
-                
-                this.gitignorePatterns.set(targetWorkspaceRoot, patterns);
-                this.gitignoreNegatedPatterns.set(targetWorkspaceRoot, negatedPatterns);
-                
-                this.logger.info(`${patterns.length}件の.gitignoreパターンと${negatedPatterns.length}件の否定パターンを読み込みました (${targetWorkspaceRoot})`);
+                const rules = this.parseIgnoreRules(content);
+                const negatedCount = rules.filter(rule => rule.negate).length;
+                const normalCount = rules.length - negatedCount;
+
+                this.gitignoreRules.set(targetWorkspaceRoot, rules);
+                this.logger.info(`${normalCount}件の.gitignoreパターンと${negatedCount}件の否定パターンを読み込みました (${targetWorkspaceRoot})`);
             } catch (error) {
                 this.logger.info(`.gitignoreファイルが見つかりません (${targetWorkspaceRoot})`);
-                this.gitignorePatterns.set(targetWorkspaceRoot, []);
-                this.gitignoreNegatedPatterns.set(targetWorkspaceRoot, []);
+                this.gitignoreRules.set(targetWorkspaceRoot, []);
             }
         } finally {
             this.gitignoreLoaded.set(targetWorkspaceRoot, true);
@@ -609,32 +628,21 @@ export class FileOperations {
             const vscodeignorePath = path.join(targetWorkspaceRoot, '.vscodeignore');
             try {
                 const content = await fs.readFile(vscodeignorePath, 'utf-8');
-                const lines = content
-                    .split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line && !line.startsWith('#'));
-                
-                // 通常パターンと否定パターンに分ける
-                const patterns = lines.filter(line => !line.startsWith('!'));
-                const negatedPatterns = lines
-                    .filter(line => line.startsWith('!'))
-                    .map(line => line.substring(1)); // 先頭の「!」を除去
-                
-                this.vscodeignorePatterns.set(targetWorkspaceRoot, patterns);
-                this.vscodeignoreNegatedPatterns.set(targetWorkspaceRoot, negatedPatterns);
-                
+                const rules = this.parseIgnoreRules(content);
+                const negatedCount = rules.filter(rule => rule.negate).length;
+                const normalCount = rules.length - negatedCount;
+
+                this.vscodeignoreRules.set(targetWorkspaceRoot, rules);
                 this.vscodeignoreLoaded.set(targetWorkspaceRoot, true);
-                this.logger.info(`.vscodeignoreから${patterns.length}個のパターンと${negatedPatterns.length}個の否定パターンを読み込みました (${targetWorkspaceRoot})`);
+                this.logger.info(`.vscodeignoreから${normalCount}個のパターンと${negatedCount}個の否定パターンを読み込みました (${targetWorkspaceRoot})`);
             } catch (error) {
-                this.vscodeignorePatterns.set(targetWorkspaceRoot, []);
-                this.vscodeignoreNegatedPatterns.set(targetWorkspaceRoot, []);
+                this.vscodeignoreRules.set(targetWorkspaceRoot, []);
                 this.vscodeignoreLoaded.set(targetWorkspaceRoot, true);
                 this.logger.info(`.vscodeignoreファイルが見つかりませんでした (${targetWorkspaceRoot})`);
             }
         } catch (error) {
             this.logger.error(`.vscodeignoreの読み込み中にエラーが発生しました (${targetWorkspaceRoot}): ${extractErrorMessage(error)}`);
-            this.vscodeignorePatterns.set(targetWorkspaceRoot, []);
-            this.vscodeignoreNegatedPatterns.set(targetWorkspaceRoot, []);
+            this.vscodeignoreRules.set(targetWorkspaceRoot, []);
             this.vscodeignoreLoaded.set(targetWorkspaceRoot, true);
         }
     }

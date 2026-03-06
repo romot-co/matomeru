@@ -266,6 +266,59 @@ describe('FileOperations: gitignore/vscodeignore', () => {
     // test.txtとapp.logが両方とも除外される
     expect(res.files).toHaveLength(0);
   });
+
+  it('.gitignore は最後に一致したルールを優先する', async () => {
+    mockedFs.readFile.mockResolvedValue('!keep.log\n*.log');
+    mockedFs.readdir.mockResolvedValue([d('keep.log')] as any[]);
+
+    const res = await fo.scanDirectory('.', {
+      ...BASE_OPTS,
+      useGitignore: true
+    });
+
+    expect(res.files).toHaveLength(0);
+  });
+
+  it('.gitignore の後勝ち否定ルールで再度含められる', async () => {
+    mockedFs.readFile.mockResolvedValue('*.log\n!keep.log');
+    mockedFs.readdir.mockResolvedValue([d('keep.log')] as any[]);
+
+    const res = await fo.scanDirectory('.', {
+      ...BASE_OPTS,
+      useGitignore: true
+    });
+
+    expect(res.files.map(f => f.relativePath)).toEqual(['keep.log']);
+  });
+
+  it('先頭スラッシュ付きパターンでルート配下だけを除外できる', async () => {
+    mockedFs.readFile.mockResolvedValue('/dist/');
+    mockedFs.stat.mockImplementation(async (p: PathLike) => {
+      const s = String(p);
+      if (s === ROOT || s === path.join(ROOT, 'dist')) {
+        return { isDirectory: () => true, isFile: () => false, size: 0 } as any;
+      }
+      return { isDirectory: () => false, isFile: () => true, size: 10 } as any;
+    });
+    mockedFs.readdir.mockImplementation(async (p: PathLike): Promise<any[]> => {
+      const s = String(p);
+      if (s === ROOT) {
+        return [d('dist', true), d('keep.txt')] as any[];
+      }
+      if (s === path.join(ROOT, 'dist')) {
+        return [d('bundle.js')] as any[];
+      }
+      return [];
+    });
+
+    const res = await fo.scanDirectory('.', {
+      ...BASE_OPTS,
+      useGitignore: true
+    });
+
+    expect(res.files.map(f => f.relativePath)).toEqual(['keep.txt']);
+    expect(res.directories.has('dist')).toBe(false);
+  });
 });
 
 /* ========== preload機能 ========== */
@@ -428,6 +481,28 @@ describe('FileOperations: processFileList', () => {
     expect(result).toHaveLength(1);
     expect(result[0].files).toHaveLength(1);
     expect(result[0].files[0].relativePath).toBe('small.txt');
+  });
+
+  it('processFileListで .gitignore のディレクトリ名パターンがネスト先にも効く', async () => {
+    mockedFs.stat.mockImplementation(async () => {
+      return { isDirectory: () => false, isFile: () => true, size: 100 } as any;
+    });
+    mockedFs.readFile.mockImplementation(async (filePath: any, encoding?: any) => {
+      if (String(filePath).includes('.gitignore')) {
+        return 'node_modules';
+      }
+      return encoding === 'utf-8' ? 'node_modules' : Buffer.from('content');
+    });
+
+    const fileUris = [
+      { fsPath: path.join(ROOT, 'packages', 'app', 'node_modules', 'pkg', 'index.js') } as vscode.Uri
+    ];
+    const result = await fo.processFileList(fileUris, {
+      ...BASE_OPTS,
+      useGitignore: true
+    });
+
+    expect(result).toHaveLength(0);
   });
 });
 

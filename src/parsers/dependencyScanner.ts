@@ -1,6 +1,7 @@
 import path from 'path';
 import * as fs from 'fs';
-import type { Parser as WebTreeSitterParser, Language, Tree as WebTreeSitterTree } from 'web-tree-sitter'; 
+import type { Parser as WebTreeSitterParser, Language, Query as WebTreeSitterQuery, Tree as WebTreeSitterTree } from 'web-tree-sitter'; 
+import { Query } from 'web-tree-sitter';
 type WebTreeSitterSyntaxNode = WebTreeSitterTree['rootNode'];
 
 import * as vscode from 'vscode'; // vscode API を使用するためインポート
@@ -14,7 +15,7 @@ const logger = {
 };
 
 type QueryMatch = { captures: { name: string; node: WebTreeSitterSyntaxNode }[] };
-const queryCache = new WeakMap<Language, Map<string, ReturnType<Language['query']>>>();
+const queryCache = new WeakMap<Language, Map<string, WebTreeSitterQuery>>();
 
 export async function scanDependencies(
     filePath: string, 
@@ -65,7 +66,7 @@ export async function scanDependencies(
     if (language === 'typescript' || language === 'javascript' || language === 'tsx' || language === 'jsx') {
         const tsJsPatterns = [
             '(import_statement source: (string) @path)',
-            '(dynamic_import_expression argument: (string) @path)',
+            '(call_expression function: (import) arguments: (arguments (string) @path))',
             '(call_expression function: (identifier) @func (#eq? @func "require") arguments: (arguments (string) @path))',
             '(export_statement source: (string) @path)'
         ];
@@ -73,16 +74,14 @@ export async function scanDependencies(
     } else if (language === 'python') {
         const pythonPatterns = [
             '(import_statement name: (dotted_name) @module)',
-            '(import_statement name: (aliased_import original_name:(dotted_name) @module))',
+            '(import_statement name: (aliased_import name: (dotted_name) @module))',
             '(import_from_statement module_name: (dotted_name) @module)',
             '(import_from_statement module_name: (relative_import (import_prefix)+) @dots)',
-            '(import_from_statement module_name: (relative_import (import_prefix)+ (dotted_name) @module) @dots)',
-            '(import_from_statement module_name: (relative_import (import_prefix)+ (identifier) @module) @dots)',
-            '(import_from_statement module_name: (relative_import (import_prefix)+) @dots (import_list (aliased_import (identifier) @item_name)))'
+            '(import_from_statement module_name: (relative_import (import_prefix)+ (dotted_name) @module) @dots)'
         ];
         importNodesQueryString = '[\n' + pythonPatterns.join('\n') + '\n]';
     } else if (language === 'go') {
-        importNodesQueryString = '[(import_declaration path: (interpreted_string_literal) @path)]';
+        importNodesQueryString = '[(import_spec path: (interpreted_string_literal) @path)]';
     }
 
     if (!importNodesQueryString) {
@@ -156,7 +155,7 @@ function getOrCreateQuery(language: Language, source: string) {
     }
     let query = perLanguageCache.get(source);
     if (!query) {
-        query = language.query(source);
+        query = new Query(language, source);
         perLanguageCache.set(source, query);
     }
     return query;
